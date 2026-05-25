@@ -9,13 +9,49 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as UsersRouteImport } from './routes/users'
+import { Route as ProductsRouteImport } from './routes/products'
+import { Route as PaymentsRouteImport } from './routes/payments'
 import { Route as OrdersRouteImport } from './routes/orders'
+import { Route as CustomersRouteImport } from './routes/customers'
+import { Route as CategoriesRouteImport } from './routes/categories'
+import { Route as BankAccountsRouteImport } from './routes/bank-accounts'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as OrdersNewRouteImport } from './routes/orders.new'
 
+const UsersRoute = UsersRouteImport.update({
+  id: '/users',
+  path: '/users',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProductsRoute = ProductsRouteImport.update({
+  id: '/products',
+  path: '/products',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PaymentsRoute = PaymentsRouteImport.update({
+  id: '/payments',
+  path: '/payments',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const OrdersRoute = OrdersRouteImport.update({
   id: '/orders',
   path: '/orders',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CustomersRoute = CustomersRouteImport.update({
+  id: '/customers',
+  path: '/customers',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CategoriesRoute = CategoriesRouteImport.update({
+  id: '/categories',
+  path: '/categories',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BankAccountsRoute = BankAccountsRouteImport.update({
+  id: '/bank-accounts',
+  path: '/bank-accounts',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -31,40 +67,134 @@ const OrdersNewRoute = OrdersNewRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/bank-accounts': typeof BankAccountsRoute
+  '/categories': typeof CategoriesRoute
+  '/customers': typeof CustomersRoute
   '/orders': typeof OrdersRouteWithChildren
+  '/payments': typeof PaymentsRoute
+  '/products': typeof ProductsRoute
+  '/users': typeof UsersRoute
   '/orders/new': typeof OrdersNewRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/bank-accounts': typeof BankAccountsRoute
+  '/categories': typeof CategoriesRoute
+  '/customers': typeof CustomersRoute
   '/orders': typeof OrdersRouteWithChildren
+  '/payments': typeof PaymentsRoute
+  '/products': typeof ProductsRoute
+  '/users': typeof UsersRoute
   '/orders/new': typeof OrdersNewRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/bank-accounts': typeof BankAccountsRoute
+  '/categories': typeof CategoriesRoute
+  '/customers': typeof CustomersRoute
   '/orders': typeof OrdersRouteWithChildren
+  '/payments': typeof PaymentsRoute
+  '/products': typeof ProductsRoute
+  '/users': typeof UsersRoute
   '/orders/new': typeof OrdersNewRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/orders' | '/orders/new'
+  fullPaths:
+    | '/'
+    | '/bank-accounts'
+    | '/categories'
+    | '/customers'
+    | '/orders'
+    | '/payments'
+    | '/products'
+    | '/users'
+    | '/orders/new'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/orders' | '/orders/new'
-  id: '__root__' | '/' | '/orders' | '/orders/new'
+  to:
+    | '/'
+    | '/bank-accounts'
+    | '/categories'
+    | '/customers'
+    | '/orders'
+    | '/payments'
+    | '/products'
+    | '/users'
+    | '/orders/new'
+  id:
+    | '__root__'
+    | '/'
+    | '/bank-accounts'
+    | '/categories'
+    | '/customers'
+    | '/orders'
+    | '/payments'
+    | '/products'
+    | '/users'
+    | '/orders/new'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  BankAccountsRoute: typeof BankAccountsRoute
+  CategoriesRoute: typeof CategoriesRoute
+  CustomersRoute: typeof CustomersRoute
   OrdersRoute: typeof OrdersRouteWithChildren
+  PaymentsRoute: typeof PaymentsRoute
+  ProductsRoute: typeof ProductsRoute
+  UsersRoute: typeof UsersRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/users': {
+      id: '/users'
+      path: '/users'
+      fullPath: '/users'
+      preLoaderRoute: typeof UsersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/products': {
+      id: '/products'
+      path: '/products'
+      fullPath: '/products'
+      preLoaderRoute: typeof ProductsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/payments': {
+      id: '/payments'
+      path: '/payments'
+      fullPath: '/payments'
+      preLoaderRoute: typeof PaymentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/orders': {
       id: '/orders'
       path: '/orders'
       fullPath: '/orders'
       preLoaderRoute: typeof OrdersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/customers': {
+      id: '/customers'
+      path: '/customers'
+      fullPath: '/customers'
+      preLoaderRoute: typeof CustomersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/categories': {
+      id: '/categories'
+      path: '/categories'
+      fullPath: '/categories'
+      preLoaderRoute: typeof CategoriesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/bank-accounts': {
+      id: '/bank-accounts'
+      path: '/bank-accounts'
+      fullPath: '/bank-accounts'
+      preLoaderRoute: typeof BankAccountsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -97,7 +227,13 @@ const OrdersRouteWithChildren =
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  BankAccountsRoute: BankAccountsRoute,
+  CategoriesRoute: CategoriesRoute,
+  CustomersRoute: CustomersRoute,
   OrdersRoute: OrdersRouteWithChildren,
+  PaymentsRoute: PaymentsRoute,
+  ProductsRoute: ProductsRoute,
+  UsersRoute: UsersRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
