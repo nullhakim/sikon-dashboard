@@ -1,7 +1,7 @@
-import { useState } from "react";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { useState, useEffect } from "react";
+import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
+import { Plus, ChevronLeft, ChevronRight, Trash2, Eye } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -21,7 +21,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ordersService } from "@/lib/services";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { ScrollArea } from "@/components/ui/scroll-area";
+
+import { ordersService, customersService, productsService, usersService } from "@/lib/services";
 import { formatIDR, formatDate } from "@/lib/format";
 import type { OrderStatus } from "@/lib/types";
 
@@ -55,10 +68,466 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
+interface Item {
+  product_id: string;
+  qty: number;
+  price: number;
+  notes?: string;
+}
+
+function CreateOrderDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const qc = useQueryClient();
+  const customers = useQuery({
+    queryKey: ["customers", { page: 1, limit: 100 }],
+    queryFn: () => customersService.list({ page: 1, limit: 100 }),
+    enabled: open,
+  });
+  const products = useQuery({
+    queryKey: ["products", { page: 1, limit: 100 }],
+    queryFn: () => productsService.list({ page: 1, limit: 100 }),
+    enabled: open,
+  });
+  const users = useQuery({
+    queryKey: ["users", { page: 1, limit: 100 }],
+    queryFn: () => usersService.list({ page: 1, limit: 100 }),
+    enabled: open,
+  });
+
+  const [customerId, setCustomerId] = useState("");
+  const [salesId, setSalesId] = useState("");
+  const [courier, setCourier] = useState("");
+  const [shippingCost, setShippingCost] = useState<number | "">("");
+  const [address, setAddress] = useState("");
+  const [note, setNote] = useState("");
+  const [items, setItems] = useState<Item[]>([{ product_id: "", qty: 1, price: 0 }]);
+
+  useEffect(() => {
+    if (!open) {
+      setCustomerId("");
+      setSalesId("");
+      setCourier("");
+      setShippingCost("");
+      setAddress("");
+      setNote("");
+      setItems([{ product_id: "", qty: 1, price: 0 }]);
+    }
+  }, [open]);
+
+  const subtotal = items.reduce((s, i) => s + i.qty * i.price, 0);
+  const total = subtotal + Number(shippingCost || 0);
+
+  const create = useMutation({
+    mutationFn: () =>
+      ordersService.create({
+        customer_id: customerId,
+        sales_id: salesId,
+        courier_name: courier || undefined,
+        shipping_cost: Number(shippingCost) || 0,
+        shipping_address: address || undefined,
+        notes: note || undefined,
+        items: items.filter((i) => i.product_id && i.qty > 0).map(i => ({
+          product_id: i.product_id,
+          qty: i.qty,
+          price: i.price,
+          details: i.notes ? { note: i.notes } : undefined
+        })),
+      }),
+    onSuccess: () => {
+      toast.success("Order created");
+      qc.invalidateQueries({ queryKey: ["orders"] });
+      onClose();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const updateItem = (idx: number, patch: Partial<Item>) =>
+    setItems((arr) => arr.map((it, i) => (i === idx ? { ...it, ...patch } : it)));
+
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!customerId) return toast.error("Choose a customer");
+    if (!salesId) return toast.error("Choose a sales person");
+    if (!items.some((i) => i.product_id && i.qty > 0))
+      return toast.error("Add at least one item");
+    create.mutate();
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => (v ? null : onClose())}>
+      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-0">
+        <DialogHeader className="px-6 pt-6 pb-2 border-b">
+          <DialogTitle>New Order</DialogTitle>
+          <DialogDescription>Create a new order and its line items.</DialogDescription>
+        </DialogHeader>
+
+        <ScrollArea className="flex-1 px-6 py-4">
+          <form id="create-order-form" onSubmit={submit} className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Customer & Shipping</CardTitle>
+              </CardHeader>
+              <CardContent className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>Customer</Label>
+                  <Select value={customerId} onValueChange={setCustomerId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select customer" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {customers.data?.data?.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.name} {c.phone ? `· ${c.phone}` : ""}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Sales Person</Label>
+                  <Select value={salesId} onValueChange={setSalesId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select sales" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {users.data?.data?.map((u) => (
+                        <SelectItem key={u.id} value={u.id}>
+                          {u.name} {u.role ? `(${u.role})` : ""}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Courier</Label>
+                  <Input value={courier} onChange={(e) => setCourier(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Shipping Cost</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    value={shippingCost}
+                    onChange={(e) => setShippingCost(Number(e.target.value))}
+                  />
+                </div>
+                <div className="space-y-2 sm:col-span-2">
+                  <Label>Address</Label>
+                  <Textarea rows={2} value={address} onChange={(e) => setAddress(e.target.value)} />
+                </div>
+                <div className="space-y-2 sm:col-span-2">
+                  <Label>Notes</Label>
+                  <Textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle className="text-base">Items</CardTitle>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setItems((arr) => [...arr, { product_id: "", qty: 1, price: 0 }])}
+                >
+                  <Plus className="h-4 w-4 mr-1" /> Add item
+                </Button>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {items.map((it, idx) => (
+                  <div key={idx} className="grid gap-3 sm:grid-cols-[1fr_100px_140px_auto] items-end">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Product</Label>
+                      <Select
+                        value={it.product_id}
+                        onValueChange={(v) => {
+                          const p = products.data?.data?.find((x) => x.id === v);
+                          updateItem(idx, { product_id: v, price: p?.base_price ?? it.price });
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select product" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {products.data?.data?.map((p) => (
+                            <SelectItem key={p.id} value={p.id}>
+                              {p.name} — {formatIDR(p.base_price)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Qty</Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        value={it.qty}
+                        onChange={(e) => updateItem(idx, { qty: Number(e.target.value) })}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Price</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        value={it.price}
+                        onChange={(e) => updateItem(idx, { price: Number(e.target.value) })}
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="text-muted-foreground hover:text-destructive"
+                      onClick={() => setItems((arr) => arr.filter((_, i) => i !== idx))}
+                      disabled={items.length === 1}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+
+                <div className="border-t pt-4 space-y-1 text-sm">
+                  <div className="flex justify-between text-muted-foreground">
+                    <span>Subtotal</span>
+                    <span>{formatIDR(subtotal)}</span>
+                  </div>
+                  <div className="flex justify-between text-muted-foreground">
+                    <span>Shipping</span>
+                    <span>{formatIDR(Number(shippingCost) || 0)}</span>
+                  </div>
+                  <div className="flex justify-between font-semibold text-base pt-2">
+                    <span>Total</span>
+                    <span>{formatIDR(total)}</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </form>
+        </ScrollArea>
+
+        <DialogFooter className="px-6 py-4 border-t">
+          <Button type="button" variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="submit" form="create-order-form" disabled={create.isPending}>
+            {create.isPending ? "Creating…" : "Create Order"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function OrderDetailDialog({
+  orderId,
+  open,
+  onClose,
+}: {
+  orderId: string | null;
+  open: boolean;
+  onClose: () => void;
+}) {
+  const qc = useQueryClient();
+  const { data, isLoading } = useQuery({
+    queryKey: ["order", orderId],
+    queryFn: () => ordersService.get(orderId!),
+    enabled: !!orderId,
+  });
+
+  const order = data?.data;
+
+  const [form, setForm] = useState({
+    courier: "",
+    shipping_cost: 0,
+    address: "",
+    note: "",
+  });
+
+  useEffect(() => {
+    if (order) {
+      setForm({
+        courier: order.courier || "",
+        shipping_cost: order.shipping_cost || 0,
+        address: order.address || "",
+        note: order.note || "",
+      });
+    }
+  }, [order]);
+
+  const updateMut = useMutation({
+    mutationFn: (body: any) => ordersService.update(orderId!, body),
+    onSuccess: () => {
+      toast.success("Shipping details updated");
+      qc.invalidateQueries({ queryKey: ["order", orderId] });
+      qc.invalidateQueries({ queryKey: ["orders"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    updateMut.mutate({
+      courier: form.courier || undefined,
+      shipping_cost: Number(form.shipping_cost) || 0,
+      address: form.address || undefined,
+      note: form.note || undefined,
+    });
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => (v ? null : onClose())}>
+      <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col p-0">
+        <DialogHeader className="px-6 pt-6 pb-2 border-b">
+          <DialogTitle>Order Details</DialogTitle>
+          <DialogDescription>
+            {order?.invoice_number ? `Invoice: ${order.invoice_number}` : "Loading..."}
+          </DialogDescription>
+        </DialogHeader>
+
+        <ScrollArea className="flex-1 px-6 py-4">
+          {isLoading || !order ? (
+            <div className="py-8 text-center text-muted-foreground">Loading details...</div>
+          ) : (
+            <div className="space-y-6">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <h3 className="font-semibold mb-1">Customer</h3>
+                  <div className="text-sm">
+                    <p>{order.customer?.name}</p>
+                    {order.customer?.phone && <p>{order.customer.phone}</p>}
+                  </div>
+                </div>
+                <div>
+                  <h3 className="font-semibold mb-1">Status</h3>
+                  <StatusBadge status={order.status} />
+                </div>
+              </div>
+
+              <div>
+                <h3 className="font-semibold mb-3">Line Items</h3>
+                <div className="rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Product</TableHead>
+                        <TableHead className="text-right">Qty</TableHead>
+                        <TableHead className="text-right">Price</TableHead>
+                        <TableHead className="text-right">Subtotal</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {order.items?.map((item: any, i: number) => (
+                        <TableRow key={i}>
+                          <TableCell>
+                            <div>{item.product_name || "Unknown Product"}</div>
+                            {item.details && (
+                              <div className="text-xs text-muted-foreground">
+                                {Object.entries(item.details).map(([k, v]) => `${k}: ${v}`).join(", ")}
+                              </div>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right">{item.qty}</TableCell>
+                          <TableCell className="text-right">{formatIDR(item.price)}</TableCell>
+                          <TableCell className="text-right">{formatIDR(item.qty * item.price)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+
+              <form id="shipping-form" onSubmit={handleSubmit} className="space-y-4">
+                <h3 className="font-semibold">Logistics & Notes</h3>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>Courier</Label>
+                    <Input
+                      value={form.courier}
+                      onChange={(e) => setForm({ ...form, courier: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Shipping Cost</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      value={form.shipping_cost}
+                      onChange={(e) => setForm({ ...form, shipping_cost: Number(e.target.value) })}
+                    />
+                  </div>
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label>Address</Label>
+                    <Textarea
+                      rows={2}
+                      value={form.address}
+                      onChange={(e) => setForm({ ...form, address: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label>Order Note</Label>
+                    <Textarea
+                      rows={2}
+                      value={form.note}
+                      onChange={(e) => setForm({ ...form, note: e.target.value })}
+                    />
+                  </div>
+                </div>
+              </form>
+
+              <div className="flex flex-col gap-1 items-end pt-4 border-t text-sm">
+                <div className="flex gap-4">
+                  <span className="text-muted-foreground">Subtotal</span>
+                  <span className="w-28 text-right font-medium">
+                    {formatIDR(order.total - (order.shipping_cost || 0))}
+                  </span>
+                </div>
+                <div className="flex gap-4">
+                  <span className="text-muted-foreground">Shipping</span>
+                  <span className="w-28 text-right font-medium">{formatIDR(order.shipping_cost || 0)}</span>
+                </div>
+                <div className="flex gap-4 text-base font-semibold pt-2">
+                  <span>Total</span>
+                  <span className="w-28 text-right">{formatIDR(order.total)}</span>
+                </div>
+                <div className="flex gap-4 pt-2">
+                  <span className="text-muted-foreground">Paid</span>
+                  <span className="w-28 text-right font-medium text-emerald-600">
+                    {formatIDR(order.paid || 0)}
+                  </span>
+                </div>
+                <div className="flex gap-4">
+                  <span className="text-muted-foreground">Remaining</span>
+                  <span className="w-28 text-right font-medium text-rose-600">
+                    {formatIDR(order.remaining || 0)}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+        </ScrollArea>
+        
+        <DialogFooter className="px-6 py-4 border-t">
+          <Button type="button" variant="outline" onClick={onClose}>
+            Close
+          </Button>
+          <Button type="submit" form="shipping-form" disabled={updateMut.isPending || !order}>
+            {updateMut.isPending ? "Saving..." : "Save Changes"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function OrdersPage() {
   const [page, setPage] = useState(1);
   const limit = 10;
   const qc = useQueryClient();
+
+  const [detailOrderId, setDetailOrderId] = useState<string | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ["orders", { page, limit }],
@@ -96,10 +565,8 @@ function OrdersPage() {
             Track every order from intake through delivery.
           </p>
         </div>
-        <Button asChild>
-          <Link to="/orders/new">
-            <Plus className="mr-1 h-4 w-4" /> New Order
-          </Link>
+        <Button onClick={() => setCreateOpen(true)}>
+          <Plus className="mr-1 h-4 w-4" /> New Order
         </Button>
       </div>
 
@@ -182,16 +649,26 @@ function OrdersPage() {
                     {formatIDR(o.paid ?? 0)}
                   </TableCell>
                   <TableCell>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                      onClick={() => {
-                        if (confirm("Delete this order?")) deleteMut.mutate(o.id);
-                      }}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    <div className="flex justify-end gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => setDetailOrderId(o.id)}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                        onClick={() => {
+                          if (confirm("Delete this order?")) deleteMut.mutate(o.id);
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -223,6 +700,17 @@ function OrdersPage() {
           </Button>
         </div>
       </div>
+      
+      <OrderDetailDialog 
+        orderId={detailOrderId} 
+        open={!!detailOrderId} 
+        onClose={() => setDetailOrderId(null)} 
+      />
+
+      <CreateOrderDialog 
+        open={createOpen} 
+        onClose={() => setCreateOpen(false)} 
+      />
     </div>
   );
 }

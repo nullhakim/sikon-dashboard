@@ -71,8 +71,12 @@ export const customersService = {
 export const usersService = {
   list: (p: PageParams = {}) =>
     api.get<ApiPaginated<User>>("/users", { page: p.page ?? 1, limit: p.limit ?? 10 }),
+  get: (id: string) => api.get<ApiSuccess<User>>(`/users/${id}`),
   create: (body: Partial<User> & { password?: string }) =>
-    api.post<ApiSuccess<User>>("/users", body),
+    api.post<ApiSuccess<User>>("/users/register", body),
+  update: (id: string, body: { name?: string; role?: string }) =>
+    api.put<ApiSuccess<User>>(`/users/${id}`, body),
+  delete: (id: string) => api.delete<ApiSuccess<unknown>>(`/users/${id}`),
 };
 
 // Orders
@@ -82,12 +86,12 @@ export const ordersService = {
   get: (id: string) => api.get<ApiSuccess<Order>>(`/orders/${id}`),
   create: (body: {
     customer_id: string;
-    user_id?: string;
+    sales_id: string;
     shipping_cost?: number;
-    courier?: string;
-    address?: string;
-    note?: string;
-    items: { product_id: string; quantity: number; price: number; notes?: string }[];
+    courier_name?: string;
+    shipping_address?: string;
+    notes?: string;
+    items: { product_id: string; qty: number; price: number; details?: Record<string, string> }[];
   }) => api.post<ApiSuccess<unknown>>("/orders", body),
   update: (
     id: string,

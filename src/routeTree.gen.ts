@@ -17,7 +17,6 @@ import { Route as CustomersRouteImport } from './routes/customers'
 import { Route as CategoriesRouteImport } from './routes/categories'
 import { Route as BankAccountsRouteImport } from './routes/bank-accounts'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as OrdersNewRouteImport } from './routes/orders.new'
 
 const UsersRoute = UsersRouteImport.update({
   id: '/users',
@@ -59,33 +58,26 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const OrdersNewRoute = OrdersNewRouteImport.update({
-  id: '/new',
-  path: '/new',
-  getParentRoute: () => OrdersRoute,
-} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/bank-accounts': typeof BankAccountsRoute
   '/categories': typeof CategoriesRoute
   '/customers': typeof CustomersRoute
-  '/orders': typeof OrdersRouteWithChildren
+  '/orders': typeof OrdersRoute
   '/payments': typeof PaymentsRoute
   '/products': typeof ProductsRoute
   '/users': typeof UsersRoute
-  '/orders/new': typeof OrdersNewRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/bank-accounts': typeof BankAccountsRoute
   '/categories': typeof CategoriesRoute
   '/customers': typeof CustomersRoute
-  '/orders': typeof OrdersRouteWithChildren
+  '/orders': typeof OrdersRoute
   '/payments': typeof PaymentsRoute
   '/products': typeof ProductsRoute
   '/users': typeof UsersRoute
-  '/orders/new': typeof OrdersNewRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -93,11 +85,10 @@ export interface FileRoutesById {
   '/bank-accounts': typeof BankAccountsRoute
   '/categories': typeof CategoriesRoute
   '/customers': typeof CustomersRoute
-  '/orders': typeof OrdersRouteWithChildren
+  '/orders': typeof OrdersRoute
   '/payments': typeof PaymentsRoute
   '/products': typeof ProductsRoute
   '/users': typeof UsersRoute
-  '/orders/new': typeof OrdersNewRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -110,7 +101,6 @@ export interface FileRouteTypes {
     | '/payments'
     | '/products'
     | '/users'
-    | '/orders/new'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -121,7 +111,6 @@ export interface FileRouteTypes {
     | '/payments'
     | '/products'
     | '/users'
-    | '/orders/new'
   id:
     | '__root__'
     | '/'
@@ -132,7 +121,6 @@ export interface FileRouteTypes {
     | '/payments'
     | '/products'
     | '/users'
-    | '/orders/new'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -140,7 +128,7 @@ export interface RootRouteChildren {
   BankAccountsRoute: typeof BankAccountsRoute
   CategoriesRoute: typeof CategoriesRoute
   CustomersRoute: typeof CustomersRoute
-  OrdersRoute: typeof OrdersRouteWithChildren
+  OrdersRoute: typeof OrdersRoute
   PaymentsRoute: typeof PaymentsRoute
   ProductsRoute: typeof ProductsRoute
   UsersRoute: typeof UsersRoute
@@ -204,33 +192,15 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/orders/new': {
-      id: '/orders/new'
-      path: '/new'
-      fullPath: '/orders/new'
-      preLoaderRoute: typeof OrdersNewRouteImport
-      parentRoute: typeof OrdersRoute
-    }
   }
 }
-
-interface OrdersRouteChildren {
-  OrdersNewRoute: typeof OrdersNewRoute
-}
-
-const OrdersRouteChildren: OrdersRouteChildren = {
-  OrdersNewRoute: OrdersNewRoute,
-}
-
-const OrdersRouteWithChildren =
-  OrdersRoute._addFileChildren(OrdersRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   BankAccountsRoute: BankAccountsRoute,
   CategoriesRoute: CategoriesRoute,
   CustomersRoute: CustomersRoute,
-  OrdersRoute: OrdersRouteWithChildren,
+  OrdersRoute: OrdersRoute,
   PaymentsRoute: PaymentsRoute,
   ProductsRoute: ProductsRoute,
   UsersRoute: UsersRoute,
