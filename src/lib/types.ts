@@ -24,7 +24,7 @@ export interface BankAccount {
   id: string;
   bank_name: string;
   account_number: string;
-  account_holder: string;
+  account_name: string;
   user_id?: string | null;
   is_global?: boolean;
 }
