@@ -50,10 +50,10 @@ export interface OrderItem {
   id?: string;
   product_id: string;
   product_name?: string;
-  quantity: number;
+  qty: number;
   price: number;
   subtotal?: number;
-  notes?: string;
+  details?: Record<string, any>;
 }
 
 export interface Payment {
