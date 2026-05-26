@@ -48,12 +48,12 @@ export const Route = createFileRoute("/products")({
 
 interface FormState {
   name: string;
-  price: string;
+  base_price: string;
   category_id: string;
   description: string;
 }
 
-const emptyForm: FormState = { name: "", price: "", category_id: "", description: "" };
+const emptyForm: FormState = { name: "", base_price: "", category_id: "", description: "" };
 
 function ProductsPage() {
   const [page, setPage] = useState(1);
@@ -110,7 +110,7 @@ function ProductsPage() {
     if (editing) {
       setForm({
         name: editing.name ?? "",
-        price: String(editing.price ?? ""),
+        base_price: String(editing.base_price ?? ""),
         category_id: editing.category_id ?? editing.category?.id ?? "",
         description: editing.description ?? "",
       });
@@ -135,14 +135,15 @@ function ProductsPage() {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const name = form.name.trim();
-    const price = Number(form.price);
+    const base_price = Number(form.base_price);
     if (!name) return toast.error("Name is required");
-    if (!Number.isFinite(price) || price < 0) return toast.error("Valid price required");
+    if (!Number.isFinite(base_price) || base_price < 0)
+      return toast.error("Valid base_price required");
     if (!form.category_id) return toast.error("Category is required");
 
     const body: Partial<Product> = {
       name,
-      price,
+      base_price,
       category_id: form.category_id,
       description: form.description.trim() || undefined,
     };
@@ -215,7 +216,9 @@ function ProductsPage() {
                       categories.find((c) => c.id === p.category_id)?.name ??
                       "—"}
                   </TableCell>
-                  <TableCell className="text-right font-medium">{formatIDR(p.price)}</TableCell>
+                  <TableCell className="text-right font-medium">
+                    {formatIDR(p.base_price)}
+                  </TableCell>
                   <TableCell>
                     <div className="flex justify-end gap-1">
                       <Button
@@ -291,14 +294,14 @@ function ProductsPage() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="prod-price">Price (IDR)</Label>
+                  <Label htmlFor="prod-base_price">Price (IDR)</Label>
                   <Input
-                    id="prod-price"
+                    id="prod-base_price"
                     type="number"
                     min={0}
                     step={1000}
-                    value={form.price}
-                    onChange={(e) => setForm({ ...form, price: e.target.value })}
+                    value={form.base_price}
+                    onChange={(e) => setForm({ ...form, base_price: e.target.value })}
                     placeholder="0"
                   />
                 </div>
