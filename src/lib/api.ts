@@ -36,9 +36,7 @@ export class ApiError extends Error {
 type Query = Record<string, string | number | boolean | undefined | null>;
 
 function buildUrl(path: string, query?: Query) {
-  const url = new URL(
-    API_BASE_URL.replace(/\/$/, "") + (path.startsWith("/") ? path : `/${path}`),
-  );
+  const url = new URL(API_BASE_URL.replace(/\/$/, "") + (path.startsWith("/") ? path : `/${path}`));
   if (query) {
     for (const [k, v] of Object.entries(query)) {
       if (v !== undefined && v !== null && v !== "") url.searchParams.set(k, String(v));
@@ -79,8 +77,7 @@ export async function apiRequest<T>(
 
   if (!res.ok) {
     const msg =
-      (payload as { message?: string } | null)?.message ??
-      `Request failed (${res.status})`;
+      (payload as { message?: string } | null)?.message ?? `Request failed (${res.status})`;
     throw new ApiError(msg, res.status, payload);
   }
 
@@ -91,7 +88,6 @@ export const api = {
   get: <T>(path: string, query?: Query) => apiRequest<T>(path, { query }),
   post: <T>(path: string, body?: unknown) => apiRequest<T>(path, { method: "POST", body }),
   put: <T>(path: string, body?: unknown) => apiRequest<T>(path, { method: "PUT", body }),
-  patch: <T>(path: string, body?: unknown) =>
-    apiRequest<T>(path, { method: "PATCH", body }),
+  patch: <T>(path: string, body?: unknown) => apiRequest<T>(path, { method: "PATCH", body }),
   delete: <T>(path: string) => apiRequest<T>(path, { method: "DELETE" }),
 };

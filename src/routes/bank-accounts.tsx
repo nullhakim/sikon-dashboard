@@ -49,7 +49,7 @@ export const Route = createFileRoute("/bank-accounts")({
 interface FormState {
   bank_name: string;
   account_number: string;
-  account_holder: string;
+  account_name: string;
   is_global: boolean;
   user_id: string;
 }
@@ -57,7 +57,7 @@ interface FormState {
 const emptyForm: FormState = {
   bank_name: "",
   account_number: "",
-  account_holder: "",
+  account_name: "",
   is_global: true,
   user_id: "",
 };
@@ -116,7 +116,7 @@ function BankAccountsPage() {
       setForm({
         bank_name: editing.bank_name ?? "",
         account_number: editing.account_number ?? "",
-        account_holder: editing.account_holder ?? "",
+        account_name: editing.account_name ?? "",
         is_global: editing.is_global ?? !editing.user_id,
         user_id: editing.user_id ?? "",
       });
@@ -141,7 +141,7 @@ function BankAccountsPage() {
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!form.bank_name.trim() || !form.account_number.trim() || !form.account_holder.trim()) {
+    if (!form.bank_name.trim() || !form.account_number.trim() || !form.account_name.trim()) {
       toast.error("Bank name, account number, and holder are required");
       return;
     }
@@ -152,7 +152,7 @@ function BankAccountsPage() {
     const body: Partial<BankAccount> = {
       bank_name: form.bank_name.trim(),
       account_number: form.account_number.trim(),
-      account_holder: form.account_holder.trim(),
+      account_name: form.account_name.trim(),
       is_global: form.is_global,
       user_id: form.is_global ? null : form.user_id,
     };
@@ -225,7 +225,7 @@ function BankAccountsPage() {
                 <TableRow key={b.id}>
                   <TableCell className="font-medium">{b.bank_name}</TableCell>
                   <TableCell className="font-mono text-xs">{b.account_number}</TableCell>
-                  <TableCell>{b.account_holder}</TableCell>
+                  <TableCell>{b.account_name}</TableCell>
                   <TableCell>
                     {b.is_global || !b.user_id ? (
                       <Badge variant="secondary">Company</Badge>
@@ -291,9 +291,7 @@ function BankAccountsPage() {
         <DialogContent>
           <form onSubmit={handleSubmit}>
             <DialogHeader>
-              <DialogTitle>
-                {editing ? "Edit Bank Account" : "New Bank Account"}
-              </DialogTitle>
+              <DialogTitle> {editing ? "Edit Bank Account" : "New Bank Account"} </DialogTitle>
               <DialogDescription>
                 {editing
                   ? "Update bank account details."
@@ -317,9 +315,7 @@ function BankAccountsPage() {
                   <Input
                     id="acc-number"
                     value={form.account_number}
-                    onChange={(e) =>
-                      setForm((f) => ({ ...f, account_number: e.target.value }))
-                    }
+                    onChange={(e) => setForm((f) => ({ ...f, account_number: e.target.value }))}
                     inputMode="numeric"
                   />
                 </div>
@@ -327,10 +323,8 @@ function BankAccountsPage() {
                   <Label htmlFor="acc-holder">Account Holder</Label>
                   <Input
                     id="acc-holder"
-                    value={form.account_holder}
-                    onChange={(e) =>
-                      setForm((f) => ({ ...f, account_holder: e.target.value }))
-                    }
+                    value={form.account_name}
+                    onChange={(e) => setForm((f) => ({ ...f, account_name: e.target.value }))}
                   />
                 </div>
               </div>
