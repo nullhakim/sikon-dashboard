@@ -169,7 +169,7 @@ function NewOrder() {
                     const p = products.data?.data?.find((x) => x.id === v);
                     updateItem(idx, {
                       product_id: v,
-                      price: p?.price ?? it.price,
+                      price: p?.base_price ?? it.price,
                     });
                   }}
                 >
@@ -179,7 +179,7 @@ function NewOrder() {
                   <SelectContent>
                     {products.data?.data?.map((p) => (
                       <SelectItem key={p.id} value={p.id}>
-                        {p.name} — {formatIDR(p.price)}
+                        {p.name} — {formatIDR(p.base_price)}
                       </SelectItem>
                     ))}
                   </SelectContent>
