@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, ChevronLeft, ChevronRight, Trash2, Eye } from "lucide-react";
+import { Plus, ChevronLeft, ChevronRight, Trash2, Eye, FileDown } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -36,6 +36,7 @@ import { Textarea } from "@/components/ui/textarea";
 
 import { ordersService, customersService, productsService, usersService } from "@/lib/services";
 import { formatIDR, formatDate } from "@/lib/format";
+import { generateInvoicePDF } from "@/lib/invoice";
 import type { OrderStatus } from "@/lib/types";
 
 export const Route = createFileRoute("/orders")({
@@ -695,6 +696,27 @@ function OrderDetailDialog({
         </div>
         
         <DialogFooter className="px-6 py-4 border-t">
+          <Button
+            type="button"
+            variant="outline"
+            disabled={!order}
+            onClick={async () => {
+              if (!order) return;
+              try {
+                const res = await ordersService.payments(order.id);
+                generateInvoicePDF({
+                  order,
+                  items: order.items ?? [],
+                  customer: order.customer ?? null,
+                  payments: res.data ?? [],
+                });
+              } catch (err) {
+                toast.error((err as Error).message);
+              }
+            }}
+          >
+            <FileDown className="h-4 w-4 mr-1" /> Invoice PDF
+          </Button>
           <Button type="button" variant="outline" onClick={onClose}>
             Close
           </Button>
