@@ -1,7 +1,7 @@
 // Domain types derived from the SIKOn OpenAPI spec.
 
 export type OrderStatus = "pending" | "production" | "completed" | "canceled";
-export type PaymentType = "dp" | "full" | "settlement";
+export type PaymentType = "dp" | "settlement" | "installment";
 
 export interface Category {
   id: string;
@@ -63,8 +63,10 @@ export interface Payment {
   payment_type: PaymentType | string;
   bank_account_id?: string;
   bank_account?: BankAccount;
-  note?: string;
+  reference_number?: string;
+  payment_date?: string;
   created_at?: string;
+  updated_at?: string;
 }
 
 export interface Order {
