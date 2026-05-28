@@ -109,7 +109,7 @@ export const ordersService = {
     api.patch<ApiSuccess<unknown>>(`/orders/${id}/status`, { order_status: status }),
   delete: (id: string) => api.delete<ApiSuccess<unknown>>(`/orders/${id}`),
   payments: (orderId: string) =>
-    api.get<ApiSuccess<Payment[]>>(`/orders/${orderId}/payments`),
+    api.get<ApiSuccess<Payment[]>>(`payments/order/${orderId}`),
 };
 
 // Payments
