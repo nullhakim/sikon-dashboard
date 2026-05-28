@@ -749,7 +749,7 @@ function OrdersPage() {
   });
 
   const orders = data?.data ?? [];
-  const totalPage = data?.meta?.total_pages ?? 1;
+  const totalPage = data?.paging?.total_page ?? 1;
 
   return (
     <div className="space-y-6">
