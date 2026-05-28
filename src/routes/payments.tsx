@@ -116,7 +116,7 @@ function CreatePaymentDialog({ open, onClose }: { open: boolean; onClose: () => 
         amount: Number(amount),
         payment_type: paymentType,
         reference_number: referenceNumber,
-        payment_date: paymentDate || undefined,
+        payment_date: datetimeLocalToISO(paymentDate),
       }),
     onSuccess: () => {
       toast.success("Payment recorded");
