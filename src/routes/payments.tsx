@@ -409,8 +409,8 @@ function PaymentsPage() {
               ) : (
                 payments.map((p) => (
                   <TableRow key={p.id}>
-                    <TableCell className="whitespace-nowrap text-sm">
-                      {formatDate(p.payment_date || p.created_at)}
+                    <TableCell className="whitespace-nowrap text-xs font-mono">
+                      {formatDateISO(p.payment_date || p.created_at)}
                     </TableCell>
                     <TableCell className="text-sm font-mono">
                       {p.reference_number || "—"}
