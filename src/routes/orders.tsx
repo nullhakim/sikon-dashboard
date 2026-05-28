@@ -670,24 +670,22 @@ function OrderDetailDialog({
                 </div>
               </form>
 
-              <div className="flex flex-col gap-1 items-end pt-4 border-t text-sm">
-                <div className="flex gap-4">
-                  <span className="text-muted-foreground">Subtotal</span>
-                  <span className="w-28 text-right font-medium">
-                    {formatIDR(subtotal)}
-                  </span>
+              <div className="rounded-lg border bg-muted/30 p-4 space-y-2 text-sm">
+                <div className="flex items-center justify-between text-muted-foreground">
+                  <span>Subtotal</span>
+                  <span className="font-medium text-foreground">{formatIDR(subtotal)}</span>
                 </div>
-                <div className="flex gap-4">
-                  <span className="text-muted-foreground">Shipping</span>
-                  <span className="w-28 text-right font-medium">{formatIDR(form.shipping_cost || 0)}</span>
+                <div className="flex items-center justify-between text-muted-foreground">
+                  <span>Shipping</span>
+                  <span className="font-medium text-foreground">{formatIDR(form.shipping_cost || 0)}</span>
                 </div>
-                <div className="flex gap-4 text-base font-semibold pt-2">
+                <div className="flex items-center justify-between border-t pt-2 text-base font-semibold">
                   <span>Total</span>
-                  <span className="w-28 text-right">{formatIDR(total)}</span>
+                  <span>{formatIDR(total)}</span>
                 </div>
-                <div className="flex gap-4 pt-2">
+                <div className="flex items-center justify-between pt-1">
                   <span className="text-muted-foreground">Payment Status</span>
-                  <span className={`w-28 text-right font-medium capitalize ${order.payment_status === 'paid' ? 'text-emerald-600' : 'text-amber-600'}`}>
+                  <span className={`font-medium capitalize ${order.payment_status === 'paid' ? 'text-emerald-600' : 'text-amber-600'}`}>
                     {order.payment_status || "—"}
                   </span>
                 </div>
