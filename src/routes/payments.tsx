@@ -43,7 +43,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 import { paymentsService, ordersService, bankAccountsService } from "@/lib/services";
-import { formatIDR, formatDate } from "@/lib/format";
+import { formatIDR, formatDateISO, datetimeLocalToISO } from "@/lib/format";
 import type { Payment } from "@/lib/types";
 
 export const Route = createFileRoute("/payments")({
