@@ -69,19 +69,18 @@ export interface Payment {
 
 export interface Order {
   id: string;
-  invoice_number?: string;
+  order_number?: string;
   customer_id: string;
   customer?: Customer;
-  user_id?: string;
-  user?: User;
-  status: OrderStatus | string;
-  total: number;
-  paid?: number;
-  remaining?: number;
+  sales_id?: string;
+  sales?: User;
+  order_status: OrderStatus | string;
+  payment_status?: string;
+  total_amount: number;
   shipping_cost?: number;
-  courier?: string;
-  address?: string;
-  note?: string;
+  courier_name?: string;
+  shipping_address?: string;
+  notes?: string;
   items?: OrderItem[];
   payments?: Payment[];
   created_at?: string;

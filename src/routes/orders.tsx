@@ -32,7 +32,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { ScrollArea } from "@/components/ui/scroll-area";
+// ScrollArea import removed
 
 import { ordersService, customersService, productsService, usersService } from "@/lib/services";
 import { formatIDR, formatDate } from "@/lib/format";
@@ -68,11 +68,89 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
+interface ItemDetail {
+  key: string;
+  value: string;
+}
+
 interface Item {
   product_id: string;
   qty: number;
   price: number;
-  notes?: string;
+  details: ItemDetail[];
+}
+
+function ItemDetailsDialog({
+  open,
+  onClose,
+  details,
+  onSave,
+}: {
+  open: boolean;
+  onClose: () => void;
+  details: ItemDetail[];
+  onSave: (details: ItemDetail[]) => void;
+}) {
+  const [localDetails, setLocalDetails] = useState<ItemDetail[]>([]);
+
+  useEffect(() => {
+    if (open) setLocalDetails(details);
+  }, [open, details]);
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => (v ? null : onClose())}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Item Details</DialogTitle>
+          <DialogDescription>Add attributes like size, color, etc.</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3 py-4 max-h-[60vh] overflow-y-auto">
+          {localDetails.map((d, i) => (
+            <div key={i} className="flex gap-2">
+              <Input
+                placeholder="Key (e.g. Ukuran)"
+                value={d.key}
+                onChange={(e) => {
+                  const arr = [...localDetails];
+                  arr[i].key = e.target.value;
+                  setLocalDetails(arr);
+                }}
+              />
+              <Input
+                placeholder="Value (e.g. L)"
+                value={d.value}
+                onChange={(e) => {
+                  const arr = [...localDetails];
+                  arr[i].value = e.target.value;
+                  setLocalDetails(arr);
+                }}
+              />
+              <Button
+                variant="ghost"
+                size="icon"
+                className="shrink-0"
+                onClick={() => setLocalDetails(localDetails.filter((_, idx) => idx !== i))}
+              >
+                <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+              </Button>
+            </div>
+          ))}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setLocalDetails([...localDetails, { key: "", value: "" }])}
+          >
+            <Plus className="h-4 w-4 mr-1" /> Add Detail
+          </Button>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button onClick={() => { onSave(localDetails); onClose(); }}>Save</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 function CreateOrderDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -99,7 +177,8 @@ function CreateOrderDialog({ open, onClose }: { open: boolean; onClose: () => vo
   const [shippingCost, setShippingCost] = useState<number | "">("");
   const [address, setAddress] = useState("");
   const [note, setNote] = useState("");
-  const [items, setItems] = useState<Item[]>([{ product_id: "", qty: 1, price: 0 }]);
+  const [items, setItems] = useState<Item[]>([{ product_id: "", qty: 1, price: 0, details: [] }]);
+  const [activeDetailIndex, setActiveDetailIndex] = useState<number | null>(null);
 
   useEffect(() => {
     if (!open) {
@@ -109,7 +188,8 @@ function CreateOrderDialog({ open, onClose }: { open: boolean; onClose: () => vo
       setShippingCost("");
       setAddress("");
       setNote("");
-      setItems([{ product_id: "", qty: 1, price: 0 }]);
+      setItems([{ product_id: "", qty: 1, price: 0, details: [] }]);
+      setActiveDetailIndex(null);
     }
   }, [open]);
 
@@ -125,12 +205,19 @@ function CreateOrderDialog({ open, onClose }: { open: boolean; onClose: () => vo
         shipping_cost: Number(shippingCost) || 0,
         shipping_address: address || undefined,
         notes: note || undefined,
-        items: items.filter((i) => i.product_id && i.qty > 0).map(i => ({
-          product_id: i.product_id,
-          qty: i.qty,
-          price: i.price,
-          details: i.notes ? { note: i.notes } : undefined
-        })),
+        items: items.filter((i) => i.product_id && i.qty > 0).map(i => {
+          const parsedDetails = i.details.reduce((acc, curr) => {
+            if (curr.key.trim()) acc[curr.key.trim()] = curr.value.trim();
+            return acc;
+          }, {} as Record<string, string>);
+          
+          return {
+            product_id: i.product_id,
+            qty: i.qty,
+            price: i.price,
+            details: Object.keys(parsedDetails).length > 0 ? parsedDetails : undefined
+          };
+        }),
       }),
     onSuccess: () => {
       toast.success("Order created");
@@ -153,14 +240,15 @@ function CreateOrderDialog({ open, onClose }: { open: boolean; onClose: () => vo
   };
 
   return (
-    <Dialog open={open} onOpenChange={(v) => (v ? null : onClose())}>
+    <>
+      <Dialog open={open} onOpenChange={(v) => (v ? null : onClose())}>
       <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-0">
         <DialogHeader className="px-6 pt-6 pb-2 border-b">
           <DialogTitle>New Order</DialogTitle>
           <DialogDescription>Create a new order and its line items.</DialogDescription>
         </DialogHeader>
 
-        <ScrollArea className="flex-1 px-6 py-4">
+        <div className="flex-1 overflow-y-auto px-6 py-4">
           <form id="create-order-form" onSubmit={submit} className="space-y-6">
             <Card>
               <CardHeader>
@@ -228,14 +316,14 @@ function CreateOrderDialog({ open, onClose }: { open: boolean; onClose: () => vo
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={() => setItems((arr) => [...arr, { product_id: "", qty: 1, price: 0 }])}
+                  onClick={() => setItems((arr) => [...arr, { product_id: "", qty: 1, price: 0, details: [] }])}
                 >
                   <Plus className="h-4 w-4 mr-1" /> Add item
                 </Button>
               </CardHeader>
               <CardContent className="space-y-3">
                 {items.map((it, idx) => (
-                  <div key={idx} className="grid gap-3 sm:grid-cols-[1fr_100px_140px_auto] items-end">
+                  <div key={idx} className="grid gap-3 sm:grid-cols-[1fr_80px_120px_auto_auto] items-end">
                     <div className="space-y-1">
                       <Label className="text-xs">Product</Label>
                       <Select
@@ -277,6 +365,13 @@ function CreateOrderDialog({ open, onClose }: { open: boolean; onClose: () => vo
                     </div>
                     <Button
                       type="button"
+                      variant="outline"
+                      onClick={() => setActiveDetailIndex(idx)}
+                    >
+                      Details ({it.details.length})
+                    </Button>
+                    <Button
+                      type="button"
                       variant="ghost"
                       size="icon"
                       className="text-muted-foreground hover:text-destructive"
@@ -305,7 +400,7 @@ function CreateOrderDialog({ open, onClose }: { open: boolean; onClose: () => vo
               </CardContent>
             </Card>
           </form>
-        </ScrollArea>
+        </div>
 
         <DialogFooter className="px-6 py-4 border-t">
           <Button type="button" variant="outline" onClick={onClose}>
@@ -317,6 +412,17 @@ function CreateOrderDialog({ open, onClose }: { open: boolean; onClose: () => vo
         </DialogFooter>
       </DialogContent>
     </Dialog>
+    <ItemDetailsDialog
+      open={activeDetailIndex !== null}
+      onClose={() => setActiveDetailIndex(null)}
+      details={activeDetailIndex !== null ? items[activeDetailIndex].details : []}
+      onSave={(newDetails) => {
+        if (activeDetailIndex !== null) {
+          updateItem(activeDetailIndex, { details: newDetails });
+        }
+      }}
+    />
+    </>
   );
 }
 
@@ -335,26 +441,50 @@ function OrderDetailDialog({
     queryFn: () => ordersService.get(orderId!),
     enabled: !!orderId,
   });
+  const products = useQuery({
+    queryKey: ["products", { page: 1, limit: 100 }],
+    queryFn: () => productsService.list({ page: 1, limit: 100 }),
+    enabled: open,
+  });
 
   const order = data?.data;
 
   const [form, setForm] = useState({
-    courier: "",
+    courier_name: "",
     shipping_cost: 0,
-    address: "",
-    note: "",
+    shipping_address: "",
+    notes: "",
   });
+  const [items, setItems] = useState<Item[]>([]);
+  const [activeDetailIndex, setActiveDetailIndex] = useState<number | null>(null);
 
   useEffect(() => {
     if (order) {
       setForm({
-        courier: order.courier || "",
+        courier_name: order.courier_name || "",
         shipping_cost: order.shipping_cost || 0,
-        address: order.address || "",
-        note: order.note || "",
+        shipping_address: order.shipping_address || "",
+        notes: order.notes || "",
       });
+      if (order.items) {
+        setItems(order.items.map((i: any) => ({
+          product_id: i.product_id,
+          qty: i.qty,
+          price: i.price,
+          details: i.details ? Object.entries(i.details).map(([k, v]) => ({ key: k, value: String(v) })) : []
+        })));
+      }
+    } else if (!open) {
+      setItems([]);
+      setActiveDetailIndex(null);
     }
-  }, [order]);
+  }, [order, open]);
+
+  const updateItem = (idx: number, patch: Partial<Item>) =>
+    setItems((arr) => arr.map((it, i) => (i === idx ? { ...it, ...patch } : it)));
+
+  const subtotal = items.reduce((s, i) => s + i.qty * i.price, 0);
+  const total = subtotal + Number(form.shipping_cost || 0);
 
   const updateMut = useMutation({
     mutationFn: (body: any) => ordersService.update(orderId!, body),
@@ -368,25 +498,42 @@ function OrderDetailDialog({
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!order) return;
+    
     updateMut.mutate({
-      courier: form.courier || undefined,
+      customer_id: order.customer_id,
+      sales_id: order.sales_id || "",
+      items: items.filter((i) => i.product_id && i.qty > 0).map(i => {
+        const parsedDetails = i.details.reduce((acc, curr) => {
+          if (curr.key.trim()) acc[curr.key.trim()] = curr.value.trim();
+          return acc;
+        }, {} as Record<string, string>);
+        return {
+          product_id: i.product_id,
+          qty: i.qty,
+          price: i.price,
+          details: Object.keys(parsedDetails).length > 0 ? parsedDetails : undefined
+        };
+      }),
+      courier_name: form.courier_name || undefined,
       shipping_cost: Number(form.shipping_cost) || 0,
-      address: form.address || undefined,
-      note: form.note || undefined,
+      shipping_address: form.shipping_address || undefined,
+      notes: form.notes || undefined,
     });
   }
 
   return (
-    <Dialog open={open} onOpenChange={(v) => (v ? null : onClose())}>
+    <>
+      <Dialog open={open} onOpenChange={(v) => (v ? null : onClose())}>
       <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col p-0">
         <DialogHeader className="px-6 pt-6 pb-2 border-b">
           <DialogTitle>Order Details</DialogTitle>
           <DialogDescription>
-            {order?.invoice_number ? `Invoice: ${order.invoice_number}` : "Loading..."}
+            {order?.order_number ? `Order: ${order.order_number}` : "Loading..."}
           </DialogDescription>
         </DialogHeader>
 
-        <ScrollArea className="flex-1 px-6 py-4">
+        <div className="flex-1 overflow-y-auto px-6 py-4">
           {isLoading || !order ? (
             <div className="py-8 text-center text-muted-foreground">Loading details...</div>
           ) : (
@@ -401,40 +548,83 @@ function OrderDetailDialog({
                 </div>
                 <div>
                   <h3 className="font-semibold mb-1">Status</h3>
-                  <StatusBadge status={order.status} />
+                  <StatusBadge status={order.order_status} />
                 </div>
               </div>
 
               <div>
-                <h3 className="font-semibold mb-3">Line Items</h3>
-                <div className="rounded-md border">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Product</TableHead>
-                        <TableHead className="text-right">Qty</TableHead>
-                        <TableHead className="text-right">Price</TableHead>
-                        <TableHead className="text-right">Subtotal</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {order.items?.map((item: any, i: number) => (
-                        <TableRow key={i}>
-                          <TableCell>
-                            <div>{item.product_name || "Unknown Product"}</div>
-                            {item.details && (
-                              <div className="text-xs text-muted-foreground">
-                                {Object.entries(item.details).map(([k, v]) => `${k}: ${v}`).join(", ")}
-                              </div>
-                            )}
-                          </TableCell>
-                          <TableCell className="text-right">{item.qty}</TableCell>
-                          <TableCell className="text-right">{formatIDR(item.price)}</TableCell>
-                          <TableCell className="text-right">{formatIDR(item.qty * item.price)}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                <div className="flex flex-row items-center justify-between mb-3">
+                  <h3 className="font-semibold">Line Items</h3>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setItems((arr) => [...arr, { product_id: "", qty: 1, price: 0, details: [] }])}
+                  >
+                    <Plus className="h-4 w-4 mr-1" /> Add item
+                  </Button>
+                </div>
+                <div className="space-y-3">
+                  {items.map((it, idx) => (
+                    <div key={idx} className="grid gap-3 sm:grid-cols-[1fr_80px_120px_auto_auto] items-end">
+                      <div className="space-y-1">
+                        <Label className="text-xs">Product</Label>
+                        <Select
+                          value={it.product_id}
+                          onValueChange={(v) => {
+                            const p = products.data?.data?.find((x) => x.id === v);
+                            updateItem(idx, { product_id: v, price: p?.base_price ?? it.price });
+                          }}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select product" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {products.data?.data?.map((p) => (
+                              <SelectItem key={p.id} value={p.id}>
+                                {p.name} — {formatIDR(p.base_price)}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Qty</Label>
+                        <Input
+                          type="number"
+                          min={1}
+                          value={it.qty}
+                          onChange={(e) => updateItem(idx, { qty: Number(e.target.value) })}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Price</Label>
+                        <Input
+                          type="number"
+                          min={0}
+                          value={it.price}
+                          onChange={(e) => updateItem(idx, { price: Number(e.target.value) })}
+                        />
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setActiveDetailIndex(idx)}
+                      >
+                        Details ({it.details.length})
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="text-muted-foreground hover:text-destructive"
+                        onClick={() => setItems((arr) => arr.filter((_, i) => i !== idx))}
+                        disabled={items.length === 1}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
                 </div>
               </div>
 
@@ -444,8 +634,8 @@ function OrderDetailDialog({
                   <div className="space-y-2">
                     <Label>Courier</Label>
                     <Input
-                      value={form.courier}
-                      onChange={(e) => setForm({ ...form, courier: e.target.value })}
+                      value={form.courier_name}
+                      onChange={(e) => setForm({ ...form, courier_name: e.target.value })}
                     />
                   </div>
                   <div className="space-y-2">
@@ -461,16 +651,16 @@ function OrderDetailDialog({
                     <Label>Address</Label>
                     <Textarea
                       rows={2}
-                      value={form.address}
-                      onChange={(e) => setForm({ ...form, address: e.target.value })}
+                      value={form.shipping_address}
+                      onChange={(e) => setForm({ ...form, shipping_address: e.target.value })}
                     />
                   </div>
                   <div className="space-y-2 sm:col-span-2">
                     <Label>Order Note</Label>
                     <Textarea
                       rows={2}
-                      value={form.note}
-                      onChange={(e) => setForm({ ...form, note: e.target.value })}
+                      value={form.notes}
+                      onChange={(e) => setForm({ ...form, notes: e.target.value })}
                     />
                   </div>
                 </div>
@@ -480,33 +670,27 @@ function OrderDetailDialog({
                 <div className="flex gap-4">
                   <span className="text-muted-foreground">Subtotal</span>
                   <span className="w-28 text-right font-medium">
-                    {formatIDR(order.total - (order.shipping_cost || 0))}
+                    {formatIDR(subtotal)}
                   </span>
                 </div>
                 <div className="flex gap-4">
                   <span className="text-muted-foreground">Shipping</span>
-                  <span className="w-28 text-right font-medium">{formatIDR(order.shipping_cost || 0)}</span>
+                  <span className="w-28 text-right font-medium">{formatIDR(form.shipping_cost || 0)}</span>
                 </div>
                 <div className="flex gap-4 text-base font-semibold pt-2">
                   <span>Total</span>
-                  <span className="w-28 text-right">{formatIDR(order.total)}</span>
+                  <span className="w-28 text-right">{formatIDR(total)}</span>
                 </div>
                 <div className="flex gap-4 pt-2">
-                  <span className="text-muted-foreground">Paid</span>
-                  <span className="w-28 text-right font-medium text-emerald-600">
-                    {formatIDR(order.paid || 0)}
-                  </span>
-                </div>
-                <div className="flex gap-4">
-                  <span className="text-muted-foreground">Remaining</span>
-                  <span className="w-28 text-right font-medium text-rose-600">
-                    {formatIDR(order.remaining || 0)}
+                  <span className="text-muted-foreground">Payment Status</span>
+                  <span className={`w-28 text-right font-medium capitalize ${order.payment_status === 'paid' ? 'text-emerald-600' : 'text-amber-600'}`}>
+                    {order.payment_status || "—"}
                   </span>
                 </div>
               </div>
             </div>
           )}
-        </ScrollArea>
+        </div>
         
         <DialogFooter className="px-6 py-4 border-t">
           <Button type="button" variant="outline" onClick={onClose}>
@@ -518,6 +702,17 @@ function OrderDetailDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+    <ItemDetailsDialog
+      open={activeDetailIndex !== null}
+      onClose={() => setActiveDetailIndex(null)}
+      details={activeDetailIndex !== null ? items[activeDetailIndex].details : []}
+      onSave={(newDetails) => {
+        if (activeDetailIndex !== null) {
+          updateItem(activeDetailIndex, { details: newDetails });
+        }
+      }}
+    />
+    </>
   );
 }
 
@@ -554,7 +749,7 @@ function OrdersPage() {
   });
 
   const orders = data?.data ?? [];
-  const totalPage = data?.paging?.total_page ?? 1;
+  const totalPage = data?.meta?.total_pages ?? 1;
 
   return (
     <div className="space-y-6">
@@ -583,7 +778,7 @@ function OrdersPage() {
                 <TableHead>Created</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Total</TableHead>
-                <TableHead className="text-right">Paid</TableHead>
+                <TableHead className="text-right">Payment</TableHead>
                 <TableHead className="w-[1%]"></TableHead>
               </TableRow>
             </TableHeader>
@@ -612,7 +807,7 @@ function OrdersPage() {
               {orders.map((o) => (
                 <TableRow key={o.id}>
                   <TableCell className="font-mono text-xs">
-                    {o.invoice_number ?? o.id.slice(0, 8)}
+                    {o.order_number ?? o.id.slice(0, 8)}
                   </TableCell>
                   <TableCell className="font-medium">
                     {o.customer?.name ?? "—"}
@@ -622,9 +817,9 @@ function OrdersPage() {
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
-                      <StatusBadge status={o.status} />
+                      <StatusBadge status={o.order_status} />
                       <Select
-                        value={o.status}
+                        value={o.order_status}
                         onValueChange={(v) =>
                           statusMut.mutate({ id: o.id, status: v as OrderStatus })
                         }
@@ -643,10 +838,10 @@ function OrdersPage() {
                     </div>
                   </TableCell>
                   <TableCell className="text-right font-medium">
-                    {formatIDR(o.total)}
+                    {formatIDR(o.total_amount)}
                   </TableCell>
-                  <TableCell className="text-right text-muted-foreground">
-                    {formatIDR(o.paid ?? 0)}
+                  <TableCell className="text-right text-muted-foreground capitalize">
+                    {o.payment_status ?? "—"}
                   </TableCell>
                   <TableCell>
                     <div className="flex justify-end gap-1">
