@@ -95,10 +95,18 @@ export const ordersService = {
   }) => api.post<ApiSuccess<unknown>>("/orders", body),
   update: (
     id: string,
-    body: { shipping_cost?: number; courier?: string; address?: string; note?: string },
+    body: {
+      customer_id: string;
+      sales_id: string;
+      shipping_cost?: number;
+      courier_name?: string;
+      shipping_address?: string;
+      notes?: string;
+      items: { product_id: string; qty: number; price: number; details?: Record<string, any> }[];
+    }
   ) => api.put<ApiSuccess<unknown>>(`/orders/${id}`, body),
   updateStatus: (id: string, status: OrderStatus) =>
-    api.patch<ApiSuccess<unknown>>(`/orders/${id}/status`, { status }),
+    api.patch<ApiSuccess<unknown>>(`/orders/${id}/status`, { order_status: status }),
   delete: (id: string) => api.delete<ApiSuccess<unknown>>(`/orders/${id}`),
   payments: (orderId: string) =>
     api.get<ApiSuccess<Payment[]>>(`/orders/${orderId}/payments`),
