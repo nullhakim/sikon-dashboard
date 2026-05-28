@@ -816,26 +816,27 @@ function OrdersPage() {
                     {formatDate(o.created_at)}
                   </TableCell>
                   <TableCell>
-                    <div className="flex items-center gap-2">
-                      <StatusBadge status={o.order_status} />
-                      <Select
-                        value={o.order_status}
-                        onValueChange={(v) =>
-                          statusMut.mutate({ id: o.id, status: v as OrderStatus })
-                        }
+                    <Select
+                      value={o.order_status}
+                      onValueChange={(v) =>
+                        statusMut.mutate({ id: o.id, status: v as OrderStatus })
+                      }
+                    >
+                      <SelectTrigger
+                        className={`h-7 w-[130px] text-xs font-medium capitalize border ${
+                          statusVariant[o.order_status?.toLowerCase()] ?? ""
+                        }`}
                       >
-                        <SelectTrigger className="h-7 w-[120px] text-xs">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {statusList.map((s) => (
-                            <SelectItem key={s} value={s} className="capitalize">
-                              {s}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {statusList.map((s) => (
+                          <SelectItem key={s} value={s} className="capitalize">
+                            {s}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </TableCell>
                   <TableCell className="text-right font-medium">
                     {formatIDR(o.total_amount)}
