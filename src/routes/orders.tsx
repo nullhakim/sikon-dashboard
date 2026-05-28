@@ -538,17 +538,21 @@ function OrderDetailDialog({
             <div className="py-8 text-center text-muted-foreground">Loading details...</div>
           ) : (
             <div className="space-y-6">
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-4 sm:grid-cols-3 rounded-lg border bg-muted/30 p-4">
                 <div>
-                  <h3 className="font-semibold mb-1">Customer</h3>
-                  <div className="text-sm">
-                    <p>{order.customer?.name}</p>
-                    {order.customer?.phone && <p>{order.customer.phone}</p>}
-                  </div>
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Customer</p>
+                  <p className="text-sm font-medium mt-1">{order.customer?.name ?? "—"}</p>
+                  {order.customer?.phone && (
+                    <p className="text-xs text-muted-foreground">{order.customer.phone}</p>
+                  )}
                 </div>
                 <div>
-                  <h3 className="font-semibold mb-1">Status</h3>
-                  <StatusBadge status={order.order_status} />
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Status</p>
+                  <div className="mt-1"><StatusBadge status={order.order_status} /></div>
+                </div>
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Created</p>
+                  <p className="text-sm mt-1">{formatDate(order.created_at)}</p>
                 </div>
               </div>
 
@@ -666,24 +670,22 @@ function OrderDetailDialog({
                 </div>
               </form>
 
-              <div className="flex flex-col gap-1 items-end pt-4 border-t text-sm">
-                <div className="flex gap-4">
-                  <span className="text-muted-foreground">Subtotal</span>
-                  <span className="w-28 text-right font-medium">
-                    {formatIDR(subtotal)}
-                  </span>
+              <div className="rounded-lg border bg-muted/30 p-4 space-y-2 text-sm">
+                <div className="flex items-center justify-between text-muted-foreground">
+                  <span>Subtotal</span>
+                  <span className="font-medium text-foreground">{formatIDR(subtotal)}</span>
                 </div>
-                <div className="flex gap-4">
-                  <span className="text-muted-foreground">Shipping</span>
-                  <span className="w-28 text-right font-medium">{formatIDR(form.shipping_cost || 0)}</span>
+                <div className="flex items-center justify-between text-muted-foreground">
+                  <span>Shipping</span>
+                  <span className="font-medium text-foreground">{formatIDR(form.shipping_cost || 0)}</span>
                 </div>
-                <div className="flex gap-4 text-base font-semibold pt-2">
+                <div className="flex items-center justify-between border-t pt-2 text-base font-semibold">
                   <span>Total</span>
-                  <span className="w-28 text-right">{formatIDR(total)}</span>
+                  <span>{formatIDR(total)}</span>
                 </div>
-                <div className="flex gap-4 pt-2">
+                <div className="flex items-center justify-between pt-1">
                   <span className="text-muted-foreground">Payment Status</span>
-                  <span className={`w-28 text-right font-medium capitalize ${order.payment_status === 'paid' ? 'text-emerald-600' : 'text-amber-600'}`}>
+                  <span className={`font-medium capitalize ${order.payment_status === 'paid' ? 'text-emerald-600' : 'text-amber-600'}`}>
                     {order.payment_status || "—"}
                   </span>
                 </div>
@@ -749,7 +751,7 @@ function OrdersPage() {
   });
 
   const orders = data?.data ?? [];
-  const totalPage = data?.meta?.total_pages ?? 1;
+  const totalPage = data?.paging?.total_page ?? 1;
 
   return (
     <div className="space-y-6">
@@ -816,26 +818,27 @@ function OrdersPage() {
                     {formatDate(o.created_at)}
                   </TableCell>
                   <TableCell>
-                    <div className="flex items-center gap-2">
-                      <StatusBadge status={o.order_status} />
-                      <Select
-                        value={o.order_status}
-                        onValueChange={(v) =>
-                          statusMut.mutate({ id: o.id, status: v as OrderStatus })
-                        }
+                    <Select
+                      value={o.order_status}
+                      onValueChange={(v) =>
+                        statusMut.mutate({ id: o.id, status: v as OrderStatus })
+                      }
+                    >
+                      <SelectTrigger
+                        className={`h-7 w-[130px] text-xs font-medium capitalize border ${
+                          statusVariant[o.order_status?.toLowerCase()] ?? ""
+                        }`}
                       >
-                        <SelectTrigger className="h-7 w-[120px] text-xs">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {statusList.map((s) => (
-                            <SelectItem key={s} value={s} className="capitalize">
-                              {s}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {statusList.map((s) => (
+                          <SelectItem key={s} value={s} className="capitalize">
+                            {s}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </TableCell>
                   <TableCell className="text-right font-medium">
                     {formatIDR(o.total_amount)}

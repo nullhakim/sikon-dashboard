@@ -43,7 +43,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 import { paymentsService, ordersService, bankAccountsService } from "@/lib/services";
-import { formatIDR, formatDate } from "@/lib/format";
+import { formatIDR, formatDateISO, datetimeLocalToISO } from "@/lib/format";
 import type { Payment } from "@/lib/types";
 
 export const Route = createFileRoute("/payments")({
@@ -116,7 +116,7 @@ function CreatePaymentDialog({ open, onClose }: { open: boolean; onClose: () => 
         amount: Number(amount),
         payment_type: paymentType,
         reference_number: referenceNumber,
-        payment_date: paymentDate || undefined,
+        payment_date: datetimeLocalToISO(paymentDate),
       }),
     onSuccess: () => {
       toast.success("Payment recorded");
@@ -409,8 +409,8 @@ function PaymentsPage() {
               ) : (
                 payments.map((p) => (
                   <TableRow key={p.id}>
-                    <TableCell className="whitespace-nowrap text-sm">
-                      {formatDate(p.payment_date || p.created_at)}
+                    <TableCell className="whitespace-nowrap text-xs font-mono">
+                      {formatDateISO(p.payment_date || p.created_at)}
                     </TableCell>
                     <TableCell className="text-sm font-mono">
                       {p.reference_number || "—"}
