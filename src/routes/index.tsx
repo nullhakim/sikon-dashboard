@@ -165,14 +165,14 @@ function Dashboard() {
                 {orders.data?.data?.map((o) => (
                   <TableRow key={o.id}>
                     <TableCell className="font-mono text-xs">
-                      {o.invoice_number ?? o.id.slice(0, 8)}
+                      {o.order_number ?? o.id.slice(0, 8)}
                     </TableCell>
                     <TableCell>{o.customer?.name ?? "—"}</TableCell>
                     <TableCell>
-                      <StatusBadge status={o.status} />
+                      <StatusBadge status={o.order_status} />
                     </TableCell>
                     <TableCell className="text-right font-medium">
-                      {formatIDR(o.total)}
+                      {formatIDR(o.total_amount)}
                     </TableCell>
                   </TableRow>
                 ))}
