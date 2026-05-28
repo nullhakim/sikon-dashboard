@@ -538,17 +538,21 @@ function OrderDetailDialog({
             <div className="py-8 text-center text-muted-foreground">Loading details...</div>
           ) : (
             <div className="space-y-6">
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-4 sm:grid-cols-3 rounded-lg border bg-muted/30 p-4">
                 <div>
-                  <h3 className="font-semibold mb-1">Customer</h3>
-                  <div className="text-sm">
-                    <p>{order.customer?.name}</p>
-                    {order.customer?.phone && <p>{order.customer.phone}</p>}
-                  </div>
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Customer</p>
+                  <p className="text-sm font-medium mt-1">{order.customer?.name ?? "—"}</p>
+                  {order.customer?.phone && (
+                    <p className="text-xs text-muted-foreground">{order.customer.phone}</p>
+                  )}
                 </div>
                 <div>
-                  <h3 className="font-semibold mb-1">Status</h3>
-                  <StatusBadge status={order.order_status} />
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Status</p>
+                  <div className="mt-1"><StatusBadge status={order.order_status} /></div>
+                </div>
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Created</p>
+                  <p className="text-sm mt-1">{formatDate(order.created_at)}</p>
                 </div>
               </div>
 
