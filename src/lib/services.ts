@@ -116,11 +116,18 @@ export const ordersService = {
 export const paymentsService = {
   list: (p: PageParams = {}) =>
     api.get<ApiPaginated<Payment>>("/payments", { page: p.page ?? 1, limit: p.limit ?? 10 }),
+  get: (id: string) => api.get<ApiSuccess<Payment>>(`/payments/${id}`),
   create: (body: {
     order_id: string;
     amount: number;
     payment_type: string;
-    bank_account_id?: string;
-    note?: string;
+    bank_account_id: string;
+    reference_number: string;
+    payment_date?: string;
   }) => api.post<ApiSuccess<unknown>>("/payments", body),
+  update: (id: string, body: {
+    reference_number?: string;
+    payment_type?: string;
+  }) => api.put<ApiSuccess<unknown>>(`/payments/${id}`, body),
+  delete: (id: string) => api.delete<ApiSuccess<unknown>>(`/payments/${id}`),
 };
