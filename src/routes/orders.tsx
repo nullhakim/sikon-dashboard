@@ -701,7 +701,7 @@ function OrdersPage() {
   const limit = 10;
   const qc = useQueryClient();
 
-  const [detailOrderId, setDetailOrderId] = useState<string | null>(null);
+  const [editOrderId, setEditOrderId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
 
   const { data, isLoading, isError, error } = useQuery({
