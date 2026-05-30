@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, ChevronLeft, ChevronRight, Trash2, Eye, FileDown } from "lucide-react";
+import { Plus, ChevronLeft, ChevronRight, Trash2, Eye, Pencil } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -36,7 +36,6 @@ import { Textarea } from "@/components/ui/textarea";
 
 import { ordersService, customersService, productsService, usersService } from "@/lib/services";
 import { formatIDR, formatDate } from "@/lib/format";
-import { generateInvoicePDF } from "@/lib/invoice";
 import type { OrderStatus } from "@/lib/types";
 
 export const Route = createFileRoute("/orders")({
@@ -426,8 +425,7 @@ function CreateOrderDialog({ open, onClose }: { open: boolean; onClose: () => vo
     </>
   );
 }
-
-function OrderDetailDialog({
+export function UpdateOrderDialog({
   orderId,
   open,
   onClose,
@@ -528,9 +526,9 @@ function OrderDetailDialog({
       <Dialog open={open} onOpenChange={(v) => (v ? null : onClose())}>
       <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col p-0">
         <DialogHeader className="px-6 pt-6 pb-2 border-b">
-          <DialogTitle>Order Details</DialogTitle>
+          <DialogTitle>Update Order</DialogTitle>
           <DialogDescription>
-            {order?.order_number ? `Order: ${order.order_number}` : "Loading..."}
+            {order?.order_number ? `Editing: ${order.order_number}` : "Loading..."}
           </DialogDescription>
         </DialogHeader>
 
@@ -539,23 +537,7 @@ function OrderDetailDialog({
             <div className="py-8 text-center text-muted-foreground">Loading details...</div>
           ) : (
             <div className="space-y-6">
-              <div className="grid gap-4 sm:grid-cols-3 rounded-lg border bg-muted/30 p-4">
-                <div>
-                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Customer</p>
-                  <p className="text-sm font-medium mt-1">{order.customer?.name ?? "—"}</p>
-                  {order.customer?.phone && (
-                    <p className="text-xs text-muted-foreground">{order.customer.phone}</p>
-                  )}
-                </div>
-                <div>
-                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Status</p>
-                  <div className="mt-1"><StatusBadge status={order.order_status} /></div>
-                </div>
-                <div>
-                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Created</p>
-                  <p className="text-sm mt-1">{formatDate(order.created_at)}</p>
-                </div>
-              </div>
+
 
               <div>
                 <div className="flex flex-row items-center justify-between mb-3">
@@ -684,46 +666,20 @@ function OrderDetailDialog({
                   <span>Total</span>
                   <span>{formatIDR(total)}</span>
                 </div>
-                <div className="flex items-center justify-between pt-1">
-                  <span className="text-muted-foreground">Payment Status</span>
-                  <span className={`font-medium capitalize ${order.payment_status === 'paid' ? 'text-emerald-600' : 'text-amber-600'}`}>
-                    {order.payment_status || "—"}
-                  </span>
-                </div>
               </div>
             </div>
           )}
         </div>
         
         <DialogFooter className="px-6 py-4 border-t">
-          <Button
-            type="button"
-            variant="outline"
-            disabled={!order}
-            onClick={async () => {
-              if (!order) return;
-              try {
-                const res = await ordersService.payments(order.id);
-                generateInvoicePDF({
-                  order,
-                  items: order.items ?? [],
-                  customer: order.customer ?? null,
-                  payments: res.data ?? [],
-                });
-              } catch (err) {
-                toast.error((err as Error).message);
-              }
-            }}
-          >
-            <FileDown className="h-4 w-4 mr-1" /> Invoice PDF
-          </Button>
           <Button type="button" variant="outline" onClick={onClose}>
-            Close
+            Cancel
           </Button>
           <Button type="submit" form="shipping-form" disabled={updateMut.isPending || !order}>
             {updateMut.isPending ? "Saving..." : "Save Changes"}
           </Button>
         </DialogFooter>
+
       </DialogContent>
     </Dialog>
     <ItemDetailsDialog
@@ -745,7 +701,7 @@ function OrdersPage() {
   const limit = 10;
   const qc = useQueryClient();
 
-  const [detailOrderId, setDetailOrderId] = useState<string | null>(null);
+  const [editOrderId, setEditOrderId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
 
   const { data, isLoading, isError, error } = useQuery({
@@ -870,13 +826,18 @@ function OrdersPage() {
                   </TableCell>
                   <TableCell>
                     <div className="flex justify-end gap-1">
+                      <Button asChild variant="ghost" size="icon" className="h-8 w-8">
+                        <Link to="/orders/$orderId" params={{ orderId: o.id }}>
+                          <Eye className="h-4 w-4" />
+                        </Link>
+                      </Button>
                       <Button
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8"
-                        onClick={() => setDetailOrderId(o.id)}
+                        onClick={() => setEditOrderId(o.id)}
                       >
-                        <Eye className="h-4 w-4" />
+                        <Pencil className="h-4 w-4" />
                       </Button>
                       <Button
                         variant="ghost"
@@ -890,6 +851,7 @@ function OrdersPage() {
                       </Button>
                     </div>
                   </TableCell>
+
                 </TableRow>
               ))}
             </TableBody>
@@ -921,11 +883,12 @@ function OrdersPage() {
         </div>
       </div>
       
-      <OrderDetailDialog 
-        orderId={detailOrderId} 
-        open={!!detailOrderId} 
-        onClose={() => setDetailOrderId(null)} 
+      <UpdateOrderDialog
+        orderId={editOrderId}
+        open={!!editOrderId}
+        onClose={() => setEditOrderId(null)}
       />
+
 
       <CreateOrderDialog 
         open={createOpen} 
