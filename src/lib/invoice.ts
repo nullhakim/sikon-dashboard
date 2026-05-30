@@ -28,12 +28,8 @@ const COMPANY = {
   website: "wiftindonesia.com",
 };
 
-const COMPANY_BANKS = [
-  "BCA: 054-1447333 a/n CV. WIJAYA FAMILY TASIKMALAYA",
-  "Mandiri: 177-00-1160048-0 a/n CV. WIJAYA FAMILY TASIKMALAYA",
-  "BNI: 1286168970 a/n CV. WIJAYA FAMILY TASIKMALAYA",
-  "BRI: 0161-01-001461-56-4 a/n CV. WIJAYA FAMILY TASIKMALAYA",
-];
+const formatBankLine = (b: BankAccount) =>
+  `${b.bank_name}: ${b.account_number} a/n ${b.account_name}`;
 
 const formatCurrency = (value: number) =>
   "Rp " + Math.round(value || 0).toLocaleString("id-ID");
