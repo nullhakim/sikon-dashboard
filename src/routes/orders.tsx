@@ -826,13 +826,18 @@ function OrdersPage() {
                   </TableCell>
                   <TableCell>
                     <div className="flex justify-end gap-1">
+                      <Button asChild variant="ghost" size="icon" className="h-8 w-8">
+                        <Link to="/orders/$orderId" params={{ orderId: o.id }}>
+                          <Eye className="h-4 w-4" />
+                        </Link>
+                      </Button>
                       <Button
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8"
-                        onClick={() => setDetailOrderId(o.id)}
+                        onClick={() => setEditOrderId(o.id)}
                       >
-                        <Eye className="h-4 w-4" />
+                        <Pencil className="h-4 w-4" />
                       </Button>
                       <Button
                         variant="ghost"
@@ -846,6 +851,7 @@ function OrdersPage() {
                       </Button>
                     </div>
                   </TableCell>
+
                 </TableRow>
               ))}
             </TableBody>
