@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import type { Order, OrderItem, Customer, Payment } from "./types";
+import type { Order, OrderItem, Customer, Payment, BankAccount } from "./types";
 
 export interface InvoiceOptions {
   withStamp?: boolean;
@@ -13,6 +13,7 @@ interface InvoiceData {
   items: OrderItem[];
   customer: Customer | null;
   payments?: Payment[];
+  bankAccounts?: BankAccount[];
   options?: InvoiceOptions;
 }
 
@@ -27,12 +28,8 @@ const COMPANY = {
   website: "wiftindonesia.com",
 };
 
-const COMPANY_BANKS = [
-  "BCA: 054-1447333 a/n CV. WIJAYA FAMILY TASIKMALAYA",
-  "Mandiri: 177-00-1160048-0 a/n CV. WIJAYA FAMILY TASIKMALAYA",
-  "BNI: 1286168970 a/n CV. WIJAYA FAMILY TASIKMALAYA",
-  "BRI: 0161-01-001461-56-4 a/n CV. WIJAYA FAMILY TASIKMALAYA",
-];
+const formatBankLine = (b: BankAccount) =>
+  `${b.bank_name}: ${b.account_number} a/n ${b.account_name}`;
 
 const formatCurrency = (value: number) =>
   "Rp " + Math.round(value || 0).toLocaleString("id-ID");
@@ -63,6 +60,7 @@ export function generateInvoicePDF({
   items,
   customer,
   payments = [],
+  bankAccounts = [],
   options,
 }: InvoiceData) {
   const { withStamp = false, withSignature = false } = options || {};
@@ -250,8 +248,11 @@ export function generateInvoicePDF({
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(7);
-  COMPANY_BANKS.forEach((bank, i) => {
-    doc.text(bank, margin, bankY + 6 + i * 5);
+  const bankLines = bankAccounts.length
+    ? bankAccounts.map(formatBankLine)
+    : ["(Belum ada rekening sales yang terdaftar)"];
+  bankLines.forEach((line, i) => {
+    doc.text(line, margin, bankY + 6 + i * 5);
   });
 
   if (amountPaid === 0) {
@@ -261,7 +262,7 @@ export function generateInvoicePDF({
     doc.text(
       `* Minimal DP 50%: ${formatCurrency(minDp)}`,
       margin,
-      bankY + 6 + COMPANY_BANKS.length * 5 + 2,
+      bankY + 6 + bankLines.length * 5 + 2,
     );
     doc.setTextColor(30, 41, 59);
   }
