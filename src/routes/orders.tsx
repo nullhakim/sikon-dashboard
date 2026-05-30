@@ -666,46 +666,20 @@ export function UpdateOrderDialog({
                   <span>Total</span>
                   <span>{formatIDR(total)}</span>
                 </div>
-                <div className="flex items-center justify-between pt-1">
-                  <span className="text-muted-foreground">Payment Status</span>
-                  <span className={`font-medium capitalize ${order.payment_status === 'paid' ? 'text-emerald-600' : 'text-amber-600'}`}>
-                    {order.payment_status || "—"}
-                  </span>
-                </div>
               </div>
             </div>
           )}
         </div>
         
         <DialogFooter className="px-6 py-4 border-t">
-          <Button
-            type="button"
-            variant="outline"
-            disabled={!order}
-            onClick={async () => {
-              if (!order) return;
-              try {
-                const res = await ordersService.payments(order.id);
-                generateInvoicePDF({
-                  order,
-                  items: order.items ?? [],
-                  customer: order.customer ?? null,
-                  payments: res.data ?? [],
-                });
-              } catch (err) {
-                toast.error((err as Error).message);
-              }
-            }}
-          >
-            <FileDown className="h-4 w-4 mr-1" /> Invoice PDF
-          </Button>
           <Button type="button" variant="outline" onClick={onClose}>
-            Close
+            Cancel
           </Button>
           <Button type="submit" form="shipping-form" disabled={updateMut.isPending || !order}>
             {updateMut.isPending ? "Saving..." : "Save Changes"}
           </Button>
         </DialogFooter>
+
       </DialogContent>
     </Dialog>
     <ItemDetailsDialog
