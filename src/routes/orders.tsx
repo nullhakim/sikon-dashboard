@@ -883,11 +883,12 @@ function OrdersPage() {
         </div>
       </div>
       
-      <OrderDetailDialog 
-        orderId={detailOrderId} 
-        open={!!detailOrderId} 
-        onClose={() => setDetailOrderId(null)} 
+      <UpdateOrderDialog
+        orderId={editOrderId}
+        open={!!editOrderId}
+        onClose={() => setEditOrderId(null)}
       />
+
 
       <CreateOrderDialog 
         open={createOpen} 
