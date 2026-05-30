@@ -248,8 +248,11 @@ export function generateInvoicePDF({
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(7);
-  COMPANY_BANKS.forEach((bank, i) => {
-    doc.text(bank, margin, bankY + 6 + i * 5);
+  const bankLines = bankAccounts.length
+    ? bankAccounts.map(formatBankLine)
+    : ["(Belum ada rekening sales yang terdaftar)"];
+  bankLines.forEach((line, i) => {
+    doc.text(line, margin, bankY + 6 + i * 5);
   });
 
   if (amountPaid === 0) {
@@ -259,7 +262,7 @@ export function generateInvoicePDF({
     doc.text(
       `* Minimal DP 50%: ${formatCurrency(minDp)}`,
       margin,
-      bankY + 6 + COMPANY_BANKS.length * 5 + 2,
+      bankY + 6 + bankLines.length * 5 + 2,
     );
     doc.setTextColor(30, 41, 59);
   }
