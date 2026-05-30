@@ -425,8 +425,7 @@ function CreateOrderDialog({ open, onClose }: { open: boolean; onClose: () => vo
     </>
   );
 }
-
-function OrderDetailDialog({
+export function UpdateOrderDialog({
   orderId,
   open,
   onClose,
