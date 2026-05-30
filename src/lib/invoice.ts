@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import type { Order, OrderItem, Customer, Payment } from "./types";
+import type { Order, OrderItem, Customer, Payment, BankAccount } from "./types";
 
 export interface InvoiceOptions {
   withStamp?: boolean;
@@ -13,6 +13,7 @@ interface InvoiceData {
   items: OrderItem[];
   customer: Customer | null;
   payments?: Payment[];
+  bankAccounts?: BankAccount[];
   options?: InvoiceOptions;
 }
 
