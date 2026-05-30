@@ -60,6 +60,7 @@ export function generateInvoicePDF({
   items,
   customer,
   payments = [],
+  bankAccounts = [],
   options,
 }: InvoiceData) {
   const { withStamp = false, withSignature = false } = options || {};
