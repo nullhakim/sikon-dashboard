@@ -36,7 +36,6 @@ import { Textarea } from "@/components/ui/textarea";
 
 import { ordersService, customersService, productsService, usersService } from "@/lib/services";
 import { formatIDR, formatDate } from "@/lib/format";
-import { generateInvoicePDF } from "@/lib/invoice";
 import type { OrderStatus } from "@/lib/types";
 
 export const Route = createFileRoute("/orders")({
