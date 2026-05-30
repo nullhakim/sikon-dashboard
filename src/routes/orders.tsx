@@ -526,9 +526,9 @@ export function UpdateOrderDialog({
       <Dialog open={open} onOpenChange={(v) => (v ? null : onClose())}>
       <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col p-0">
         <DialogHeader className="px-6 pt-6 pb-2 border-b">
-          <DialogTitle>Order Details</DialogTitle>
+          <DialogTitle>Update Order</DialogTitle>
           <DialogDescription>
-            {order?.order_number ? `Order: ${order.order_number}` : "Loading..."}
+            {order?.order_number ? `Editing: ${order.order_number}` : "Loading..."}
           </DialogDescription>
         </DialogHeader>
 
@@ -537,23 +537,7 @@ export function UpdateOrderDialog({
             <div className="py-8 text-center text-muted-foreground">Loading details...</div>
           ) : (
             <div className="space-y-6">
-              <div className="grid gap-4 sm:grid-cols-3 rounded-lg border bg-muted/30 p-4">
-                <div>
-                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Customer</p>
-                  <p className="text-sm font-medium mt-1">{order.customer?.name ?? "—"}</p>
-                  {order.customer?.phone && (
-                    <p className="text-xs text-muted-foreground">{order.customer.phone}</p>
-                  )}
-                </div>
-                <div>
-                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Status</p>
-                  <div className="mt-1"><StatusBadge status={order.order_status} /></div>
-                </div>
-                <div>
-                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Created</p>
-                  <p className="text-sm mt-1">{formatDate(order.created_at)}</p>
-                </div>
-              </div>
+
 
               <div>
                 <div className="flex flex-row items-center justify-between mb-3">
