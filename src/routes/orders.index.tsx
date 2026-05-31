@@ -38,7 +38,7 @@ import { ordersService, customersService, productsService, usersService } from "
 import { formatIDR, formatDate } from "@/lib/format";
 import type { OrderStatus } from "@/lib/types";
 
-export const Route = createFileRoute("/orders/")({
+export const Route = createFileRoute("/orders")({
   head: () => ({
     meta: [
       { title: "Orders — SIKOn ERP" },
