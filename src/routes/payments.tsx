@@ -43,7 +43,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 import { paymentsService, ordersService, bankAccountsService } from "@/lib/services";
-import { formatIDR, formatDateISO, datetimeLocalToISO } from "@/lib/format";
+import { formatIDR, formatDateISO, datetimeLocalToISO, formatDate } from "@/lib/format";
 import type { Payment } from "@/lib/types";
 
 export const Route = createFileRoute("/payments")({
@@ -410,13 +410,13 @@ function PaymentsPage() {
                 payments.map((p) => (
                   <TableRow key={p.id}>
                     <TableCell className="whitespace-nowrap text-xs font-mono">
-                      {formatDateISO(p.payment_date || p.created_at)}
+                      {formatDate(p.payment_date || p.created_at)}
                     </TableCell>
                     <TableCell className="text-sm font-mono">
                       {p.reference_number || "—"}
                     </TableCell>
                     <TableCell className="text-sm">
-                      {p.order_id?.slice(0, 8)}…
+                      {p.order?.order_number || "—"}…
                     </TableCell>
                     <TableCell>
                       <TypeBadge type={p.payment_type} />
@@ -426,7 +426,7 @@ function PaymentsPage() {
                     </TableCell>
                     <TableCell className="text-sm">
                       {p.bank_account
-                        ? `${p.bank_account.bank_name} · ${p.bank_account.account_number}`
+                        ? `${p.bank_account.bank_name} · ${p.bank_account.account_name}`
                         : p.bank_account_id?.slice(0, 8) || "—"}
                     </TableCell>
                     <TableCell className="text-right">

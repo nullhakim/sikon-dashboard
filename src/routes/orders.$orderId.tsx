@@ -446,7 +446,7 @@ function OrderDetailPage() {
                     <TableRow key={it.id ?? idx}>
                       <TableCell>
                         <div className="font-medium">
-                          {it.product_name ?? (it as { product?: { name?: string } }).product?.name ?? "—"}
+                          {it.product_name || it.product?.name || "—"}
                         </div>
                         {detailEntries.length > 0 && (
                           <div className="text-xs text-muted-foreground mt-0.5">
