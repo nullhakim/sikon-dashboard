@@ -31,8 +31,7 @@ const COMPANY = {
 const formatBankLine = (b: BankAccount) =>
   `${b.bank_name}: ${b.account_number} a/n ${b.account_name}`;
 
-const formatCurrency = (value: number) =>
-  "Rp " + Math.round(value || 0).toLocaleString("id-ID");
+const formatCurrency = (value: number) => "Rp " + Math.round(value || 0).toLocaleString("id-ID");
 
 const formatDate = (dateStr: string | null | undefined) => {
   if (!dateStr) return "-";
