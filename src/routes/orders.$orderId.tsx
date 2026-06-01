@@ -312,23 +312,29 @@ function OrderDetailPage() {
 
   async function handleDownloadPdf() {
     if (!order) return;
+    setGenerating(true);
     try {
       let bankAccounts: Awaited<ReturnType<typeof bankAccountsService.byUser>>["data"] = [];
       if (salesId) {
         const res = await bankAccountsService.byUser(salesId);
         bankAccounts = res.data ?? [];
       }
-      generateInvoicePDF({
+      await generateInvoicePDF({
         order,
         items: order.items ?? [],
         customer: order.customer ?? null,
         payments,
         bankAccounts,
+        options: { withStamp, withSignature },
       });
+      setPdfOpen(false);
     } catch (err) {
       toast.error((err as Error).message);
+    } finally {
+      setGenerating(false);
     }
   }
+
 
   if (orderQ.isLoading) {
     return <div className="text-center py-16 text-muted-foreground">Loading order…</div>;
