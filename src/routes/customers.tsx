@@ -197,6 +197,7 @@ function CustomersPage() {
                 <TableHead>Name</TableHead>
                 <TableHead>Email</TableHead>
                 <TableHead>Phone</TableHead>
+                <TableHead>Sales</TableHead>
                 <TableHead>Registered</TableHead>
                 <TableHead className="w-[1%]"></TableHead>
               </TableRow>
@@ -204,21 +205,21 @@ function CustomersPage() {
             <TableBody>
               {isLoading && (
                 <TableRow>
-                  <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
+                  <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
                     Loading customers…
                   </TableCell>
                 </TableRow>
               )}
               {isError && (
                 <TableRow>
-                  <TableCell colSpan={5} className="py-8 text-center text-destructive">
+                  <TableCell colSpan={6} className="py-8 text-center text-destructive">
                     {(error as Error)?.message ?? "Failed to load"}
                   </TableCell>
                 </TableRow>
               )}
               {!isLoading && rows.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
+                  <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
                     No customers found.
                   </TableCell>
                 </TableRow>
@@ -228,6 +229,7 @@ function CustomersPage() {
                   <TableCell className="font-medium">{c.name}</TableCell>
                   <TableCell>{c.email || "—"}</TableCell>
                   <TableCell>{c.phone || "—"}</TableCell>
+                  <TableCell>{c.sales?.name || "—"}</TableCell>
                   <TableCell className="text-xs text-muted-foreground">
                     {formatDate(c.created_at)}
                   </TableCell>
