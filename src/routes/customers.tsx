@@ -113,6 +113,7 @@ function CustomersPage() {
         email: editing.email ?? "",
         phone: editing.phone ?? "",
         address: editing.address ?? "",
+        sales_id: editing.sales_id ?? "",
       });
     } else {
       setForm(emptyForm);
@@ -139,12 +140,17 @@ function CustomersPage() {
       toast.error("Name is required");
       return;
     }
+    if (!form.sales_id) {
+      toast.error("Sales is required");
+      return;
+    }
 
     const body: Partial<Customer> = {
       name: form.name.trim(),
       email: form.email.trim(),
       phone: form.phone.trim(),
       address: form.address.trim(),
+      sales_id: form.sales_id,
     };
 
     if (editing) {
