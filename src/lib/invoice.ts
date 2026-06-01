@@ -81,7 +81,14 @@ export async function generateInvoicePDF({
   doc.setFillColor(30, 41, 59);
   doc.rect(0, 0, pageWidth, 50, "F");
 
-  drawPlaceholderLogo(doc, margin - 5, 12, 25);
+  const logoData = await loadImageDataURL("/assets/logo.png");
+  if (logoData) {
+    try {
+      doc.addImage(logoData, "PNG", margin - 5, 12, 25, 25);
+    } catch {
+      // ignore
+    }
+  }
 
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(22);
