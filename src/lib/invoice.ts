@@ -151,7 +151,7 @@ export function generateInvoicePDF({
         : "";
     return [
       String(idx + 1),
-      (item.product_name ?? "-") + detailStr,
+      (item.product_name || item.product?.name || "-") + detailStr,
       String(item.qty),
       formatCurrency(item.price),
       formatCurrency(subtotal),
