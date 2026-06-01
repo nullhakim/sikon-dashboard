@@ -330,6 +330,25 @@ function CustomersPage() {
               </div>
 
               <div className="space-y-2">
+                <Label htmlFor="sales_id">Sales *</Label>
+                <Select
+                  value={form.sales_id}
+                  onValueChange={(v) => setForm((f) => ({ ...f, sales_id: v }))}
+                >
+                  <SelectTrigger id="sales_id">
+                    <SelectValue placeholder="Select sales person" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {salesUsers.map((u) => (
+                      <SelectItem key={u.id} value={u.id}>
+                        {u.name} {u.email ? `(${u.email})` : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
                 <Label htmlFor="address">Address</Label>
                 <Textarea
                   id="address"
