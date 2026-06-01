@@ -44,17 +44,23 @@ const formatDate = (dateStr: string | null | undefined) => {
   });
 };
 
-// Draw a simple default placeholder logo (rounded square with "W" mark)
-function drawPlaceholderLogo(doc: jsPDF, x: number, y: number, size: number) {
-  doc.setFillColor(255, 255, 255);
-  doc.roundedRect(x, y, size, size, 3, 3, "F");
-  doc.setTextColor(30, 41, 59);
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(size * 0.6);
-  doc.text("W", x + size / 2, y + size * 0.72, { align: "center" });
+async function loadImageDataURL(url: string): Promise<string | null> {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    return await new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(r.result as string);
+      r.onerror = reject;
+      r.readAsDataURL(blob);
+    });
+  } catch {
+    return null;
+  }
 }
 
-export function generateInvoicePDF({
+export async function generateInvoicePDF({
   order,
   items,
   customer,
