@@ -372,7 +372,7 @@ function OrderDetailPage() {
           <Button variant="outline" onClick={() => setEditOpen(true)}>
             <Pencil className="h-4 w-4 mr-1" /> Edit
           </Button>
-          <Button variant="outline" onClick={handleDownloadPdf}>
+          <Button variant="outline" onClick={() => setPdfOpen(true)}>
             <FileDown className="h-4 w-4 mr-1" /> Invoice PDF
           </Button>
           <Button onClick={() => setPayOpen(true)} disabled={remaining <= 0}>
