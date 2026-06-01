@@ -69,8 +69,7 @@ export async function generateInvoicePDF({
   options,
 }: InvoiceData) {
   const { withStamp = false, withSignature = false } = options || {};
-  void withStamp;
-  void withSignature;
+
 
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
