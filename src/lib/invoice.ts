@@ -44,17 +44,23 @@ const formatDate = (dateStr: string | null | undefined) => {
   });
 };
 
-// Draw a simple default placeholder logo (rounded square with "W" mark)
-function drawPlaceholderLogo(doc: jsPDF, x: number, y: number, size: number) {
-  doc.setFillColor(255, 255, 255);
-  doc.roundedRect(x, y, size, size, 3, 3, "F");
-  doc.setTextColor(30, 41, 59);
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(size * 0.6);
-  doc.text("W", x + size / 2, y + size * 0.72, { align: "center" });
+async function loadImageDataURL(url: string): Promise<string | null> {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    return await new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(r.result as string);
+      r.onerror = reject;
+      r.readAsDataURL(blob);
+    });
+  } catch {
+    return null;
+  }
 }
 
-export function generateInvoicePDF({
+export async function generateInvoicePDF({
   order,
   items,
   customer,
@@ -63,8 +69,7 @@ export function generateInvoicePDF({
   options,
 }: InvoiceData) {
   const { withStamp = false, withSignature = false } = options || {};
-  void withStamp;
-  void withSignature;
+
 
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -75,7 +80,14 @@ export function generateInvoicePDF({
   doc.setFillColor(30, 41, 59);
   doc.rect(0, 0, pageWidth, 50, "F");
 
-  drawPlaceholderLogo(doc, margin - 5, 12, 25);
+  const logoData = await loadImageDataURL("/assets/logo.png");
+  if (logoData) {
+    try {
+      doc.addImage(logoData, "PNG", margin - 5, 12, 25, 25);
+    } catch {
+      // ignore
+    }
+  }
 
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(22);
@@ -274,16 +286,57 @@ export function generateInvoicePDF({
   doc.text("Hormat Kami,", pageWidth - margin, sigY, { align: "right" });
   doc.text("Manager WIFT Indonesia", pageWidth - margin, sigY + 5, { align: "right" });
 
+  // Stempel (stamp) — left of signature name
+  if (withStamp) {
+    const stempelData = await loadImageDataURL("/assets/stempel-wift.png");
+    if (stempelData) {
+      try {
+        const size = 35;
+        doc.addImage(
+          stempelData,
+          "PNG",
+          pageWidth - margin - 70,
+          sigY + 5,
+          size,
+          size,
+        );
+      } catch {
+        // ignore
+      }
+    }
+  }
+
+  // Signature image — above the name
+  if (withSignature) {
+    const sigData = await loadImageDataURL("/assets/ttd-manager.png");
+    if (sigData) {
+      try {
+        const w = 35;
+        const h = 25;
+        doc.addImage(
+          sigData,
+          "PNG",
+          pageWidth - margin - 25 - w / 2,
+          sigY + 7,
+          w,
+          h,
+        );
+      } catch {
+        // ignore
+      }
+    }
+  }
+
   doc.setFont("helvetica", "bold");
   doc.text("( Yusri Siti Aisyah., S.Ak )", pageWidth - margin - 25, sigY + 35, {
     align: "center",
   });
 
   // === 7. WATERMARK LUNAS ===
-  if (sisa <= 0 && amountPaid > 0) {
+  if (sisa <= 0) {
     doc.saveGraphicsState();
-    doc.setGState(new (doc as any).GState({ opacity: 0.1 }));
-    doc.setFontSize(100);
+    doc.setGState(new (doc as any).GState({ opacity: 0.15 }));
+    doc.setFontSize(120);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(34, 197, 94);
     doc.text("LUNAS", pageWidth / 2, pageHeight / 2 + 20, {
@@ -292,6 +345,7 @@ export function generateInvoicePDF({
     });
     doc.restoreGraphicsState();
   }
+
 
   // === 8. FOOTER ===
   doc.setTextColor(150, 150, 150);

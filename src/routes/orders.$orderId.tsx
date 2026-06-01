@@ -268,6 +268,10 @@ function OrderDetailPage() {
 
   const [editOpen, setEditOpen] = useState(false);
   const [payOpen, setPayOpen] = useState(false);
+  const [pdfOpen, setPdfOpen] = useState(false);
+  const [withStamp, setWithStamp] = useState(false);
+  const [withSignature, setWithSignature] = useState(false);
+  const [generating, setGenerating] = useState(false);
 
   const orderQ = useQuery({
     queryKey: ["order", orderId],
@@ -308,23 +312,29 @@ function OrderDetailPage() {
 
   async function handleDownloadPdf() {
     if (!order) return;
+    setGenerating(true);
     try {
       let bankAccounts: Awaited<ReturnType<typeof bankAccountsService.byUser>>["data"] = [];
       if (salesId) {
         const res = await bankAccountsService.byUser(salesId);
         bankAccounts = res.data ?? [];
       }
-      generateInvoicePDF({
+      await generateInvoicePDF({
         order,
         items: order.items ?? [],
         customer: order.customer ?? null,
         payments,
         bankAccounts,
+        options: { withStamp, withSignature },
       });
+      setPdfOpen(false);
     } catch (err) {
       toast.error((err as Error).message);
+    } finally {
+      setGenerating(false);
     }
   }
+
 
   if (orderQ.isLoading) {
     return <div className="text-center py-16 text-muted-foreground">Loading order…</div>;
@@ -362,7 +372,7 @@ function OrderDetailPage() {
           <Button variant="outline" onClick={() => setEditOpen(true)}>
             <Pencil className="h-4 w-4 mr-1" /> Edit
           </Button>
-          <Button variant="outline" onClick={handleDownloadPdf}>
+          <Button variant="outline" onClick={() => setPdfOpen(true)}>
             <FileDown className="h-4 w-4 mr-1" /> Invoice PDF
           </Button>
           <Button onClick={() => setPayOpen(true)} disabled={remaining <= 0}>
@@ -580,6 +590,56 @@ function OrderDetailPage() {
         open={payOpen}
         onClose={() => setPayOpen(false)}
       />
+
+      <Dialog open={pdfOpen} onOpenChange={(v) => !v && setPdfOpen(false)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Generate Invoice PDF</DialogTitle>
+            <DialogDescription>
+              Pilih elemen yang ingin disertakan dalam invoice.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <label className="flex items-center gap-3 rounded-md border p-3 cursor-pointer hover:bg-muted/50">
+              <input
+                type="checkbox"
+                className="h-4 w-4"
+                checked={withStamp}
+                onChange={(e) => setWithStamp(e.target.checked)}
+              />
+              <div>
+                <div className="text-sm font-medium">Sertakan Stempel</div>
+                <div className="text-xs text-muted-foreground">
+                  Tambahkan stempel perusahaan pada area tanda tangan.
+                </div>
+              </div>
+            </label>
+            <label className="flex items-center gap-3 rounded-md border p-3 cursor-pointer hover:bg-muted/50">
+              <input
+                type="checkbox"
+                className="h-4 w-4"
+                checked={withSignature}
+                onChange={(e) => setWithSignature(e.target.checked)}
+              />
+              <div>
+                <div className="text-sm font-medium">Sertakan Tanda Tangan</div>
+                <div className="text-xs text-muted-foreground">
+                  Tambahkan tanda tangan manager di atas nama.
+                </div>
+              </div>
+            </label>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPdfOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleDownloadPdf} disabled={generating}>
+              {generating ? "Generating…" : "Download PDF"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 }
