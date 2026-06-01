@@ -25,9 +25,16 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { customersService } from "@/lib/services";
+import { customersService, usersService } from "@/lib/services";
 import { formatDate } from "@/lib/format";
 import type { Customer } from "@/lib/types";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export const Route = createFileRoute("/customers")({
   head: () => ({
@@ -44,6 +51,7 @@ interface FormState {
   email: string;
   phone: string;
   address: string;
+  sales_id: string;
 }
 
 const emptyForm: FormState = {
@@ -51,6 +59,7 @@ const emptyForm: FormState = {
   email: "",
   phone: "",
   address: "",
+  sales_id: "",
 };
 
 function CustomersPage() {
@@ -66,6 +75,14 @@ function CustomersPage() {
     queryKey: ["customers", { page, limit }],
     queryFn: () => customersService.list({ page, limit }),
   });
+
+  const { data: usersData } = useQuery({
+    queryKey: ["users", { limit: 100 }],
+    queryFn: () => usersService.list({ page: 1, limit: 100 }),
+  });
+  const salesUsers = (usersData?.data ?? []).filter(
+    (u) => !u.role || u.role === "sales"
+  );
 
   const createMut = useMutation({
     mutationFn: (body: Partial<Customer>) => customersService.create(body),
@@ -104,6 +121,7 @@ function CustomersPage() {
         email: editing.email ?? "",
         phone: editing.phone ?? "",
         address: editing.address ?? "",
+        sales_id: editing.sales_id ?? "",
       });
     } else {
       setForm(emptyForm);
@@ -130,12 +148,17 @@ function CustomersPage() {
       toast.error("Name is required");
       return;
     }
+    if (!form.sales_id) {
+      toast.error("Sales is required");
+      return;
+    }
 
     const body: Partial<Customer> = {
       name: form.name.trim(),
       email: form.email.trim(),
       phone: form.phone.trim(),
       address: form.address.trim(),
+      sales_id: form.sales_id,
     };
 
     if (editing) {
@@ -174,6 +197,7 @@ function CustomersPage() {
                 <TableHead>Name</TableHead>
                 <TableHead>Email</TableHead>
                 <TableHead>Phone</TableHead>
+                <TableHead>Sales</TableHead>
                 <TableHead>Registered</TableHead>
                 <TableHead className="w-[1%]"></TableHead>
               </TableRow>
@@ -181,21 +205,21 @@ function CustomersPage() {
             <TableBody>
               {isLoading && (
                 <TableRow>
-                  <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
+                  <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
                     Loading customers…
                   </TableCell>
                 </TableRow>
               )}
               {isError && (
                 <TableRow>
-                  <TableCell colSpan={5} className="py-8 text-center text-destructive">
+                  <TableCell colSpan={6} className="py-8 text-center text-destructive">
                     {(error as Error)?.message ?? "Failed to load"}
                   </TableCell>
                 </TableRow>
               )}
               {!isLoading && rows.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
+                  <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
                     No customers found.
                   </TableCell>
                 </TableRow>
@@ -205,6 +229,7 @@ function CustomersPage() {
                   <TableCell className="font-medium">{c.name}</TableCell>
                   <TableCell>{c.email || "—"}</TableCell>
                   <TableCell>{c.phone || "—"}</TableCell>
+                  <TableCell>{c.sales?.name || "—"}</TableCell>
                   <TableCell className="text-xs text-muted-foreground">
                     {formatDate(c.created_at)}
                   </TableCell>
@@ -302,6 +327,25 @@ function CustomersPage() {
                     placeholder="e.g. 081234567890"
                   />
                 </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="sales_id">Sales *</Label>
+                <Select
+                  value={form.sales_id}
+                  onValueChange={(v) => setForm((f) => ({ ...f, sales_id: v }))}
+                >
+                  <SelectTrigger id="sales_id">
+                    <SelectValue placeholder="Select sales person" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {salesUsers.map((u) => (
+                      <SelectItem key={u.id} value={u.id}>
+                        {u.name} {u.email ? `(${u.email})` : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="space-y-2">
