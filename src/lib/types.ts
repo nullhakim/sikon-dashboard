@@ -49,6 +49,7 @@ export interface User {
 export interface OrderItem {
   id?: string;
   product_id: string;
+  product?: Product;
   product_name?: string;
   qty: number;
   price: number;
@@ -67,6 +68,7 @@ export interface Payment {
   payment_date?: string;
   created_at?: string;
   updated_at?: string;
+  order?: Order;
 }
 
 export interface Order {
