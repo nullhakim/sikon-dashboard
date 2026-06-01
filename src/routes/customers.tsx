@@ -25,9 +25,16 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { customersService } from "@/lib/services";
+import { customersService, usersService } from "@/lib/services";
 import { formatDate } from "@/lib/format";
 import type { Customer } from "@/lib/types";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export const Route = createFileRoute("/customers")({
   head: () => ({
@@ -44,6 +51,7 @@ interface FormState {
   email: string;
   phone: string;
   address: string;
+  sales_id: string;
 }
 
 const emptyForm: FormState = {
@@ -51,6 +59,7 @@ const emptyForm: FormState = {
   email: "",
   phone: "",
   address: "",
+  sales_id: "",
 };
 
 function CustomersPage() {
