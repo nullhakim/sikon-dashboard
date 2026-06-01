@@ -35,6 +35,8 @@ export interface Customer {
   phone?: string;
   email?: string;
   address?: string;
+  sales_id?: string;
+  sales?: User;
   created_at?: string;
 }
 
