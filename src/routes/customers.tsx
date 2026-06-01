@@ -76,6 +76,14 @@ function CustomersPage() {
     queryFn: () => customersService.list({ page, limit }),
   });
 
+  const { data: usersData } = useQuery({
+    queryKey: ["users", { limit: 100 }],
+    queryFn: () => usersService.list({ page: 1, limit: 100 }),
+  });
+  const salesUsers = (usersData?.data ?? []).filter(
+    (u) => !u.role || u.role === "sales"
+  );
+
   const createMut = useMutation({
     mutationFn: (body: Partial<Customer>) => customersService.create(body),
     onSuccess: () => {
