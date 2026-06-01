@@ -287,16 +287,57 @@ export async function generateInvoicePDF({
   doc.text("Hormat Kami,", pageWidth - margin, sigY, { align: "right" });
   doc.text("Manager WIFT Indonesia", pageWidth - margin, sigY + 5, { align: "right" });
 
+  // Stempel (stamp) — left of signature name
+  if (withStamp) {
+    const stempelData = await loadImageDataURL("/assets/stempel-wift.png");
+    if (stempelData) {
+      try {
+        const size = 35;
+        doc.addImage(
+          stempelData,
+          "PNG",
+          pageWidth - margin - 70,
+          sigY + 5,
+          size,
+          size,
+        );
+      } catch {
+        // ignore
+      }
+    }
+  }
+
+  // Signature image — above the name
+  if (withSignature) {
+    const sigData = await loadImageDataURL("/assets/ttd-manager.png");
+    if (sigData) {
+      try {
+        const w = 35;
+        const h = 25;
+        doc.addImage(
+          sigData,
+          "PNG",
+          pageWidth - margin - 25 - w / 2,
+          sigY + 7,
+          w,
+          h,
+        );
+      } catch {
+        // ignore
+      }
+    }
+  }
+
   doc.setFont("helvetica", "bold");
   doc.text("( Yusri Siti Aisyah., S.Ak )", pageWidth - margin - 25, sigY + 35, {
     align: "center",
   });
 
   // === 7. WATERMARK LUNAS ===
-  if (sisa <= 0 && amountPaid > 0) {
+  if (sisa <= 0) {
     doc.saveGraphicsState();
-    doc.setGState(new (doc as any).GState({ opacity: 0.1 }));
-    doc.setFontSize(100);
+    doc.setGState(new (doc as any).GState({ opacity: 0.15 }));
+    doc.setFontSize(120);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(34, 197, 94);
     doc.text("LUNAS", pageWidth / 2, pageHeight / 2 + 20, {
@@ -305,6 +346,7 @@ export async function generateInvoicePDF({
     });
     doc.restoreGraphicsState();
   }
+
 
   // === 8. FOOTER ===
   doc.setTextColor(150, 150, 150);
