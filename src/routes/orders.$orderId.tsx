@@ -442,6 +442,31 @@ function OrderDetailPage() {
         </Card>
       </div>
 
+      {(order.valid_until || order.terms_conditions) && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Quotation</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            {order.valid_until && (
+              <p>
+                <span className="text-muted-foreground">Valid until:</span>{" "}
+                <span className="font-medium">{formatDate(order.valid_until)}</span>
+              </p>
+            )}
+            {order.terms_conditions && (
+              <div>
+                <p className="text-muted-foreground mb-1">Terms &amp; Conditions:</p>
+                <p className="whitespace-pre-wrap rounded-md bg-muted/40 p-3 text-sm">
+                  {order.terms_conditions}
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+
       {/* Items */}
       <Card>
         <CardHeader className="pb-3">
