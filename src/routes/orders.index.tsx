@@ -309,9 +309,26 @@ function CreateOrderDialog({ open, onClose }: { open: boolean; onClose: () => vo
                   <Label>Address</Label>
                   <Textarea rows={2} value={address} onChange={(e) => setAddress(e.target.value)} />
                 </div>
-                <div className="space-y-2 sm:col-span-2">
+                <div className="space-y-2">
+                  <Label>Valid Until (Quotation)</Label>
+                  <Input
+                    type="datetime-local"
+                    value={validUntil}
+                    onChange={(e) => setValidUntil(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
                   <Label>Notes</Label>
                   <Textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} />
+                </div>
+                <div className="space-y-2 sm:col-span-2">
+                  <Label>Terms &amp; Conditions</Label>
+                  <Textarea
+                    rows={3}
+                    placeholder="Pembayaran 50% DP, sisa pada saat pengiriman, dll."
+                    value={termsConditions}
+                    onChange={(e) => setTermsConditions(e.target.value)}
+                  />
                 </div>
               </CardContent>
             </Card>
