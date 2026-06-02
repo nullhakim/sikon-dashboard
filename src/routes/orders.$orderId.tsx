@@ -375,6 +375,18 @@ function OrderDetailPage() {
           <Button variant="outline" onClick={() => setEditOpen(true)}>
             <Pencil className="h-4 w-4 mr-1" /> Edit
           </Button>
+          <Button
+            variant="outline"
+            onClick={() =>
+              printQuotation({
+                order,
+                items: order.items ?? [],
+                customer: order.customer ?? null,
+              })
+            }
+          >
+            <Printer className="h-4 w-4 mr-1" /> Print Quotation
+          </Button>
           <Button variant="outline" onClick={() => setPdfOpen(true)}>
             <FileDown className="h-4 w-4 mr-1" /> Invoice PDF
           </Button>
