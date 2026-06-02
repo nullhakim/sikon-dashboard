@@ -1,6 +1,6 @@
 // Domain types derived from the SIKOn OpenAPI spec.
 
-export type OrderStatus = "pending" | "production" | "completed" | "canceled";
+export type OrderStatus = "quotation" | "pending" | "production" | "completed" | "canceled";
 export type PaymentType = "dp" | "settlement" | "installment";
 
 export interface Category {
@@ -87,6 +87,8 @@ export interface Order {
   courier_name?: string;
   shipping_address?: string;
   notes?: string;
+  valid_until?: string;
+  terms_conditions?: string;
   items?: OrderItem[];
   payments?: Payment[];
   created_at?: string;
