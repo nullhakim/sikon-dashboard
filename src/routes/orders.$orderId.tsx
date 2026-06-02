@@ -6,6 +6,7 @@ import {
   Pencil,
   Plus,
   FileDown,
+  Printer,
   Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -45,6 +46,7 @@ import {
 } from "@/lib/services";
 import { formatIDR, formatDate, formatDateISO, datetimeLocalToISO } from "@/lib/format";
 import { generateInvoicePDF } from "@/lib/invoice";
+import { printQuotation } from "@/lib/quotation";
 import { UpdateOrderDialog } from "@/routes/orders.index";
 
 export const Route = createFileRoute("/orders/$orderId")({
@@ -60,6 +62,7 @@ export const Route = createFileRoute("/orders/$orderId")({
 const paymentTypeList = ["dp", "settlement", "installment"] as const;
 
 const statusVariant: Record<string, string> = {
+  quotation: "bg-violet-100 text-violet-800 border-violet-200",
   pending: "bg-amber-100 text-amber-800 border-amber-200",
   production: "bg-blue-100 text-blue-800 border-blue-200",
   completed: "bg-emerald-100 text-emerald-800 border-emerald-200",
@@ -372,6 +375,18 @@ function OrderDetailPage() {
           <Button variant="outline" onClick={() => setEditOpen(true)}>
             <Pencil className="h-4 w-4 mr-1" /> Edit
           </Button>
+          <Button
+            variant="outline"
+            onClick={() =>
+              printQuotation({
+                order,
+                items: order.items ?? [],
+                customer: order.customer ?? null,
+              })
+            }
+          >
+            <Printer className="h-4 w-4 mr-1" /> Print Quotation
+          </Button>
           <Button variant="outline" onClick={() => setPdfOpen(true)}>
             <FileDown className="h-4 w-4 mr-1" /> Invoice PDF
           </Button>
@@ -426,6 +441,31 @@ function OrderDetailPage() {
           </CardContent>
         </Card>
       </div>
+
+      {(order.valid_until || order.terms_conditions) && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Quotation</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            {order.valid_until && (
+              <p>
+                <span className="text-muted-foreground">Valid until:</span>{" "}
+                <span className="font-medium">{formatDate(order.valid_until)}</span>
+              </p>
+            )}
+            {order.terms_conditions && (
+              <div>
+                <p className="text-muted-foreground mb-1">Terms &amp; Conditions:</p>
+                <p className="whitespace-pre-wrap rounded-md bg-muted/40 p-3 text-sm">
+                  {order.terms_conditions}
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
 
       {/* Items */}
       <Card>

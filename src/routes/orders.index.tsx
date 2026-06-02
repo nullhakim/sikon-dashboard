@@ -35,7 +35,7 @@ import { Textarea } from "@/components/ui/textarea";
 // ScrollArea import removed
 
 import { ordersService, customersService, productsService, usersService } from "@/lib/services";
-import { formatIDR, formatDate } from "@/lib/format";
+import { formatIDR, formatDate, datetimeLocalToISO, isoToDatetimeLocal } from "@/lib/format";
 import type { OrderStatus } from "@/lib/types";
 
 export const Route = createFileRoute("/orders/")({
@@ -48,9 +48,10 @@ export const Route = createFileRoute("/orders/")({
   component: OrdersPage,
 });
 
-const statusList: OrderStatus[] = ["pending", "production", "completed", "canceled"];
+const statusList: OrderStatus[] = ["quotation", "pending", "production", "completed", "canceled"];
 
 const statusVariant: Record<string, string> = {
+  quotation: "bg-violet-100 text-violet-800 border-violet-200",
   pending: "bg-amber-100 text-amber-800 border-amber-200",
   production: "bg-blue-100 text-blue-800 border-blue-200",
   completed: "bg-emerald-100 text-emerald-800 border-emerald-200",
@@ -177,6 +178,8 @@ function CreateOrderDialog({ open, onClose }: { open: boolean; onClose: () => vo
   const [shippingCost, setShippingCost] = useState<number | "">("");
   const [address, setAddress] = useState("");
   const [note, setNote] = useState("");
+  const [validUntil, setValidUntil] = useState("");
+  const [termsConditions, setTermsConditions] = useState("");
   const [items, setItems] = useState<Item[]>([{ product_id: "", qty: 1, price: 0, details: [] }]);
   const [activeDetailIndex, setActiveDetailIndex] = useState<number | null>(null);
 
@@ -188,6 +191,8 @@ function CreateOrderDialog({ open, onClose }: { open: boolean; onClose: () => vo
       setShippingCost("");
       setAddress("");
       setNote("");
+      setValidUntil("");
+      setTermsConditions("");
       setItems([{ product_id: "", qty: 1, price: 0, details: [] }]);
       setActiveDetailIndex(null);
     }
@@ -205,6 +210,8 @@ function CreateOrderDialog({ open, onClose }: { open: boolean; onClose: () => vo
         shipping_cost: Number(shippingCost) || 0,
         shipping_address: address || undefined,
         notes: note || undefined,
+        valid_until: datetimeLocalToISO(validUntil),
+        terms_conditions: termsConditions || undefined,
         items: items.filter((i) => i.product_id && i.qty > 0).map(i => {
           const parsedDetails = i.details.reduce((acc, curr) => {
             if (curr.key.trim()) acc[curr.key.trim()] = curr.value.trim();
@@ -302,9 +309,26 @@ function CreateOrderDialog({ open, onClose }: { open: boolean; onClose: () => vo
                   <Label>Address</Label>
                   <Textarea rows={2} value={address} onChange={(e) => setAddress(e.target.value)} />
                 </div>
-                <div className="space-y-2 sm:col-span-2">
+                <div className="space-y-2">
+                  <Label>Valid Until (Quotation)</Label>
+                  <Input
+                    type="datetime-local"
+                    value={validUntil}
+                    onChange={(e) => setValidUntil(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
                   <Label>Notes</Label>
                   <Textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} />
+                </div>
+                <div className="space-y-2 sm:col-span-2">
+                  <Label>Terms &amp; Conditions</Label>
+                  <Textarea
+                    rows={3}
+                    placeholder="Pembayaran 50% DP, sisa pada saat pengiriman, dll."
+                    value={termsConditions}
+                    onChange={(e) => setTermsConditions(e.target.value)}
+                  />
                 </div>
               </CardContent>
             </Card>
@@ -453,6 +477,8 @@ export function UpdateOrderDialog({
     shipping_cost: 0,
     shipping_address: "",
     notes: "",
+    valid_until: "",
+    terms_conditions: "",
   });
   const [items, setItems] = useState<Item[]>([]);
   const [activeDetailIndex, setActiveDetailIndex] = useState<number | null>(null);
@@ -464,6 +490,8 @@ export function UpdateOrderDialog({
         shipping_cost: order.shipping_cost || 0,
         shipping_address: order.shipping_address || "",
         notes: order.notes || "",
+        valid_until: isoToDatetimeLocal(order.valid_until),
+        terms_conditions: order.terms_conditions || "",
       });
       if (order.items) {
         setItems(order.items.map((i: any) => ({
@@ -518,6 +546,8 @@ export function UpdateOrderDialog({
       shipping_cost: Number(form.shipping_cost) || 0,
       shipping_address: form.shipping_address || undefined,
       notes: form.notes || undefined,
+      valid_until: datetimeLocalToISO(form.valid_until),
+      terms_conditions: form.terms_conditions || undefined,
     });
   }
 
@@ -642,12 +672,29 @@ export function UpdateOrderDialog({
                       onChange={(e) => setForm({ ...form, shipping_address: e.target.value })}
                     />
                   </div>
-                  <div className="space-y-2 sm:col-span-2">
+                  <div className="space-y-2">
+                    <Label>Valid Until (Quotation)</Label>
+                    <Input
+                      type="datetime-local"
+                      value={form.valid_until}
+                      onChange={(e) => setForm({ ...form, valid_until: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
                     <Label>Order Note</Label>
                     <Textarea
                       rows={2}
                       value={form.notes}
                       onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label>Terms &amp; Conditions</Label>
+                    <Textarea
+                      rows={3}
+                      placeholder="Pembayaran 50% DP, sisa pada saat pengiriman, dll."
+                      value={form.terms_conditions}
+                      onChange={(e) => setForm({ ...form, terms_conditions: e.target.value })}
                     />
                   </div>
                 </div>
