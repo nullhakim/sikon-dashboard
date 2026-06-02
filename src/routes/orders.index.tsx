@@ -672,12 +672,29 @@ export function UpdateOrderDialog({
                       onChange={(e) => setForm({ ...form, shipping_address: e.target.value })}
                     />
                   </div>
-                  <div className="space-y-2 sm:col-span-2">
+                  <div className="space-y-2">
+                    <Label>Valid Until (Quotation)</Label>
+                    <Input
+                      type="datetime-local"
+                      value={form.valid_until}
+                      onChange={(e) => setForm({ ...form, valid_until: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
                     <Label>Order Note</Label>
                     <Textarea
                       rows={2}
                       value={form.notes}
                       onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label>Terms &amp; Conditions</Label>
+                    <Textarea
+                      rows={3}
+                      placeholder="Pembayaran 50% DP, sisa pada saat pengiriman, dll."
+                      value={form.terms_conditions}
+                      onChange={(e) => setForm({ ...form, terms_conditions: e.target.value })}
                     />
                   </div>
                 </div>
