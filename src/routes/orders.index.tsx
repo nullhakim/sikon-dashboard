@@ -35,7 +35,7 @@ import { Textarea } from "@/components/ui/textarea";
 // ScrollArea import removed
 
 import { ordersService, customersService, productsService, usersService } from "@/lib/services";
-import { formatIDR, formatDate } from "@/lib/format";
+import { formatIDR, formatDate, datetimeLocalToISO, isoToDatetimeLocal } from "@/lib/format";
 import type { OrderStatus } from "@/lib/types";
 
 export const Route = createFileRoute("/orders/")({
@@ -48,9 +48,10 @@ export const Route = createFileRoute("/orders/")({
   component: OrdersPage,
 });
 
-const statusList: OrderStatus[] = ["pending", "production", "completed", "canceled"];
+const statusList: OrderStatus[] = ["quotation", "pending", "production", "completed", "canceled"];
 
 const statusVariant: Record<string, string> = {
+  quotation: "bg-violet-100 text-violet-800 border-violet-200",
   pending: "bg-amber-100 text-amber-800 border-amber-200",
   production: "bg-blue-100 text-blue-800 border-blue-200",
   completed: "bg-emerald-100 text-emerald-800 border-emerald-200",
