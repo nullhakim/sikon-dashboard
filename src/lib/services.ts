@@ -91,6 +91,8 @@ export const ordersService = {
     courier_name?: string;
     shipping_address?: string;
     notes?: string;
+    valid_until?: string;
+    terms_conditions?: string;
     items: { product_id: string; qty: number; price: number; details?: Record<string, string> }[];
   }) => api.post<ApiSuccess<unknown>>("/orders", body),
   update: (
@@ -102,6 +104,8 @@ export const ordersService = {
       courier_name?: string;
       shipping_address?: string;
       notes?: string;
+      valid_until?: string;
+      terms_conditions?: string;
       items: { product_id: string; qty: number; price: number; details?: Record<string, any> }[];
     }
   ) => api.put<ApiSuccess<unknown>>(`/orders/${id}`, body),
