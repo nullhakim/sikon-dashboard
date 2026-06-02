@@ -178,6 +178,8 @@ function CreateOrderDialog({ open, onClose }: { open: boolean; onClose: () => vo
   const [shippingCost, setShippingCost] = useState<number | "">("");
   const [address, setAddress] = useState("");
   const [note, setNote] = useState("");
+  const [validUntil, setValidUntil] = useState("");
+  const [termsConditions, setTermsConditions] = useState("");
   const [items, setItems] = useState<Item[]>([{ product_id: "", qty: 1, price: 0, details: [] }]);
   const [activeDetailIndex, setActiveDetailIndex] = useState<number | null>(null);
 
@@ -189,6 +191,8 @@ function CreateOrderDialog({ open, onClose }: { open: boolean; onClose: () => vo
       setShippingCost("");
       setAddress("");
       setNote("");
+      setValidUntil("");
+      setTermsConditions("");
       setItems([{ product_id: "", qty: 1, price: 0, details: [] }]);
       setActiveDetailIndex(null);
     }
@@ -206,6 +210,8 @@ function CreateOrderDialog({ open, onClose }: { open: boolean; onClose: () => vo
         shipping_cost: Number(shippingCost) || 0,
         shipping_address: address || undefined,
         notes: note || undefined,
+        valid_until: datetimeLocalToISO(validUntil),
+        terms_conditions: termsConditions || undefined,
         items: items.filter((i) => i.product_id && i.qty > 0).map(i => {
           const parsedDetails = i.details.reduce((acc, curr) => {
             if (curr.key.trim()) acc[curr.key.trim()] = curr.value.trim();
