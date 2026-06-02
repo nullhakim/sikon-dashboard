@@ -6,6 +6,7 @@ import {
   Pencil,
   Plus,
   FileDown,
+  Printer,
   Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -45,6 +46,7 @@ import {
 } from "@/lib/services";
 import { formatIDR, formatDate, formatDateISO, datetimeLocalToISO } from "@/lib/format";
 import { generateInvoicePDF } from "@/lib/invoice";
+import { printQuotation } from "@/lib/quotation";
 import { UpdateOrderDialog } from "@/routes/orders.index";
 
 export const Route = createFileRoute("/orders/$orderId")({
@@ -60,6 +62,7 @@ export const Route = createFileRoute("/orders/$orderId")({
 const paymentTypeList = ["dp", "settlement", "installment"] as const;
 
 const statusVariant: Record<string, string> = {
+  quotation: "bg-violet-100 text-violet-800 border-violet-200",
   pending: "bg-amber-100 text-amber-800 border-amber-200",
   production: "bg-blue-100 text-blue-800 border-blue-200",
   completed: "bg-emerald-100 text-emerald-800 border-emerald-200",
