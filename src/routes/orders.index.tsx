@@ -477,6 +477,8 @@ export function UpdateOrderDialog({
     shipping_cost: 0,
     shipping_address: "",
     notes: "",
+    valid_until: "",
+    terms_conditions: "",
   });
   const [items, setItems] = useState<Item[]>([]);
   const [activeDetailIndex, setActiveDetailIndex] = useState<number | null>(null);
@@ -488,6 +490,8 @@ export function UpdateOrderDialog({
         shipping_cost: order.shipping_cost || 0,
         shipping_address: order.shipping_address || "",
         notes: order.notes || "",
+        valid_until: isoToDatetimeLocal(order.valid_until),
+        terms_conditions: order.terms_conditions || "",
       });
       if (order.items) {
         setItems(order.items.map((i: any) => ({
@@ -542,6 +546,8 @@ export function UpdateOrderDialog({
       shipping_cost: Number(form.shipping_cost) || 0,
       shipping_address: form.shipping_address || undefined,
       notes: form.notes || undefined,
+      valid_until: datetimeLocalToISO(form.valid_until),
+      terms_conditions: form.terms_conditions || undefined,
     });
   }
 
