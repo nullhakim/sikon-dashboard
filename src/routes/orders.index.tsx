@@ -214,24 +214,37 @@ function CreateOrderDialog({ open, onClose, mode }: { open: boolean; onClose: ()
         shipping_cost: Number(shippingCost) || 0,
         shipping_address: address || undefined,
         notes: note || undefined,
-        valid_until: datetimeLocalToISO(validUntil),
-        terms_conditions: termsConditions || undefined,
+        valid_until: isQuotation ? datetimeLocalToISO(validUntil) : undefined,
+        terms_conditions: isQuotation ? (termsConditions || undefined) : undefined,
+        ...(isQuotation ? { order_status: "QUOTATION" } : {}),
         items: items.filter((i) => i.product_id && i.qty > 0).map(i => {
           const parsedDetails = i.details.reduce((acc, curr) => {
             if (curr.key.trim()) acc[curr.key.trim()] = curr.value.trim();
             return acc;
           }, {} as Record<string, string>);
-          
-          return {
+
+          const base = {
             product_id: i.product_id,
             qty: i.qty,
             price: i.price,
-            details: Object.keys(parsedDetails).length > 0 ? parsedDetails : undefined
+            details: Object.keys(parsedDetails).length > 0 ? parsedDetails : undefined,
           };
+
+          if (isQuotation) {
+            const specifications: Record<string, string> = {};
+            if (i.bahan_kemeja?.trim()) specifications["Bahan Kemeja"] = i.bahan_kemeja.trim();
+            if (i.bordir?.trim()) specifications["Bordir"] = i.bordir.trim();
+            if (i.jahitan?.trim()) specifications["Jahitan"] = i.jahitan.trim();
+            return {
+              ...base,
+              specifications: Object.keys(specifications).length > 0 ? specifications : undefined,
+            };
+          }
+          return base;
         }),
       }),
     onSuccess: () => {
-      toast.success("Order created");
+      toast.success(isQuotation ? "Quotation created" : "Order created");
       qc.invalidateQueries({ queryKey: ["orders"] });
       onClose();
     },
