@@ -840,9 +840,14 @@ function OrdersPage() {
             Track every order from intake through delivery.
           </p>
         </div>
-        <Button onClick={() => setCreateOpen(true)}>
-          <Plus className="mr-1 h-4 w-4" /> New Order
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setCreateMode("quotation")}>
+            <Plus className="mr-1 h-4 w-4" /> New Quotation
+          </Button>
+          <Button onClick={() => setCreateMode("order")}>
+            <Plus className="mr-1 h-4 w-4" /> New Order
+          </Button>
+        </div>
       </div>
 
       <Card>
