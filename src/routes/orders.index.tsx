@@ -157,7 +157,8 @@ function ItemDetailsDialog({
   );
 }
 
-function CreateOrderDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+function CreateOrderDialog({ open, onClose, mode }: { open: boolean; onClose: () => void; mode: "quotation" | "order" }) {
+  const isQuotation = mode === "quotation";
   const qc = useQueryClient();
   const customers = useQuery({
     queryKey: ["customers", { page: 1, limit: 100 }],
