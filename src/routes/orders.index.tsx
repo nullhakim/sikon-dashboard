@@ -370,63 +370,93 @@ function CreateOrderDialog({ open, onClose, mode }: { open: boolean; onClose: ()
               </CardHeader>
               <CardContent className="space-y-3">
                 {items.map((it, idx) => (
-                  <div key={idx} className="grid gap-3 sm:grid-cols-[1fr_80px_120px_auto_auto] items-end">
-                    <div className="space-y-1">
-                      <Label className="text-xs">Product</Label>
-                      <Select
-                        value={it.product_id}
-                        onValueChange={(v) => {
-                          const p = products.data?.data?.find((x) => x.id === v);
-                          updateItem(idx, { product_id: v, price: p?.base_price ?? it.price });
-                        }}
+                  <div key={idx} className="space-y-2 rounded-md border p-3">
+                    <div className="grid gap-3 sm:grid-cols-[1fr_80px_120px_auto_auto] items-end">
+                      <div className="space-y-1">
+                        <Label className="text-xs">Product</Label>
+                        <Select
+                          value={it.product_id}
+                          onValueChange={(v) => {
+                            const p = products.data?.data?.find((x) => x.id === v);
+                            updateItem(idx, { product_id: v, price: p?.base_price ?? it.price });
+                          }}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select product" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {products.data?.data?.map((p) => (
+                              <SelectItem key={p.id} value={p.id}>
+                                {p.name} — {formatIDR(p.base_price)}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Qty</Label>
+                        <Input
+                          type="number"
+                          min={1}
+                          value={it.qty}
+                          onChange={(e) => updateItem(idx, { qty: Number(e.target.value) })}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Price</Label>
+                        <Input
+                          type="number"
+                          min={0}
+                          value={it.price}
+                          onChange={(e) => updateItem(idx, { price: Number(e.target.value) })}
+                        />
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setActiveDetailIndex(idx)}
                       >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select product" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {products.data?.data?.map((p) => (
-                            <SelectItem key={p.id} value={p.id}>
-                              {p.name} — {formatIDR(p.base_price)}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                        Details ({it.details.length})
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="text-muted-foreground hover:text-destructive"
+                        onClick={() => setItems((arr) => arr.filter((_, i) => i !== idx))}
+                        disabled={items.length === 1}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs">Qty</Label>
-                      <Input
-                        type="number"
-                        min={1}
-                        value={it.qty}
-                        onChange={(e) => updateItem(idx, { qty: Number(e.target.value) })}
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs">Price</Label>
-                      <Input
-                        type="number"
-                        min={0}
-                        value={it.price}
-                        onChange={(e) => updateItem(idx, { price: Number(e.target.value) })}
-                      />
-                    </div>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => setActiveDetailIndex(idx)}
-                    >
-                      Details ({it.details.length})
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="text-muted-foreground hover:text-destructive"
-                      onClick={() => setItems((arr) => arr.filter((_, i) => i !== idx))}
-                      disabled={items.length === 1}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    {isQuotation && (
+                      <div className="grid gap-3 sm:grid-cols-3 pt-2 border-t">
+                        <div className="space-y-1">
+                          <Label className="text-xs">Bahan Kemeja</Label>
+                          <Input
+                            placeholder="mis. Katun Oxford"
+                            value={it.bahan_kemeja ?? ""}
+                            onChange={(e) => updateItem(idx, { bahan_kemeja: e.target.value })}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Bordir</Label>
+                          <Input
+                            placeholder="mis. Logo dada kiri"
+                            value={it.bordir ?? ""}
+                            onChange={(e) => updateItem(idx, { bordir: e.target.value })}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Jahitan</Label>
+                          <Input
+                            placeholder="mis. Jahit rapi double"
+                            value={it.jahitan ?? ""}
+                            onChange={(e) => updateItem(idx, { jahitan: e.target.value })}
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ))}
 
