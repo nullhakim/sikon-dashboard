@@ -79,6 +79,9 @@ interface Item {
   qty: number;
   price: number;
   details: ItemDetail[];
+  bahan_kemeja?: string;
+  bordir?: string;
+  jahitan?: string;
 }
 
 function ItemDetailsDialog({
