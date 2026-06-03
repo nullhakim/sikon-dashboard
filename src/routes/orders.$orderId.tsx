@@ -46,7 +46,7 @@ import {
 } from "@/lib/services";
 import { formatIDR, formatDate, formatDateISO, datetimeLocalToISO } from "@/lib/format";
 import { generateInvoicePDF } from "@/lib/invoice";
-import { printQuotation } from "@/lib/quotation";
+import { QuotationPdfDialog } from "@/components/QuotationPdfDialog";
 import { UpdateOrderDialog } from "@/routes/orders.index";
 
 export const Route = createFileRoute("/orders/$orderId")({
@@ -272,6 +272,7 @@ function OrderDetailPage() {
   const [editOpen, setEditOpen] = useState(false);
   const [payOpen, setPayOpen] = useState(false);
   const [pdfOpen, setPdfOpen] = useState(false);
+  const [quotationOpen, setQuotationOpen] = useState(false);
   const [withStamp, setWithStamp] = useState(false);
   const [withSignature, setWithSignature] = useState(false);
   const [generating, setGenerating] = useState(false);
@@ -377,15 +378,9 @@ function OrderDetailPage() {
           </Button>
           <Button
             variant="outline"
-            onClick={() =>
-              printQuotation({
-                order,
-                items: order.items ?? [],
-                customer: order.customer ?? null,
-              })
-            }
+            onClick={() => setQuotationOpen(true)}
           >
-            <Printer className="h-4 w-4 mr-1" /> Print Quotation
+            <Printer className="h-4 w-4 mr-1" /> Surat Penawaran
           </Button>
           <Button variant="outline" onClick={() => setPdfOpen(true)}>
             <FileDown className="h-4 w-4 mr-1" /> Invoice PDF
@@ -679,6 +674,15 @@ function OrderDetailPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <QuotationPdfDialog
+        open={quotationOpen}
+        onClose={() => setQuotationOpen(false)}
+        order={order}
+        items={order.items ?? []}
+        customer={order.customer ?? null}
+      />
+
 
     </div>
   );
