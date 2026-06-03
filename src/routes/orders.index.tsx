@@ -995,9 +995,10 @@ function OrdersPage() {
       />
 
 
-      <CreateOrderDialog 
-        open={createOpen} 
-        onClose={() => setCreateOpen(false)} 
+      <CreateOrderDialog
+        open={createMode !== null}
+        onClose={() => setCreateMode(null)}
+        mode={createMode ?? "order"}
       />
     </div>
   );
