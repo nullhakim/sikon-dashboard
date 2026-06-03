@@ -675,6 +675,15 @@ function OrderDetailPage() {
         </DialogContent>
       </Dialog>
 
+      <QuotationPdfDialog
+        open={quotationOpen}
+        onClose={() => setQuotationOpen(false)}
+        order={order}
+        items={order.items ?? []}
+        customer={order.customer ?? null}
+      />
+
+
     </div>
   );
 }
