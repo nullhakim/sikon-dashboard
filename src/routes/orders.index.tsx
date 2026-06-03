@@ -484,7 +484,7 @@ function CreateOrderDialog({ open, onClose, mode }: { open: boolean; onClose: ()
             Cancel
           </Button>
           <Button type="submit" form="create-order-form" disabled={create.isPending}>
-            {create.isPending ? "Creating…" : "Create Order"}
+            {create.isPending ? "Creating…" : isQuotation ? "Buat Penawaran" : "Buat Pesanan"}
           </Button>
         </DialogFooter>
       </DialogContent>
