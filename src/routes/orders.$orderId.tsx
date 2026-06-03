@@ -272,6 +272,7 @@ function OrderDetailPage() {
   const [editOpen, setEditOpen] = useState(false);
   const [payOpen, setPayOpen] = useState(false);
   const [pdfOpen, setPdfOpen] = useState(false);
+  const [quotationOpen, setQuotationOpen] = useState(false);
   const [withStamp, setWithStamp] = useState(false);
   const [withSignature, setWithSignature] = useState(false);
   const [generating, setGenerating] = useState(false);
