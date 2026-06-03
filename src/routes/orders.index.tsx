@@ -268,8 +268,10 @@ function CreateOrderDialog({ open, onClose, mode }: { open: boolean; onClose: ()
       <Dialog open={open} onOpenChange={(v) => (v ? null : onClose())}>
       <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-0">
         <DialogHeader className="px-6 pt-6 pb-2 border-b">
-          <DialogTitle>New Order</DialogTitle>
-          <DialogDescription>Create a new order and its line items.</DialogDescription>
+          <DialogTitle>{isQuotation ? "Buat Penawaran" : "Buat Pesanan"}</DialogTitle>
+          <DialogDescription>
+            {isQuotation ? "Create a new quotation (Surat Penawaran)." : "Create a new direct order."}
+          </DialogDescription>
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto px-6 py-4">
