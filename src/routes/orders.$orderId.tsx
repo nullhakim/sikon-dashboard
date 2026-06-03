@@ -378,15 +378,9 @@ function OrderDetailPage() {
           </Button>
           <Button
             variant="outline"
-            onClick={() =>
-              printQuotation({
-                order,
-                items: order.items ?? [],
-                customer: order.customer ?? null,
-              })
-            }
+            onClick={() => setQuotationOpen(true)}
           >
-            <Printer className="h-4 w-4 mr-1" /> Print Quotation
+            <Printer className="h-4 w-4 mr-1" /> Surat Penawaran
           </Button>
           <Button variant="outline" onClick={() => setPdfOpen(true)}>
             <FileDown className="h-4 w-4 mr-1" /> Invoice PDF
