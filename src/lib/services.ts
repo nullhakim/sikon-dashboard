@@ -93,7 +93,8 @@ export const ordersService = {
     notes?: string;
     valid_until?: string;
     terms_conditions?: string;
-    items: { product_id: string; qty: number; price: number; details?: Record<string, string> }[];
+    order_status?: string;
+    items: { product_id: string; qty: number; price: number; details?: Record<string, any>; specifications?: Record<string, any> }[];
   }) => api.post<ApiSuccess<unknown>>("/orders", body),
   update: (
     id: string,
