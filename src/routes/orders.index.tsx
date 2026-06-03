@@ -802,7 +802,7 @@ function OrdersPage() {
   const qc = useQueryClient();
 
   const [editOrderId, setEditOrderId] = useState<string | null>(null);
-  const [createOpen, setCreateOpen] = useState(false);
+  const [createMode, setCreateMode] = useState<"quotation" | "order" | null>(null);
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ["orders", { page, limit }],
