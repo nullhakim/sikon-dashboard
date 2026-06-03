@@ -46,7 +46,7 @@ import {
 } from "@/lib/services";
 import { formatIDR, formatDate, formatDateISO, datetimeLocalToISO } from "@/lib/format";
 import { generateInvoicePDF } from "@/lib/invoice";
-import { printQuotation } from "@/lib/quotation";
+import { QuotationPdfDialog } from "@/components/QuotationPdfDialog";
 import { UpdateOrderDialog } from "@/routes/orders.index";
 
 export const Route = createFileRoute("/orders/$orderId")({
