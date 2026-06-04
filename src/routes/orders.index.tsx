@@ -435,17 +435,16 @@ export function UpdateOrderDialog({
   });
 
   const order = data?.data;
+  const isQuotation = (order?.order_status || "").toLowerCase() === "quotation";
 
   const [form, setForm] = useState({
     courier_name: "",
     shipping_cost: 0,
     shipping_address: "",
     notes: "",
-    valid_until: "",
     terms_conditions: "",
   });
   const [items, setItems] = useState<Item[]>([]);
-  const [activeDetailIndex, setActiveDetailIndex] = useState<number | null>(null);
 
   useEffect(() => {
     if (order) {
@@ -454,20 +453,27 @@ export function UpdateOrderDialog({
         shipping_cost: order.shipping_cost || 0,
         shipping_address: order.shipping_address || "",
         notes: order.notes || "",
-        valid_until: isoToDatetimeLocal(order.valid_until),
         terms_conditions: order.terms_conditions || "",
       });
       if (order.items) {
-        setItems(order.items.map((i: any) => ({
-          product_id: i.product_id,
-          qty: i.qty,
-          price: i.price,
-          details: i.details ? Object.entries(i.details).map(([k, v]) => ({ key: k, value: String(v) })) : []
-        })));
+        setItems(
+          order.items.map((i: any) => {
+            const d = (i.details || {}) as Record<string, string>;
+            return {
+              product_id: i.product_id,
+              qty: i.qty,
+              price: i.price,
+              bahan: d["Bahan"] ?? "",
+              warna: d["Warna"] ?? "",
+              bahan_kemeja: d["Bahan Kemeja"] ?? "",
+              bordir: d["Bordir"] ?? "",
+              benang: d["Benang"] ?? "",
+            };
+          }),
+        );
       }
     } else if (!open) {
       setItems([]);
-      setActiveDetailIndex(null);
     }
   }, [order, open]);
 
@@ -480,7 +486,7 @@ export function UpdateOrderDialog({
   const updateMut = useMutation({
     mutationFn: (body: any) => ordersService.update(orderId!, body),
     onSuccess: () => {
-      toast.success("Shipping details updated");
+      toast.success("Order updated");
       qc.invalidateQueries({ queryKey: ["order", orderId] });
       qc.invalidateQueries({ queryKey: ["orders"] });
     },
@@ -494,60 +500,53 @@ export function UpdateOrderDialog({
     updateMut.mutate({
       customer_id: order.customer_id,
       sales_id: order.sales_id || "",
-      items: items.filter((i) => i.product_id && i.qty > 0).map(i => {
-        const parsedDetails = i.details.reduce((acc, curr) => {
-          if (curr.key.trim()) acc[curr.key.trim()] = curr.value.trim();
-          return acc;
-        }, {} as Record<string, string>);
-        return {
+      items: items
+        .filter((i) => i.product_id && i.qty > 0)
+        .map((i) => ({
           product_id: i.product_id,
           qty: i.qty,
           price: i.price,
-          details: Object.keys(parsedDetails).length > 0 ? parsedDetails : undefined
-        };
-      }),
+          details: buildItemDetails(i, isQuotation),
+        })),
       courier_name: form.courier_name || undefined,
       shipping_cost: Number(form.shipping_cost) || 0,
       shipping_address: form.shipping_address || undefined,
       notes: form.notes || undefined,
-      valid_until: datetimeLocalToISO(form.valid_until),
-      terms_conditions: form.terms_conditions || undefined,
+      terms_conditions: isQuotation ? (form.terms_conditions || undefined) : undefined,
     });
   }
 
   return (
-    <>
-      <Dialog open={open} onOpenChange={(v) => (v ? null : onClose())}>
-        <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col p-0">
-          <DialogHeader className="px-6 pt-6 pb-2 border-b">
-            <DialogTitle>Update Order</DialogTitle>
-            <DialogDescription>
-              {order?.order_number ? `Editing: ${order.order_number}` : "Loading..."}
-            </DialogDescription>
-          </DialogHeader>
+    <Dialog open={open} onOpenChange={(v) => (v ? null : onClose())}>
+      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-0">
+        <DialogHeader className="px-6 pt-6 pb-2 border-b">
+          <DialogTitle>Update {isQuotation ? "Quotation" : "Order"}</DialogTitle>
+          <DialogDescription>
+            {order?.order_number ? `Editing: ${order.order_number}` : "Loading..."}
+          </DialogDescription>
+        </DialogHeader>
 
-          <div className="flex-1 overflow-y-auto px-6 py-4">
-            {isLoading || !order ? (
-              <div className="py-8 text-center text-muted-foreground">Loading details...</div>
-            ) : (
-              <div className="space-y-6">
-
-
-                <div>
-                  <div className="flex flex-row items-center justify-between mb-3">
-                    <h3 className="font-semibold">Line Items</h3>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setItems((arr) => [...arr, { product_id: "", qty: 1, price: 0, details: [] }])}
-                    >
-                      <Plus className="h-4 w-4 mr-1" /> Add item
-                    </Button>
-                  </div>
-                  <div className="space-y-3">
-                    {items.map((it, idx) => (
-                      <div key={idx} className="grid gap-3 sm:grid-cols-[1fr_80px_120px_auto_auto] items-end">
+        <div className="flex-1 overflow-y-auto px-6 py-4">
+          {isLoading || !order ? (
+            <div className="py-8 text-center text-muted-foreground">Loading details...</div>
+          ) : (
+            <div className="space-y-6">
+              <div>
+                <div className="flex flex-row items-center justify-between mb-3">
+                  <h3 className="font-semibold">Line Items</h3>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setItems((arr) => [...arr, { product_id: "", qty: 1, price: 0 }])}
+                  >
+                    <Plus className="h-4 w-4 mr-1" /> Add item
+                  </Button>
+                </div>
+                <div className="space-y-3">
+                  {items.map((it, idx) => (
+                    <div key={idx} className="space-y-3 rounded-md border p-3">
+                      <div className="grid gap-3 sm:grid-cols-[1fr_80px_120px_auto] items-end">
                         <div className="space-y-1">
                           <Label className="text-xs">Product</Label>
                           <Select
@@ -589,13 +588,6 @@ export function UpdateOrderDialog({
                         </div>
                         <Button
                           type="button"
-                          variant="outline"
-                          onClick={() => setActiveDetailIndex(idx)}
-                        >
-                          Details ({it.details.length})
-                        </Button>
-                        <Button
-                          type="button"
                           variant="ghost"
                           size="icon"
                           className="text-muted-foreground hover:text-destructive"
@@ -605,107 +597,136 @@ export function UpdateOrderDialog({
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
-                    ))}
-                  </div>
-                </div>
 
-                <form id="shipping-form" onSubmit={handleSubmit} className="space-y-4">
-                  <h3 className="font-semibold">Logistics & Notes</h3>
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label>Courier</Label>
-                      <Input
-                        value={form.courier_name}
-                        onChange={(e) => setForm({ ...form, courier_name: e.target.value })}
-                      />
+                      {isQuotation ? (
+                        <div className="grid gap-3 pt-2 border-t">
+                          <div className="space-y-1">
+                            <Label className="text-xs">Bahan Kemeja</Label>
+                            <Textarea
+                              rows={2}
+                              value={it.bahan_kemeja ?? ""}
+                              onChange={(e) => updateItem(idx, { bahan_kemeja: e.target.value })}
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Bordir</Label>
+                            <Textarea
+                              rows={2}
+                              value={it.bordir ?? ""}
+                              onChange={(e) => updateItem(idx, { bordir: e.target.value })}
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Benang</Label>
+                            <Textarea
+                              rows={2}
+                              value={it.benang ?? ""}
+                              onChange={(e) => updateItem(idx, { benang: e.target.value })}
+                            />
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="grid gap-3 sm:grid-cols-2 pt-2 border-t">
+                          <div className="space-y-1">
+                            <Label className="text-xs">Bahan</Label>
+                            <Input
+                              value={it.bahan ?? ""}
+                              onChange={(e) => updateItem(idx, { bahan: e.target.value })}
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Warna</Label>
+                            <Input
+                              value={it.warna ?? ""}
+                              onChange={(e) => updateItem(idx, { warna: e.target.value })}
+                            />
+                          </div>
+                        </div>
+                      )}
                     </div>
-                    <div className="space-y-2">
-                      <Label>Shipping Cost</Label>
-                      <Input
-                        type="number"
-                        min={0}
-                        value={form.shipping_cost}
-                        onChange={(e) => setForm({ ...form, shipping_cost: Number(e.target.value) })}
-                      />
-                    </div>
-                    <div className="space-y-2 sm:col-span-2">
-                      <Label>Address</Label>
-                      <Textarea
-                        rows={2}
-                        value={form.shipping_address}
-                        onChange={(e) => setForm({ ...form, shipping_address: e.target.value })}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Valid Until (Quotation)</Label>
-                      <Input
-                        type="datetime-local"
-                        value={form.valid_until}
-                        onChange={(e) => setForm({ ...form, valid_until: e.target.value })}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Order Note</Label>
-                      <Textarea
-                        rows={2}
-                        value={form.notes}
-                        onChange={(e) => setForm({ ...form, notes: e.target.value })}
-                      />
-                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <form id="shipping-form" onSubmit={handleSubmit} className="space-y-4">
+                <h3 className="font-semibold">Logistics & Notes</h3>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>Courier</Label>
+                    <Input
+                      value={form.courier_name}
+                      onChange={(e) => setForm({ ...form, courier_name: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Shipping Cost</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      value={form.shipping_cost}
+                      onChange={(e) => setForm({ ...form, shipping_cost: Number(e.target.value) })}
+                    />
+                  </div>
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label>Address</Label>
+                    <Textarea
+                      rows={2}
+                      value={form.shipping_address}
+                      onChange={(e) => setForm({ ...form, shipping_address: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label>Order Note</Label>
+                    <Textarea
+                      rows={2}
+                      value={form.notes}
+                      onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                    />
+                  </div>
+                  {isQuotation && (
                     <div className="space-y-2 sm:col-span-2">
                       <Label>Terms &amp; Conditions</Label>
                       <Textarea
                         rows={3}
-                        placeholder="Pembayaran 50% DP, sisa pada saat pengiriman, dll."
                         value={form.terms_conditions}
                         onChange={(e) => setForm({ ...form, terms_conditions: e.target.value })}
                       />
                     </div>
-                  </div>
-                </form>
+                  )}
+                </div>
+              </form>
 
-                <div className="rounded-lg border bg-muted/30 p-4 space-y-2 text-sm">
-                  <div className="flex items-center justify-between text-muted-foreground">
-                    <span>Subtotal</span>
-                    <span className="font-medium text-foreground">{formatIDR(subtotal)}</span>
-                  </div>
-                  <div className="flex items-center justify-between text-muted-foreground">
-                    <span>Shipping</span>
-                    <span className="font-medium text-foreground">{formatIDR(form.shipping_cost || 0)}</span>
-                  </div>
-                  <div className="flex items-center justify-between border-t pt-2 text-base font-semibold">
-                    <span>Total</span>
-                    <span>{formatIDR(total)}</span>
-                  </div>
+              <div className="rounded-lg border bg-muted/30 p-4 space-y-2 text-sm">
+                <div className="flex items-center justify-between text-muted-foreground">
+                  <span>Subtotal</span>
+                  <span className="font-medium text-foreground">{formatIDR(subtotal)}</span>
+                </div>
+                <div className="flex items-center justify-between text-muted-foreground">
+                  <span>Shipping</span>
+                  <span className="font-medium text-foreground">{formatIDR(form.shipping_cost || 0)}</span>
+                </div>
+                <div className="flex items-center justify-between border-t pt-2 text-base font-semibold">
+                  <span>Total</span>
+                  <span>{formatIDR(total)}</span>
                 </div>
               </div>
-            )}
-          </div>
+            </div>
+          )}
+        </div>
 
-          <DialogFooter className="px-6 py-4 border-t">
-            <Button type="button" variant="outline" onClick={onClose}>
-              Cancel
-            </Button>
-            <Button type="submit" form="shipping-form" disabled={updateMut.isPending || !order}>
-              {updateMut.isPending ? "Saving..." : "Save Changes"}
-            </Button>
-          </DialogFooter>
-
-        </DialogContent>
-      </Dialog>
-      <ItemDetailsDialog
-        open={activeDetailIndex !== null}
-        onClose={() => setActiveDetailIndex(null)}
-        details={activeDetailIndex !== null ? items[activeDetailIndex].details : []}
-        onSave={(newDetails) => {
-          if (activeDetailIndex !== null) {
-            updateItem(activeDetailIndex, { details: newDetails });
-          }
-        }}
-      />
-    </>
+        <DialogFooter className="px-6 py-4 border-t">
+          <Button type="button" variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="submit" form="shipping-form" disabled={updateMut.isPending || !order}>
+            {updateMut.isPending ? "Saving..." : "Save Changes"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
+
 
 function OrdersPage() {
   const [page, setPage] = useState(1);
