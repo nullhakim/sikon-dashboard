@@ -216,7 +216,7 @@ function CreateOrderDialog({ open, onClose, mode }: { open: boolean; onClose: ()
         notes: note || undefined,
         valid_until: isQuotation ? datetimeLocalToISO(validUntil) : undefined,
         terms_conditions: isQuotation ? (termsConditions || undefined) : undefined,
-        ...(isQuotation ? { order_status: "QUOTATION" } : {}),
+        ...(isQuotation ? { order_status: "quotation" } : {}),
         items: items.filter((i) => i.product_id && i.qty > 0).map(i => {
           const parsedDetails = i.details.reduce((acc, curr) => {
             if (curr.key.trim()) acc[curr.key.trim()] = curr.value.trim();
@@ -266,239 +266,239 @@ function CreateOrderDialog({ open, onClose, mode }: { open: boolean; onClose: ()
   return (
     <>
       <Dialog open={open} onOpenChange={(v) => (v ? null : onClose())}>
-      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-0">
-        <DialogHeader className="px-6 pt-6 pb-2 border-b">
-          <DialogTitle>{isQuotation ? "Buat Penawaran" : "Buat Pesanan"}</DialogTitle>
-          <DialogDescription>
-            {isQuotation ? "Create a new quotation (Surat Penawaran)." : "Create a new direct order."}
-          </DialogDescription>
-        </DialogHeader>
+        <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-0">
+          <DialogHeader className="px-6 pt-6 pb-2 border-b">
+            <DialogTitle>{isQuotation ? "Buat Penawaran" : "Buat Pesanan"}</DialogTitle>
+            <DialogDescription>
+              {isQuotation ? "Create a new quotation (Surat Penawaran)." : "Create a new direct order."}
+            </DialogDescription>
+          </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto px-6 py-4">
-          <form id="create-order-form" onSubmit={submit} className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Customer & Shipping</CardTitle>
-              </CardHeader>
-              <CardContent className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label>Customer</Label>
-                  <Select value={customerId} onValueChange={setCustomerId}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select customer" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {customers.data?.data?.map((c) => (
-                        <SelectItem key={c.id} value={c.id}>
-                          {c.name} {c.phone ? `· ${c.phone}` : ""}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Sales Person</Label>
-                  <Select value={salesId} onValueChange={setSalesId}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select sales" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {users.data?.data?.map((u) => (
-                        <SelectItem key={u.id} value={u.id}>
-                          {u.name} {u.role ? `(${u.role})` : ""}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Courier</Label>
-                  <Input value={courier} onChange={(e) => setCourier(e.target.value)} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Shipping Cost</Label>
-                  <Input
-                    type="number"
-                    min={0}
-                    value={shippingCost}
-                    onChange={(e) => setShippingCost(Number(e.target.value))}
-                  />
-                </div>
-                <div className="space-y-2 sm:col-span-2">
-                  <Label>Address</Label>
-                  <Textarea rows={2} value={address} onChange={(e) => setAddress(e.target.value)} />
-                </div>
-                {isQuotation && (
+          <div className="flex-1 overflow-y-auto px-6 py-4">
+            <form id="create-order-form" onSubmit={submit} className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Customer & Shipping</CardTitle>
+                </CardHeader>
+                <CardContent className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
-                    <Label>Valid Until (Quotation)</Label>
+                    <Label>Customer</Label>
+                    <Select value={customerId} onValueChange={setCustomerId}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select customer" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {customers.data?.data?.map((c) => (
+                          <SelectItem key={c.id} value={c.id}>
+                            {c.name} {c.phone ? `· ${c.phone}` : ""}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Sales Person</Label>
+                    <Select value={salesId} onValueChange={setSalesId}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select sales" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {users.data?.data?.map((u) => (
+                          <SelectItem key={u.id} value={u.id}>
+                            {u.name} {u.role ? `(${u.role})` : ""}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Courier</Label>
+                    <Input value={courier} onChange={(e) => setCourier(e.target.value)} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Shipping Cost</Label>
                     <Input
-                      type="datetime-local"
-                      value={validUntil}
-                      onChange={(e) => setValidUntil(e.target.value)}
+                      type="number"
+                      min={0}
+                      value={shippingCost}
+                      onChange={(e) => setShippingCost(Number(e.target.value))}
                     />
                   </div>
-                )}
-                <div className="space-y-2">
-                  <Label>Notes</Label>
-                  <Textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} />
-                </div>
-                {isQuotation && (
                   <div className="space-y-2 sm:col-span-2">
-                    <Label>Terms &amp; Conditions</Label>
-                    <Textarea
-                      rows={3}
-                      placeholder="Pembayaran 50% DP, sisa pada saat pengiriman, dll."
-                      value={termsConditions}
-                      onChange={(e) => setTermsConditions(e.target.value)}
-                    />
+                    <Label>Address</Label>
+                    <Textarea rows={2} value={address} onChange={(e) => setAddress(e.target.value)} />
                   </div>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle className="text-base">Items</CardTitle>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setItems((arr) => [...arr, { product_id: "", qty: 1, price: 0, details: [] }])}
-                >
-                  <Plus className="h-4 w-4 mr-1" /> Add item
-                </Button>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {items.map((it, idx) => (
-                  <div key={idx} className="space-y-2 rounded-md border p-3">
-                    <div className="grid gap-3 sm:grid-cols-[1fr_80px_120px_auto_auto] items-end">
-                      <div className="space-y-1">
-                        <Label className="text-xs">Product</Label>
-                        <Select
-                          value={it.product_id}
-                          onValueChange={(v) => {
-                            const p = products.data?.data?.find((x) => x.id === v);
-                            updateItem(idx, { product_id: v, price: p?.base_price ?? it.price });
-                          }}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select product" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {products.data?.data?.map((p) => (
-                              <SelectItem key={p.id} value={p.id}>
-                                {p.name} — {formatIDR(p.base_price)}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs">Qty</Label>
-                        <Input
-                          type="number"
-                          min={1}
-                          value={it.qty}
-                          onChange={(e) => updateItem(idx, { qty: Number(e.target.value) })}
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs">Price</Label>
-                        <Input
-                          type="number"
-                          min={0}
-                          value={it.price}
-                          onChange={(e) => updateItem(idx, { price: Number(e.target.value) })}
-                        />
-                      </div>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => setActiveDetailIndex(idx)}
-                      >
-                        Details ({it.details.length})
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="text-muted-foreground hover:text-destructive"
-                        onClick={() => setItems((arr) => arr.filter((_, i) => i !== idx))}
-                        disabled={items.length === 1}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                  {isQuotation && (
+                    <div className="space-y-2">
+                      <Label>Valid Until (Quotation)</Label>
+                      <Input
+                        type="datetime-local"
+                        value={validUntil}
+                        onChange={(e) => setValidUntil(e.target.value)}
+                      />
                     </div>
-                    {isQuotation && (
-                      <div className="grid gap-3 sm:grid-cols-3 pt-2 border-t">
+                  )}
+                  <div className="space-y-2">
+                    <Label>Notes</Label>
+                    <Textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} />
+                  </div>
+                  {isQuotation && (
+                    <div className="space-y-2 sm:col-span-2">
+                      <Label>Terms &amp; Conditions</Label>
+                      <Textarea
+                        rows={3}
+                        placeholder="Pembayaran 50% DP, sisa pada saat pengiriman, dll."
+                        value={termsConditions}
+                        onChange={(e) => setTermsConditions(e.target.value)}
+                      />
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <CardTitle className="text-base">Items</CardTitle>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setItems((arr) => [...arr, { product_id: "", qty: 1, price: 0, details: [] }])}
+                  >
+                    <Plus className="h-4 w-4 mr-1" /> Add item
+                  </Button>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {items.map((it, idx) => (
+                    <div key={idx} className="space-y-2 rounded-md border p-3">
+                      <div className="grid gap-3 sm:grid-cols-[1fr_80px_120px_auto_auto] items-end">
                         <div className="space-y-1">
-                          <Label className="text-xs">Bahan Kemeja</Label>
+                          <Label className="text-xs">Product</Label>
+                          <Select
+                            value={it.product_id}
+                            onValueChange={(v) => {
+                              const p = products.data?.data?.find((x) => x.id === v);
+                              updateItem(idx, { product_id: v, price: p?.base_price ?? it.price });
+                            }}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select product" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {products.data?.data?.map((p) => (
+                                <SelectItem key={p.id} value={p.id}>
+                                  {p.name} — {formatIDR(p.base_price)}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Qty</Label>
                           <Input
-                            placeholder="mis. Katun Oxford"
-                            value={it.bahan_kemeja ?? ""}
-                            onChange={(e) => updateItem(idx, { bahan_kemeja: e.target.value })}
+                            type="number"
+                            min={1}
+                            value={it.qty}
+                            onChange={(e) => updateItem(idx, { qty: Number(e.target.value) })}
                           />
                         </div>
                         <div className="space-y-1">
-                          <Label className="text-xs">Bordir</Label>
+                          <Label className="text-xs">Price</Label>
                           <Input
-                            placeholder="mis. Logo dada kiri"
-                            value={it.bordir ?? ""}
-                            onChange={(e) => updateItem(idx, { bordir: e.target.value })}
+                            type="number"
+                            min={0}
+                            value={it.price}
+                            onChange={(e) => updateItem(idx, { price: Number(e.target.value) })}
                           />
                         </div>
-                        <div className="space-y-1">
-                          <Label className="text-xs">Jahitan</Label>
-                          <Input
-                            placeholder="mis. Jahit rapi double"
-                            value={it.jahitan ?? ""}
-                            onChange={(e) => updateItem(idx, { jahitan: e.target.value })}
-                          />
-                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => setActiveDetailIndex(idx)}
+                        >
+                          Details ({it.details.length})
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="text-muted-foreground hover:text-destructive"
+                          onClick={() => setItems((arr) => arr.filter((_, i) => i !== idx))}
+                          disabled={items.length === 1}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
-                    )}
-                  </div>
-                ))}
+                      {isQuotation && (
+                        <div className="grid gap-3 sm:grid-cols-3 pt-2 border-t">
+                          <div className="space-y-1">
+                            <Label className="text-xs">Bahan Kemeja</Label>
+                            <Input
+                              placeholder="mis. Katun Oxford"
+                              value={it.bahan_kemeja ?? ""}
+                              onChange={(e) => updateItem(idx, { bahan_kemeja: e.target.value })}
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Bordir</Label>
+                            <Input
+                              placeholder="mis. Logo dada kiri"
+                              value={it.bordir ?? ""}
+                              onChange={(e) => updateItem(idx, { bordir: e.target.value })}
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Jahitan</Label>
+                            <Input
+                              placeholder="mis. Jahit rapi double"
+                              value={it.jahitan ?? ""}
+                              onChange={(e) => updateItem(idx, { jahitan: e.target.value })}
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
 
-                <div className="border-t pt-4 space-y-1 text-sm">
-                  <div className="flex justify-between text-muted-foreground">
-                    <span>Subtotal</span>
-                    <span>{formatIDR(subtotal)}</span>
+                  <div className="border-t pt-4 space-y-1 text-sm">
+                    <div className="flex justify-between text-muted-foreground">
+                      <span>Subtotal</span>
+                      <span>{formatIDR(subtotal)}</span>
+                    </div>
+                    <div className="flex justify-between text-muted-foreground">
+                      <span>Shipping</span>
+                      <span>{formatIDR(Number(shippingCost) || 0)}</span>
+                    </div>
+                    <div className="flex justify-between font-semibold text-base pt-2">
+                      <span>Total</span>
+                      <span>{formatIDR(total)}</span>
+                    </div>
                   </div>
-                  <div className="flex justify-between text-muted-foreground">
-                    <span>Shipping</span>
-                    <span>{formatIDR(Number(shippingCost) || 0)}</span>
-                  </div>
-                  <div className="flex justify-between font-semibold text-base pt-2">
-                    <span>Total</span>
-                    <span>{formatIDR(total)}</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </form>
-        </div>
+                </CardContent>
+              </Card>
+            </form>
+          </div>
 
-        <DialogFooter className="px-6 py-4 border-t">
-          <Button type="button" variant="outline" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button type="submit" form="create-order-form" disabled={create.isPending}>
-            {create.isPending ? "Creating…" : isQuotation ? "Buat Penawaran" : "Buat Pesanan"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-    <ItemDetailsDialog
-      open={activeDetailIndex !== null}
-      onClose={() => setActiveDetailIndex(null)}
-      details={activeDetailIndex !== null ? items[activeDetailIndex].details : []}
-      onSave={(newDetails) => {
-        if (activeDetailIndex !== null) {
-          updateItem(activeDetailIndex, { details: newDetails });
-        }
-      }}
-    />
+          <DialogFooter className="px-6 py-4 border-t">
+            <Button type="button" variant="outline" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button type="submit" form="create-order-form" disabled={create.isPending}>
+              {create.isPending ? "Creating…" : isQuotation ? "Buat Penawaran" : "Buat Pesanan"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <ItemDetailsDialog
+        open={activeDetailIndex !== null}
+        onClose={() => setActiveDetailIndex(null)}
+        details={activeDetailIndex !== null ? items[activeDetailIndex].details : []}
+        onSave={(newDetails) => {
+          if (activeDetailIndex !== null) {
+            updateItem(activeDetailIndex, { details: newDetails });
+          }
+        }}
+      />
     </>
   );
 }
@@ -579,7 +579,7 @@ export function UpdateOrderDialog({
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!order) return;
-    
+
     updateMut.mutate({
       customer_id: order.customer_id,
       sales_id: order.sales_id || "",
@@ -607,191 +607,191 @@ export function UpdateOrderDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={(v) => (v ? null : onClose())}>
-      <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col p-0">
-        <DialogHeader className="px-6 pt-6 pb-2 border-b">
-          <DialogTitle>Update Order</DialogTitle>
-          <DialogDescription>
-            {order?.order_number ? `Editing: ${order.order_number}` : "Loading..."}
-          </DialogDescription>
-        </DialogHeader>
+        <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col p-0">
+          <DialogHeader className="px-6 pt-6 pb-2 border-b">
+            <DialogTitle>Update Order</DialogTitle>
+            <DialogDescription>
+              {order?.order_number ? `Editing: ${order.order_number}` : "Loading..."}
+            </DialogDescription>
+          </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto px-6 py-4">
-          {isLoading || !order ? (
-            <div className="py-8 text-center text-muted-foreground">Loading details...</div>
-          ) : (
-            <div className="space-y-6">
+          <div className="flex-1 overflow-y-auto px-6 py-4">
+            {isLoading || !order ? (
+              <div className="py-8 text-center text-muted-foreground">Loading details...</div>
+            ) : (
+              <div className="space-y-6">
 
 
-              <div>
-                <div className="flex flex-row items-center justify-between mb-3">
-                  <h3 className="font-semibold">Line Items</h3>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setItems((arr) => [...arr, { product_id: "", qty: 1, price: 0, details: [] }])}
-                  >
-                    <Plus className="h-4 w-4 mr-1" /> Add item
-                  </Button>
-                </div>
-                <div className="space-y-3">
-                  {items.map((it, idx) => (
-                    <div key={idx} className="grid gap-3 sm:grid-cols-[1fr_80px_120px_auto_auto] items-end">
-                      <div className="space-y-1">
-                        <Label className="text-xs">Product</Label>
-                        <Select
-                          value={it.product_id}
-                          onValueChange={(v) => {
-                            const p = products.data?.data?.find((x) => x.id === v);
-                            updateItem(idx, { product_id: v, price: p?.base_price ?? it.price });
-                          }}
+                <div>
+                  <div className="flex flex-row items-center justify-between mb-3">
+                    <h3 className="font-semibold">Line Items</h3>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setItems((arr) => [...arr, { product_id: "", qty: 1, price: 0, details: [] }])}
+                    >
+                      <Plus className="h-4 w-4 mr-1" /> Add item
+                    </Button>
+                  </div>
+                  <div className="space-y-3">
+                    {items.map((it, idx) => (
+                      <div key={idx} className="grid gap-3 sm:grid-cols-[1fr_80px_120px_auto_auto] items-end">
+                        <div className="space-y-1">
+                          <Label className="text-xs">Product</Label>
+                          <Select
+                            value={it.product_id}
+                            onValueChange={(v) => {
+                              const p = products.data?.data?.find((x) => x.id === v);
+                              updateItem(idx, { product_id: v, price: p?.base_price ?? it.price });
+                            }}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select product" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {products.data?.data?.map((p) => (
+                                <SelectItem key={p.id} value={p.id}>
+                                  {p.name} — {formatIDR(p.base_price)}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Qty</Label>
+                          <Input
+                            type="number"
+                            min={1}
+                            value={it.qty}
+                            onChange={(e) => updateItem(idx, { qty: Number(e.target.value) })}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Price</Label>
+                          <Input
+                            type="number"
+                            min={0}
+                            value={it.price}
+                            onChange={(e) => updateItem(idx, { price: Number(e.target.value) })}
+                          />
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => setActiveDetailIndex(idx)}
                         >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select product" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {products.data?.data?.map((p) => (
-                              <SelectItem key={p.id} value={p.id}>
-                                {p.name} — {formatIDR(p.base_price)}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                          Details ({it.details.length})
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="text-muted-foreground hover:text-destructive"
+                          onClick={() => setItems((arr) => arr.filter((_, i) => i !== idx))}
+                          disabled={items.length === 1}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs">Qty</Label>
-                        <Input
-                          type="number"
-                          min={1}
-                          value={it.qty}
-                          onChange={(e) => updateItem(idx, { qty: Number(e.target.value) })}
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs">Price</Label>
-                        <Input
-                          type="number"
-                          min={0}
-                          value={it.price}
-                          onChange={(e) => updateItem(idx, { price: Number(e.target.value) })}
-                        />
-                      </div>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => setActiveDetailIndex(idx)}
-                      >
-                        Details ({it.details.length})
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="text-muted-foreground hover:text-destructive"
-                        onClick={() => setItems((arr) => arr.filter((_, i) => i !== idx))}
-                        disabled={items.length === 1}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                    ))}
+                  </div>
+                </div>
+
+                <form id="shipping-form" onSubmit={handleSubmit} className="space-y-4">
+                  <h3 className="font-semibold">Logistics & Notes</h3>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label>Courier</Label>
+                      <Input
+                        value={form.courier_name}
+                        onChange={(e) => setForm({ ...form, courier_name: e.target.value })}
+                      />
                     </div>
-                  ))}
+                    <div className="space-y-2">
+                      <Label>Shipping Cost</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        value={form.shipping_cost}
+                        onChange={(e) => setForm({ ...form, shipping_cost: Number(e.target.value) })}
+                      />
+                    </div>
+                    <div className="space-y-2 sm:col-span-2">
+                      <Label>Address</Label>
+                      <Textarea
+                        rows={2}
+                        value={form.shipping_address}
+                        onChange={(e) => setForm({ ...form, shipping_address: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Valid Until (Quotation)</Label>
+                      <Input
+                        type="datetime-local"
+                        value={form.valid_until}
+                        onChange={(e) => setForm({ ...form, valid_until: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Order Note</Label>
+                      <Textarea
+                        rows={2}
+                        value={form.notes}
+                        onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-2 sm:col-span-2">
+                      <Label>Terms &amp; Conditions</Label>
+                      <Textarea
+                        rows={3}
+                        placeholder="Pembayaran 50% DP, sisa pada saat pengiriman, dll."
+                        value={form.terms_conditions}
+                        onChange={(e) => setForm({ ...form, terms_conditions: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                </form>
+
+                <div className="rounded-lg border bg-muted/30 p-4 space-y-2 text-sm">
+                  <div className="flex items-center justify-between text-muted-foreground">
+                    <span>Subtotal</span>
+                    <span className="font-medium text-foreground">{formatIDR(subtotal)}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-muted-foreground">
+                    <span>Shipping</span>
+                    <span className="font-medium text-foreground">{formatIDR(form.shipping_cost || 0)}</span>
+                  </div>
+                  <div className="flex items-center justify-between border-t pt-2 text-base font-semibold">
+                    <span>Total</span>
+                    <span>{formatIDR(total)}</span>
+                  </div>
                 </div>
               </div>
+            )}
+          </div>
 
-              <form id="shipping-form" onSubmit={handleSubmit} className="space-y-4">
-                <h3 className="font-semibold">Logistics & Notes</h3>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label>Courier</Label>
-                    <Input
-                      value={form.courier_name}
-                      onChange={(e) => setForm({ ...form, courier_name: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Shipping Cost</Label>
-                    <Input
-                      type="number"
-                      min={0}
-                      value={form.shipping_cost}
-                      onChange={(e) => setForm({ ...form, shipping_cost: Number(e.target.value) })}
-                    />
-                  </div>
-                  <div className="space-y-2 sm:col-span-2">
-                    <Label>Address</Label>
-                    <Textarea
-                      rows={2}
-                      value={form.shipping_address}
-                      onChange={(e) => setForm({ ...form, shipping_address: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Valid Until (Quotation)</Label>
-                    <Input
-                      type="datetime-local"
-                      value={form.valid_until}
-                      onChange={(e) => setForm({ ...form, valid_until: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Order Note</Label>
-                    <Textarea
-                      rows={2}
-                      value={form.notes}
-                      onChange={(e) => setForm({ ...form, notes: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-2 sm:col-span-2">
-                    <Label>Terms &amp; Conditions</Label>
-                    <Textarea
-                      rows={3}
-                      placeholder="Pembayaran 50% DP, sisa pada saat pengiriman, dll."
-                      value={form.terms_conditions}
-                      onChange={(e) => setForm({ ...form, terms_conditions: e.target.value })}
-                    />
-                  </div>
-                </div>
-              </form>
+          <DialogFooter className="px-6 py-4 border-t">
+            <Button type="button" variant="outline" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button type="submit" form="shipping-form" disabled={updateMut.isPending || !order}>
+              {updateMut.isPending ? "Saving..." : "Save Changes"}
+            </Button>
+          </DialogFooter>
 
-              <div className="rounded-lg border bg-muted/30 p-4 space-y-2 text-sm">
-                <div className="flex items-center justify-between text-muted-foreground">
-                  <span>Subtotal</span>
-                  <span className="font-medium text-foreground">{formatIDR(subtotal)}</span>
-                </div>
-                <div className="flex items-center justify-between text-muted-foreground">
-                  <span>Shipping</span>
-                  <span className="font-medium text-foreground">{formatIDR(form.shipping_cost || 0)}</span>
-                </div>
-                <div className="flex items-center justify-between border-t pt-2 text-base font-semibold">
-                  <span>Total</span>
-                  <span>{formatIDR(total)}</span>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-        
-        <DialogFooter className="px-6 py-4 border-t">
-          <Button type="button" variant="outline" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button type="submit" form="shipping-form" disabled={updateMut.isPending || !order}>
-            {updateMut.isPending ? "Saving..." : "Save Changes"}
-          </Button>
-        </DialogFooter>
-
-      </DialogContent>
-    </Dialog>
-    <ItemDetailsDialog
-      open={activeDetailIndex !== null}
-      onClose={() => setActiveDetailIndex(null)}
-      details={activeDetailIndex !== null ? items[activeDetailIndex].details : []}
-      onSave={(newDetails) => {
-        if (activeDetailIndex !== null) {
-          updateItem(activeDetailIndex, { details: newDetails });
-        }
-      }}
-    />
+        </DialogContent>
+      </Dialog>
+      <ItemDetailsDialog
+        open={activeDetailIndex !== null}
+        onClose={() => setActiveDetailIndex(null)}
+        details={activeDetailIndex !== null ? items[activeDetailIndex].details : []}
+        onSave={(newDetails) => {
+          if (activeDetailIndex !== null) {
+            updateItem(activeDetailIndex, { details: newDetails });
+          }
+        }}
+      />
     </>
   );
 }
@@ -908,9 +908,8 @@ function OrdersPage() {
                       }
                     >
                       <SelectTrigger
-                        className={`h-7 w-[130px] text-xs font-medium capitalize border ${
-                          statusVariant[o.order_status?.toLowerCase()] ?? ""
-                        }`}
+                        className={`h-7 w-[130px] text-xs font-medium capitalize border ${statusVariant[o.order_status?.toLowerCase()] ?? ""
+                          }`}
                       >
                         <SelectValue />
                       </SelectTrigger>
@@ -987,7 +986,7 @@ function OrdersPage() {
           </Button>
         </div>
       </div>
-      
+
       <UpdateOrderDialog
         orderId={editOrderId}
         open={!!editOrderId}

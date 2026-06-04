@@ -46,11 +46,9 @@ export const bankAccountsService = {
       limit: p.limit ?? 10,
     }),
   global: () => api.get<ApiSuccess<BankAccount[]>>("/bank-accounts/global"),
-  byUser: (userId: string) =>
-    api.get<ApiSuccess<BankAccount[]>>(`/bank-accounts/user/${userId}`),
+  byUser: (userId: string) => api.get<ApiSuccess<BankAccount[]>>(`/bank-accounts/user/${userId}`),
   get: (id: string) => api.get<ApiSuccess<BankAccount>>(`/bank-accounts/${id}`),
-  create: (body: Partial<BankAccount>) =>
-    api.post<ApiSuccess<BankAccount>>("/bank-accounts", body),
+  create: (body: Partial<BankAccount>) => api.post<ApiSuccess<BankAccount>>("/bank-accounts", body),
   update: (id: string, body: Partial<BankAccount>) =>
     api.put<ApiSuccess<BankAccount>>(`/bank-accounts/${id}`, body),
   delete: (id: string) => api.delete<ApiSuccess<unknown>>(`/bank-accounts/${id}`),
@@ -94,7 +92,13 @@ export const ordersService = {
     valid_until?: string;
     terms_conditions?: string;
     order_status?: string;
-    items: { product_id: string; qty: number; price: number; details?: Record<string, any>; specifications?: Record<string, any> }[];
+    items: {
+      product_id: string;
+      qty: number;
+      price: number;
+      details?: Record<string, any>;
+      specifications?: Record<string, any>;
+    }[];
   }) => api.post<ApiSuccess<unknown>>("/orders", body),
   update: (
     id: string,
@@ -108,13 +112,12 @@ export const ordersService = {
       valid_until?: string;
       terms_conditions?: string;
       items: { product_id: string; qty: number; price: number; details?: Record<string, any> }[];
-    }
+    },
   ) => api.put<ApiSuccess<unknown>>(`/orders/${id}`, body),
   updateStatus: (id: string, status: OrderStatus) =>
     api.patch<ApiSuccess<unknown>>(`/orders/${id}/status`, { order_status: status }),
   delete: (id: string) => api.delete<ApiSuccess<unknown>>(`/orders/${id}`),
-  payments: (orderId: string) =>
-    api.get<ApiSuccess<Payment[]>>(`payments/order/${orderId}`),
+  payments: (orderId: string) => api.get<ApiSuccess<Payment[]>>(`payments/order/${orderId}`),
 };
 
 // Payments
@@ -130,9 +133,12 @@ export const paymentsService = {
     reference_number: string;
     payment_date?: string;
   }) => api.post<ApiSuccess<unknown>>("/payments", body),
-  update: (id: string, body: {
-    reference_number?: string;
-    payment_type?: string;
-  }) => api.put<ApiSuccess<unknown>>(`/payments/${id}`, body),
+  update: (
+    id: string,
+    body: {
+      reference_number?: string;
+      payment_type?: string;
+    },
+  ) => api.put<ApiSuccess<unknown>>(`/payments/${id}`, body),
   delete: (id: string) => api.delete<ApiSuccess<unknown>>(`/payments/${id}`),
 };
