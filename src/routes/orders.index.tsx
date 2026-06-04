@@ -69,92 +69,30 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-interface ItemDetail {
-  key: string;
-  value: string;
-}
-
 interface Item {
   product_id: string;
   qty: number;
   price: number;
-  details: ItemDetail[];
+  // Order (direct) fields
+  bahan?: string;
+  warna?: string;
+  // Quotation fields
   bahan_kemeja?: string;
   bordir?: string;
-  jahitan?: string;
+  benang?: string;
 }
 
-function ItemDetailsDialog({
-  open,
-  onClose,
-  details,
-  onSave,
-}: {
-  open: boolean;
-  onClose: () => void;
-  details: ItemDetail[];
-  onSave: (details: ItemDetail[]) => void;
-}) {
-  const [localDetails, setLocalDetails] = useState<ItemDetail[]>([]);
-
-  useEffect(() => {
-    if (open) setLocalDetails(details);
-  }, [open, details]);
-
-  return (
-    <Dialog open={open} onOpenChange={(v) => (v ? null : onClose())}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Item Details</DialogTitle>
-          <DialogDescription>Add attributes like size, color, etc.</DialogDescription>
-        </DialogHeader>
-        <div className="space-y-3 py-4 max-h-[60vh] overflow-y-auto">
-          {localDetails.map((d, i) => (
-            <div key={i} className="flex gap-2">
-              <Input
-                placeholder="Key (e.g. Ukuran)"
-                value={d.key}
-                onChange={(e) => {
-                  const arr = [...localDetails];
-                  arr[i].key = e.target.value;
-                  setLocalDetails(arr);
-                }}
-              />
-              <Input
-                placeholder="Value (e.g. L)"
-                value={d.value}
-                onChange={(e) => {
-                  const arr = [...localDetails];
-                  arr[i].value = e.target.value;
-                  setLocalDetails(arr);
-                }}
-              />
-              <Button
-                variant="ghost"
-                size="icon"
-                className="shrink-0"
-                onClick={() => setLocalDetails(localDetails.filter((_, idx) => idx !== i))}
-              >
-                <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
-              </Button>
-            </div>
-          ))}
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => setLocalDetails([...localDetails, { key: "", value: "" }])}
-          >
-            <Plus className="h-4 w-4 mr-1" /> Add Detail
-          </Button>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={() => { onSave(localDetails); onClose(); }}>Save</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
+function buildItemDetails(it: Item, isQuotation: boolean): Record<string, string> | undefined {
+  const details: Record<string, string> = {};
+  if (isQuotation) {
+    if (it.bahan_kemeja?.trim()) details["Bahan Kemeja"] = it.bahan_kemeja.trim();
+    if (it.bordir?.trim()) details["Bordir"] = it.bordir.trim();
+    if (it.benang?.trim()) details["Benang"] = it.benang.trim();
+  } else {
+    if (it.bahan?.trim()) details["Bahan"] = it.bahan.trim();
+    if (it.warna?.trim()) details["Warna"] = it.warna.trim();
+  }
+  return Object.keys(details).length > 0 ? details : undefined;
 }
 
 function CreateOrderDialog({ open, onClose, mode }: { open: boolean; onClose: () => void; mode: "quotation" | "order" }) {
@@ -182,10 +120,8 @@ function CreateOrderDialog({ open, onClose, mode }: { open: boolean; onClose: ()
   const [shippingCost, setShippingCost] = useState<number | "">("");
   const [address, setAddress] = useState("");
   const [note, setNote] = useState("");
-  const [validUntil, setValidUntil] = useState("");
   const [termsConditions, setTermsConditions] = useState("");
-  const [items, setItems] = useState<Item[]>([{ product_id: "", qty: 1, price: 0, details: [] }]);
-  const [activeDetailIndex, setActiveDetailIndex] = useState<number | null>(null);
+  const [items, setItems] = useState<Item[]>([{ product_id: "", qty: 1, price: 0 }]);
 
   useEffect(() => {
     if (!open) {
@@ -195,10 +131,8 @@ function CreateOrderDialog({ open, onClose, mode }: { open: boolean; onClose: ()
       setShippingCost("");
       setAddress("");
       setNote("");
-      setValidUntil("");
       setTermsConditions("");
-      setItems([{ product_id: "", qty: 1, price: 0, details: [] }]);
-      setActiveDetailIndex(null);
+      setItems([{ product_id: "", qty: 1, price: 0 }]);
     }
   }, [open]);
 
@@ -214,34 +148,16 @@ function CreateOrderDialog({ open, onClose, mode }: { open: boolean; onClose: ()
         shipping_cost: Number(shippingCost) || 0,
         shipping_address: address || undefined,
         notes: note || undefined,
-        valid_until: isQuotation ? datetimeLocalToISO(validUntil) : undefined,
         terms_conditions: isQuotation ? (termsConditions || undefined) : undefined,
         ...(isQuotation ? { order_status: "quotation" } : {}),
-        items: items.filter((i) => i.product_id && i.qty > 0).map(i => {
-          const parsedDetails = i.details.reduce((acc, curr) => {
-            if (curr.key.trim()) acc[curr.key.trim()] = curr.value.trim();
-            return acc;
-          }, {} as Record<string, string>);
-
-          const base = {
+        items: items
+          .filter((i) => i.product_id && i.qty > 0)
+          .map((i) => ({
             product_id: i.product_id,
             qty: i.qty,
             price: i.price,
-            details: Object.keys(parsedDetails).length > 0 ? parsedDetails : undefined,
-          };
-
-          if (isQuotation) {
-            const specifications: Record<string, string> = {};
-            if (i.bahan_kemeja?.trim()) specifications["Bahan Kemeja"] = i.bahan_kemeja.trim();
-            if (i.bordir?.trim()) specifications["Bordir"] = i.bordir.trim();
-            if (i.jahitan?.trim()) specifications["Jahitan"] = i.jahitan.trim();
-            return {
-              ...base,
-              specifications: Object.keys(specifications).length > 0 ? specifications : undefined,
-            };
-          }
-          return base;
-        }),
+            details: buildItemDetails(i, isQuotation),
+          })),
       }),
     onSuccess: () => {
       toast.success(isQuotation ? "Quotation created" : "Order created");
@@ -264,244 +180,239 @@ function CreateOrderDialog({ open, onClose, mode }: { open: boolean; onClose: ()
   };
 
   return (
-    <>
-      <Dialog open={open} onOpenChange={(v) => (v ? null : onClose())}>
-        <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-0">
-          <DialogHeader className="px-6 pt-6 pb-2 border-b">
-            <DialogTitle>{isQuotation ? "Buat Penawaran" : "Buat Pesanan"}</DialogTitle>
-            <DialogDescription>
-              {isQuotation ? "Create a new quotation (Surat Penawaran)." : "Create a new direct order."}
-            </DialogDescription>
-          </DialogHeader>
+    <Dialog open={open} onOpenChange={(v) => (v ? null : onClose())}>
+      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-0">
+        <DialogHeader className="px-6 pt-6 pb-2 border-b">
+          <DialogTitle>{isQuotation ? "Buat Penawaran" : "Buat Pesanan"}</DialogTitle>
+          <DialogDescription>
+            {isQuotation ? "Create a new quotation (Surat Penawaran)." : "Create a new direct order."}
+          </DialogDescription>
+        </DialogHeader>
 
-          <div className="flex-1 overflow-y-auto px-6 py-4">
-            <form id="create-order-form" onSubmit={submit} className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">Customer & Shipping</CardTitle>
-                </CardHeader>
-                <CardContent className="grid gap-4 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label>Customer</Label>
-                    <Select value={customerId} onValueChange={setCustomerId}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select customer" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {customers.data?.data?.map((c) => (
-                          <SelectItem key={c.id} value={c.id}>
-                            {c.name} {c.phone ? `· ${c.phone}` : ""}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Sales Person</Label>
-                    <Select value={salesId} onValueChange={setSalesId}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select sales" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {users.data?.data?.map((u) => (
-                          <SelectItem key={u.id} value={u.id}>
-                            {u.name} {u.role ? `(${u.role})` : ""}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Courier</Label>
-                    <Input value={courier} onChange={(e) => setCourier(e.target.value)} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Shipping Cost</Label>
-                    <Input
-                      type="number"
-                      min={0}
-                      value={shippingCost}
-                      onChange={(e) => setShippingCost(Number(e.target.value))}
+        <div className="flex-1 overflow-y-auto px-6 py-4">
+          <form id="create-order-form" onSubmit={submit} className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Customer & Shipping</CardTitle>
+              </CardHeader>
+              <CardContent className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>Customer</Label>
+                  <Select value={customerId} onValueChange={setCustomerId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select customer" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {customers.data?.data?.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.name} {c.phone ? `· ${c.phone}` : ""}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Sales Person</Label>
+                  <Select value={salesId} onValueChange={setSalesId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select sales" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {users.data?.data?.map((u) => (
+                        <SelectItem key={u.id} value={u.id}>
+                          {u.name} {u.role ? `(${u.role})` : ""}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Courier</Label>
+                  <Input value={courier} onChange={(e) => setCourier(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Shipping Cost</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    value={shippingCost}
+                    onChange={(e) => setShippingCost(Number(e.target.value))}
+                  />
+                </div>
+                <div className="space-y-2 sm:col-span-2">
+                  <Label>Address</Label>
+                  <Textarea rows={2} value={address} onChange={(e) => setAddress(e.target.value)} />
+                </div>
+                <div className="space-y-2 sm:col-span-2">
+                  <Label>Notes</Label>
+                  <Textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} />
+                </div>
+                {isQuotation && (
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label>Terms &amp; Conditions</Label>
+                    <Textarea
+                      rows={3}
+                      placeholder="DP Minimal 50%, Waktu Pengerjaan 14 Hari, dll."
+                      value={termsConditions}
+                      onChange={(e) => setTermsConditions(e.target.value)}
                     />
                   </div>
-                  <div className="space-y-2 sm:col-span-2">
-                    <Label>Address</Label>
-                    <Textarea rows={2} value={address} onChange={(e) => setAddress(e.target.value)} />
-                  </div>
-                  {isQuotation && (
-                    <div className="space-y-2">
-                      <Label>Valid Until (Quotation)</Label>
-                      <Input
-                        type="datetime-local"
-                        value={validUntil}
-                        onChange={(e) => setValidUntil(e.target.value)}
-                      />
-                    </div>
-                  )}
-                  <div className="space-y-2">
-                    <Label>Notes</Label>
-                    <Textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} />
-                  </div>
-                  {isQuotation && (
-                    <div className="space-y-2 sm:col-span-2">
-                      <Label>Terms &amp; Conditions</Label>
-                      <Textarea
-                        rows={3}
-                        placeholder="Pembayaran 50% DP, sisa pada saat pengiriman, dll."
-                        value={termsConditions}
-                        onChange={(e) => setTermsConditions(e.target.value)}
-                      />
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+                )}
+              </CardContent>
+            </Card>
 
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
-                  <CardTitle className="text-base">Items</CardTitle>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setItems((arr) => [...arr, { product_id: "", qty: 1, price: 0, details: [] }])}
-                  >
-                    <Plus className="h-4 w-4 mr-1" /> Add item
-                  </Button>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {items.map((it, idx) => (
-                    <div key={idx} className="space-y-2 rounded-md border p-3">
-                      <div className="grid gap-3 sm:grid-cols-[1fr_80px_120px_auto_auto] items-end">
-                        <div className="space-y-1">
-                          <Label className="text-xs">Product</Label>
-                          <Select
-                            value={it.product_id}
-                            onValueChange={(v) => {
-                              const p = products.data?.data?.find((x) => x.id === v);
-                              updateItem(idx, { product_id: v, price: p?.base_price ?? it.price });
-                            }}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select product" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {products.data?.data?.map((p) => (
-                                <SelectItem key={p.id} value={p.id}>
-                                  {p.name} — {formatIDR(p.base_price)}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-xs">Qty</Label>
-                          <Input
-                            type="number"
-                            min={1}
-                            value={it.qty}
-                            onChange={(e) => updateItem(idx, { qty: Number(e.target.value) })}
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-xs">Price</Label>
-                          <Input
-                            type="number"
-                            min={0}
-                            value={it.price}
-                            onChange={(e) => updateItem(idx, { price: Number(e.target.value) })}
-                          />
-                        </div>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={() => setActiveDetailIndex(idx)}
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle className="text-base">Items</CardTitle>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setItems((arr) => [...arr, { product_id: "", qty: 1, price: 0 }])}
+                >
+                  <Plus className="h-4 w-4 mr-1" /> Add item
+                </Button>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {items.map((it, idx) => (
+                  <div key={idx} className="space-y-3 rounded-md border p-3">
+                    <div className="grid gap-3 sm:grid-cols-[1fr_80px_120px_auto] items-end">
+                      <div className="space-y-1">
+                        <Label className="text-xs">Product</Label>
+                        <Select
+                          value={it.product_id}
+                          onValueChange={(v) => {
+                            const p = products.data?.data?.find((x) => x.id === v);
+                            updateItem(idx, { product_id: v, price: p?.base_price ?? it.price });
+                          }}
                         >
-                          Details ({it.details.length})
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="text-muted-foreground hover:text-destructive"
-                          onClick={() => setItems((arr) => arr.filter((_, i) => i !== idx))}
-                          disabled={items.length === 1}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select product" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {products.data?.data?.map((p) => (
+                              <SelectItem key={p.id} value={p.id}>
+                                {p.name} — {formatIDR(p.base_price)}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
-                      {isQuotation && (
-                        <div className="grid gap-3 sm:grid-cols-3 pt-2 border-t">
-                          <div className="space-y-1">
-                            <Label className="text-xs">Bahan Kemeja</Label>
-                            <Input
-                              placeholder="mis. Katun Oxford"
-                              value={it.bahan_kemeja ?? ""}
-                              onChange={(e) => updateItem(idx, { bahan_kemeja: e.target.value })}
-                            />
-                          </div>
-                          <div className="space-y-1">
-                            <Label className="text-xs">Bordir</Label>
-                            <Input
-                              placeholder="mis. Logo dada kiri"
-                              value={it.bordir ?? ""}
-                              onChange={(e) => updateItem(idx, { bordir: e.target.value })}
-                            />
-                          </div>
-                          <div className="space-y-1">
-                            <Label className="text-xs">Jahitan</Label>
-                            <Input
-                              placeholder="mis. Jahit rapi double"
-                              value={it.jahitan ?? ""}
-                              onChange={(e) => updateItem(idx, { jahitan: e.target.value })}
-                            />
-                          </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Qty</Label>
+                        <Input
+                          type="number"
+                          min={1}
+                          value={it.qty}
+                          onChange={(e) => updateItem(idx, { qty: Number(e.target.value) })}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Price</Label>
+                        <Input
+                          type="number"
+                          min={0}
+                          value={it.price}
+                          onChange={(e) => updateItem(idx, { price: Number(e.target.value) })}
+                        />
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="text-muted-foreground hover:text-destructive"
+                        onClick={() => setItems((arr) => arr.filter((_, i) => i !== idx))}
+                        disabled={items.length === 1}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+
+                    {isQuotation ? (
+                      <div className="grid gap-3 pt-2 border-t">
+                        <div className="space-y-1">
+                          <Label className="text-xs">Bahan Kemeja</Label>
+                          <Textarea
+                            rows={2}
+                            placeholder="Kemeja menggunakan bahan katun premium baby canvas..."
+                            value={it.bahan_kemeja ?? ""}
+                            onChange={(e) => updateItem(idx, { bahan_kemeja: e.target.value })}
+                          />
                         </div>
-                      )}
-                    </div>
-                  ))}
-
-                  <div className="border-t pt-4 space-y-1 text-sm">
-                    <div className="flex justify-between text-muted-foreground">
-                      <span>Subtotal</span>
-                      <span>{formatIDR(subtotal)}</span>
-                    </div>
-                    <div className="flex justify-between text-muted-foreground">
-                      <span>Shipping</span>
-                      <span>{formatIDR(Number(shippingCost) || 0)}</span>
-                    </div>
-                    <div className="flex justify-between font-semibold text-base pt-2">
-                      <span>Total</span>
-                      <span>{formatIDR(total)}</span>
-                    </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Bordir</Label>
+                          <Textarea
+                            rows={2}
+                            placeholder="Bordir Menggunakan Sistem Komputerisasi..."
+                            value={it.bordir ?? ""}
+                            onChange={(e) => updateItem(idx, { bordir: e.target.value })}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Benang</Label>
+                          <Textarea
+                            rows={2}
+                            placeholder="Benang Bordir Menggunakan Benang Polyester..."
+                            value={it.benang ?? ""}
+                            onChange={(e) => updateItem(idx, { benang: e.target.value })}
+                          />
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="grid gap-3 sm:grid-cols-2 pt-2 border-t">
+                        <div className="space-y-1">
+                          <Label className="text-xs">Bahan</Label>
+                          <Input
+                            placeholder="mis. Katun"
+                            value={it.bahan ?? ""}
+                            onChange={(e) => updateItem(idx, { bahan: e.target.value })}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Warna</Label>
+                          <Input
+                            placeholder="mis. Hitam"
+                            value={it.warna ?? ""}
+                            onChange={(e) => updateItem(idx, { warna: e.target.value })}
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
-                </CardContent>
-              </Card>
-            </form>
-          </div>
+                ))}
 
-          <DialogFooter className="px-6 py-4 border-t">
-            <Button type="button" variant="outline" onClick={onClose}>
-              Cancel
-            </Button>
-            <Button type="submit" form="create-order-form" disabled={create.isPending}>
-              {create.isPending ? "Creating…" : isQuotation ? "Buat Penawaran" : "Buat Pesanan"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      <ItemDetailsDialog
-        open={activeDetailIndex !== null}
-        onClose={() => setActiveDetailIndex(null)}
-        details={activeDetailIndex !== null ? items[activeDetailIndex].details : []}
-        onSave={(newDetails) => {
-          if (activeDetailIndex !== null) {
-            updateItem(activeDetailIndex, { details: newDetails });
-          }
-        }}
-      />
-    </>
+                <div className="border-t pt-4 space-y-1 text-sm">
+                  <div className="flex justify-between text-muted-foreground">
+                    <span>Subtotal</span>
+                    <span>{formatIDR(subtotal)}</span>
+                  </div>
+                  <div className="flex justify-between text-muted-foreground">
+                    <span>Shipping</span>
+                    <span>{formatIDR(Number(shippingCost) || 0)}</span>
+                  </div>
+                  <div className="flex justify-between font-semibold text-base pt-2">
+                    <span>Total</span>
+                    <span>{formatIDR(total)}</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </form>
+        </div>
+
+        <DialogFooter className="px-6 py-4 border-t">
+          <Button type="button" variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="submit" form="create-order-form" disabled={create.isPending}>
+            {create.isPending ? "Creating…" : isQuotation ? "Buat Penawaran" : "Buat Pesanan"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
+
 export function UpdateOrderDialog({
   orderId,
   open,
