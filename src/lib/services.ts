@@ -89,15 +89,13 @@ export const ordersService = {
     courier_name?: string;
     shipping_address?: string;
     notes?: string;
-    valid_until?: string;
     terms_conditions?: string;
     order_status?: string;
     items: {
       product_id: string;
       qty: number;
       price: number;
-      details?: Record<string, any>;
-      specifications?: Record<string, any>;
+      details?: Record<string, string>;
     }[];
   }) => api.post<ApiSuccess<unknown>>("/orders", body),
   update: (
@@ -109,9 +107,8 @@ export const ordersService = {
       courier_name?: string;
       shipping_address?: string;
       notes?: string;
-      valid_until?: string;
       terms_conditions?: string;
-      items: { product_id: string; qty: number; price: number; details?: Record<string, any> }[];
+      items: { product_id: string; qty: number; price: number; details?: Record<string, string> }[];
     },
   ) => api.put<ApiSuccess<unknown>>(`/orders/${id}`, body),
   updateStatus: (id: string, status: OrderStatus) =>
