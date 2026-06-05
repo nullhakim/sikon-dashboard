@@ -186,19 +186,20 @@ export function QuotationPdfDialog({ open, onClose, order, items, customer }: Pr
             <div className="mb-5 text-sm">
               {items.map((it, idx) => {
                 const name = it.product_name || it.product?.name || "—";
-                const entries = it.details
-                  ? Object.entries(it.details as Record<string, unknown>)
-                  : [];
+                const lines = buildQuotationSpecLines(
+                  (it.details || {}) as Record<string, unknown>,
+                );
                 return (
                   <div key={it.id ?? idx} className="mb-3">
                     <p className="m-0 font-semibold">
                       {idx + 1}. {name}
                     </p>
-                    {entries.length > 0 && (
+                    {lines.length > 0 && (
                       <ul className="list-disc m-0 mt-1 pl-10">
-                        {entries.map(([k, v]) => (
-                          <li key={k} className="m-0">
-                            <span className="font-medium">{k}:</span> {String(v)}
+                        {lines.map((ln, i) => (
+                          <li key={i} className="m-0">
+                            <span className="font-medium">{ln.label}:</span>{" "}
+                            {ln.value}
                           </li>
                         ))}
                       </ul>
@@ -300,3 +301,51 @@ const cell: React.CSSProperties = {
   padding: "6px 8px",
   verticalAlign: "top",
 };
+
+const BORDIR_SUFFIX =
+  ", Sehingga Hasil Cetakan Lebih Rapi, Juga Memiliki Tekstur Timbul.";
+const BENANG_SUFFIX =
+  ", Sehingga Warna Bordir Lebih Cerah Dan Warna Lebih Awet.";
+
+function expandWithSuffix(value: string, marker: string, suffix: string) {
+  const v = (value || "").trim();
+  if (!v) return "";
+  if (v.includes(marker)) return v;
+  return v.replace(/[.\s]+$/, "") + suffix;
+}
+
+function buildQuotationSpecLines(
+  details: Record<string, unknown>,
+): { label: string; value: string }[] {
+  const lines: { label: string; value: string }[] = [];
+  const bahan = details.Bahan;
+  if (bahan && typeof bahan === "object") {
+    const b = bahan as Record<string, unknown>;
+    const parts: string[] = [];
+    if (b.Name) parts.push(String(b.Name));
+    if (b.Color) parts.push(String(b.Color));
+    const head = parts.join(" — ");
+    const spec = b.Spec ? String(b.Spec) : "";
+    const value = [head, spec].filter(Boolean).join(". ");
+    if (value) lines.push({ label: "Bahan", value });
+  } else if (typeof bahan === "string" && bahan.trim()) {
+    lines.push({ label: "Bahan", value: bahan });
+  }
+
+  if (details.Bordir) {
+    lines.push({
+      label: "Bordir",
+      value: expandWithSuffix(String(details.Bordir), "Sehingga Hasil Cetakan", BORDIR_SUFFIX),
+    });
+  }
+  if (details.Benang) {
+    lines.push({
+      label: "Benang",
+      value: expandWithSuffix(String(details.Benang), "Sehingga Warna Bordir", BENANG_SUFFIX),
+    });
+  }
+  if (details.Jahitan) {
+    lines.push({ label: "Jahitan", value: String(details.Jahitan) });
+  }
+  return lines;
+}
