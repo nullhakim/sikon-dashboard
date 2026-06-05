@@ -104,6 +104,105 @@ function buildItemDetails(
   return Object.keys(details).length > 0 ? details : undefined;
 }
 
+
+function ItemDetailsFields({
+  item,
+  isQuotation,
+  onChange,
+}: {
+  item: Item;
+  isQuotation: boolean;
+  onChange: (patch: Partial<Item>) => void;
+}) {
+  return (
+    <div className="grid gap-3 pt-2 border-t">
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="space-y-1">
+          <Label className="text-xs">Bahan — Name</Label>
+          <Input
+            placeholder="mis. Katun Baby Canvas"
+            value={item.bahan_name ?? ""}
+            onChange={(e) => onChange({ bahan_name: e.target.value })}
+          />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs">Bahan — Color</Label>
+          <Input
+            placeholder="mis. Hitam"
+            value={item.bahan_color ?? ""}
+            onChange={(e) => onChange({ bahan_color: e.target.value })}
+          />
+        </div>
+      </div>
+
+      {isQuotation && (
+        <>
+          <div className="space-y-1">
+            <div className="flex items-center justify-between">
+              <Label className="text-xs">Bahan — Spec (PDF Quotation only)</Label>
+            </div>
+            <Textarea
+              rows={2}
+              placeholder="Karakteristik tekstur permukaan kain..."
+              value={item.bahan_spec ?? ""}
+              onChange={(e) => onChange({ bahan_spec: e.target.value })}
+            />
+          </div>
+
+          <div className="space-y-1">
+            <div className="flex items-center justify-between">
+              <Label className="text-xs">Bordir</Label>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-6 px-2 text-xs"
+                onClick={() => onChange({ bordir: BORDIR_AUTOFILL })}
+              >
+                Auto-fill
+              </Button>
+            </div>
+            <Input
+              placeholder={BORDIR_AUTOFILL}
+              value={item.bordir ?? ""}
+              onChange={(e) => onChange({ bordir: e.target.value })}
+            />
+          </div>
+
+          <div className="space-y-1">
+            <div className="flex items-center justify-between">
+              <Label className="text-xs">Benang</Label>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-6 px-2 text-xs"
+                onClick={() => onChange({ benang: BENANG_AUTOFILL })}
+              >
+                Auto-fill
+              </Button>
+            </div>
+            <Input
+              placeholder={BENANG_AUTOFILL}
+              value={item.benang ?? ""}
+              onChange={(e) => onChange({ benang: e.target.value })}
+            />
+          </div>
+
+          <div className="space-y-1">
+            <Label className="text-xs">Jahitan</Label>
+            <Input
+              placeholder="mis. Jahit rapi double stitch"
+              value={item.jahitan ?? ""}
+              onChange={(e) => onChange({ jahitan: e.target.value })}
+            />
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 function CreateOrderDialog({ open, onClose, mode }: { open: boolean; onClose: () => void; mode: "quotation" | "order" }) {
   const isQuotation = mode === "quotation";
   const qc = useQueryClient();
