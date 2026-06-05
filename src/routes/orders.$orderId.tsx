@@ -486,16 +486,31 @@ function OrderDetailPage() {
                 </TableRow>
               ) : (
                 items.map((it, idx) => {
-                  const detailEntries = it.details ? Object.entries(it.details) : [];
+                  const bahan = (it.details?.Bahan ?? it.details?.bahan) as
+                    | { Name?: string; Color?: string }
+                    | string
+                    | undefined;
+                  let bahanName = "";
+                  let warna = "";
+                  if (typeof bahan === "string") {
+                    bahanName = bahan;
+                    warna = (it.details?.Warna ?? it.details?.warna ?? "") as string;
+                  } else if (bahan && typeof bahan === "object") {
+                    bahanName = bahan.Name ?? "";
+                    warna = bahan.Color ?? "";
+                  }
+                  const parts: string[] = [];
+                  if (bahanName) parts.push(`Bahan: ${bahanName}`);
+                  if (warna) parts.push(`Warna: ${warna}`);
                   return (
                     <TableRow key={it.id ?? idx}>
                       <TableCell>
                         <div className="font-medium">
                           {it.product_name || it.product?.name || "—"}
                         </div>
-                        {detailEntries.length > 0 && (
+                        {parts.length > 0 && (
                           <div className="text-xs text-muted-foreground mt-0.5">
-                            {detailEntries.map(([k, v]) => `${k}: ${v}`).join(" · ")}
+                            {parts.join(" · ")}
                           </div>
                         )}
                       </TableCell>
