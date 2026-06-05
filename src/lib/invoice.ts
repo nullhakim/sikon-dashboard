@@ -153,16 +153,11 @@ export async function generateInvoicePDF({
 
   const tableBody = items.map((item, idx) => {
     const subtotal = item.subtotal ?? item.qty * item.price;
-    const detailStr =
-      item.details && Object.keys(item.details).length
-        ? "\n" +
-          Object.entries(item.details)
-            .map(([k, v]) => `${k}: ${v}`)
-            .join(", ")
-        : "";
+    const detailStr = formatOrderDetails(item.details);
     return [
       String(idx + 1),
-      (item.product_name || item.product?.name || "-") + detailStr,
+      (item.product_name || item.product?.name || "-") +
+        (detailStr ? "\n" + detailStr : ""),
       String(item.qty),
       formatCurrency(item.price),
       formatCurrency(subtotal),
