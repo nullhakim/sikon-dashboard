@@ -73,26 +73,134 @@ interface Item {
   product_id: string;
   qty: number;
   price: number;
-  // Order (direct) fields
-  bahan?: string;
-  warna?: string;
-  // Quotation fields
-  bahan_kemeja?: string;
-  bordir?: string;
+  // Bahan (nested) — both modes
+  bahan_name?: string;
+  bahan_color?: string;
+  bahan_spec?: string; // quotation only
+  // Quotation-only top-level
   benang?: string;
+  bordir?: string;
+  jahitan?: string;
 }
 
-function buildItemDetails(it: Item, isQuotation: boolean): Record<string, string> | undefined {
-  const details: Record<string, string> = {};
+export const BORDIR_AUTOFILL = "Bordir Menggunakan Sistem Komputerisasi";
+export const BENANG_AUTOFILL = "Benang Bordir Menggunakan Benang Polyster";
+
+function buildItemDetails(
+  it: Item,
+  isQuotation: boolean,
+): Record<string, any> | undefined {
+  const details: Record<string, any> = {};
+  const bahan: Record<string, string> = {};
+  if (it.bahan_name?.trim()) bahan.Name = it.bahan_name.trim();
+  if (it.bahan_color?.trim()) bahan.Color = it.bahan_color.trim();
+  if (isQuotation && it.bahan_spec?.trim()) bahan.Spec = it.bahan_spec.trim();
+  if (Object.keys(bahan).length) details.Bahan = bahan;
   if (isQuotation) {
-    if (it.bahan_kemeja?.trim()) details["Bahan Kemeja"] = it.bahan_kemeja.trim();
-    if (it.bordir?.trim()) details["Bordir"] = it.bordir.trim();
-    if (it.benang?.trim()) details["Benang"] = it.benang.trim();
-  } else {
-    if (it.bahan?.trim()) details["Bahan"] = it.bahan.trim();
-    if (it.warna?.trim()) details["Warna"] = it.warna.trim();
+    if (it.benang?.trim()) details.Benang = it.benang.trim();
+    if (it.bordir?.trim()) details.Bordir = it.bordir.trim();
+    if (it.jahitan?.trim()) details.Jahitan = it.jahitan.trim();
   }
   return Object.keys(details).length > 0 ? details : undefined;
+}
+
+
+function ItemDetailsFields({
+  item,
+  isQuotation,
+  onChange,
+}: {
+  item: Item;
+  isQuotation: boolean;
+  onChange: (patch: Partial<Item>) => void;
+}) {
+  return (
+    <div className="grid gap-3 pt-2 border-t">
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="space-y-1">
+          <Label className="text-xs">Bahan — Name</Label>
+          <Input
+            placeholder="mis. Katun Baby Canvas"
+            value={item.bahan_name ?? ""}
+            onChange={(e) => onChange({ bahan_name: e.target.value })}
+          />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs">Bahan — Color</Label>
+          <Input
+            placeholder="mis. Hitam"
+            value={item.bahan_color ?? ""}
+            onChange={(e) => onChange({ bahan_color: e.target.value })}
+          />
+        </div>
+      </div>
+
+      {isQuotation && (
+        <>
+          <div className="space-y-1">
+            <div className="flex items-center justify-between">
+              <Label className="text-xs">Bahan — Spec (PDF Quotation only)</Label>
+            </div>
+            <Textarea
+              rows={2}
+              placeholder="Karakteristik tekstur permukaan kain..."
+              value={item.bahan_spec ?? ""}
+              onChange={(e) => onChange({ bahan_spec: e.target.value })}
+            />
+          </div>
+
+          <div className="space-y-1">
+            <div className="flex items-center justify-between">
+              <Label className="text-xs">Bordir</Label>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-6 px-2 text-xs"
+                onClick={() => onChange({ bordir: BORDIR_AUTOFILL })}
+              >
+                Auto-fill
+              </Button>
+            </div>
+            <Input
+              placeholder={BORDIR_AUTOFILL}
+              value={item.bordir ?? ""}
+              onChange={(e) => onChange({ bordir: e.target.value })}
+            />
+          </div>
+
+          <div className="space-y-1">
+            <div className="flex items-center justify-between">
+              <Label className="text-xs">Benang</Label>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-6 px-2 text-xs"
+                onClick={() => onChange({ benang: BENANG_AUTOFILL })}
+              >
+                Auto-fill
+              </Button>
+            </div>
+            <Input
+              placeholder={BENANG_AUTOFILL}
+              value={item.benang ?? ""}
+              onChange={(e) => onChange({ benang: e.target.value })}
+            />
+          </div>
+
+          <div className="space-y-1">
+            <Label className="text-xs">Jahitan</Label>
+            <Input
+              placeholder="mis. Jahit rapi double stitch"
+              value={item.jahitan ?? ""}
+              onChange={(e) => onChange({ jahitan: e.target.value })}
+            />
+          </div>
+        </>
+      )}
+    </div>
+  );
 }
 
 function CreateOrderDialog({ open, onClose, mode }: { open: boolean; onClose: () => void; mode: "quotation" | "order" }) {
@@ -328,56 +436,11 @@ function CreateOrderDialog({ open, onClose, mode }: { open: boolean; onClose: ()
                       </Button>
                     </div>
 
-                    {isQuotation ? (
-                      <div className="grid gap-3 pt-2 border-t">
-                        <div className="space-y-1">
-                          <Label className="text-xs">Bahan Kemeja</Label>
-                          <Textarea
-                            rows={2}
-                            placeholder="Kemeja menggunakan bahan katun premium baby canvas..."
-                            value={it.bahan_kemeja ?? ""}
-                            onChange={(e) => updateItem(idx, { bahan_kemeja: e.target.value })}
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-xs">Bordir</Label>
-                          <Textarea
-                            rows={2}
-                            placeholder="Bordir Menggunakan Sistem Komputerisasi..."
-                            value={it.bordir ?? ""}
-                            onChange={(e) => updateItem(idx, { bordir: e.target.value })}
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-xs">Benang</Label>
-                          <Textarea
-                            rows={2}
-                            placeholder="Benang Bordir Menggunakan Benang Polyester..."
-                            value={it.benang ?? ""}
-                            onChange={(e) => updateItem(idx, { benang: e.target.value })}
-                          />
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="grid gap-3 sm:grid-cols-2 pt-2 border-t">
-                        <div className="space-y-1">
-                          <Label className="text-xs">Bahan</Label>
-                          <Input
-                            placeholder="mis. Katun"
-                            value={it.bahan ?? ""}
-                            onChange={(e) => updateItem(idx, { bahan: e.target.value })}
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-xs">Warna</Label>
-                          <Input
-                            placeholder="mis. Hitam"
-                            value={it.warna ?? ""}
-                            onChange={(e) => updateItem(idx, { warna: e.target.value })}
-                          />
-                        </div>
-                      </div>
-                    )}
+                    <ItemDetailsFields
+                      item={it}
+                      isQuotation={isQuotation}
+                      onChange={(patch) => updateItem(idx, patch)}
+                    />
                   </div>
                 ))}
 
@@ -458,16 +521,20 @@ export function UpdateOrderDialog({
       if (order.items) {
         setItems(
           order.items.map((i: any) => {
-            const d = (i.details || {}) as Record<string, string>;
+            const d = (i.details || {}) as Record<string, any>;
+            const b =
+              d.Bahan && typeof d.Bahan === "object" ? d.Bahan : {};
             return {
               product_id: i.product_id,
               qty: i.qty,
               price: i.price,
-              bahan: d["Bahan"] ?? "",
-              warna: d["Warna"] ?? "",
-              bahan_kemeja: d["Bahan Kemeja"] ?? "",
-              bordir: d["Bordir"] ?? "",
-              benang: d["Benang"] ?? "",
+              bahan_name:
+                b.Name ?? (typeof d.Bahan === "string" ? d.Bahan : "") ?? "",
+              bahan_color: b.Color ?? d.Warna ?? "",
+              bahan_spec: b.Spec ?? d["Bahan Kemeja"] ?? "",
+              benang: d.Benang ?? "",
+              bordir: d.Bordir ?? "",
+              jahitan: d.Jahitan ?? "",
             };
           }),
         );
@@ -598,51 +665,11 @@ export function UpdateOrderDialog({
                         </Button>
                       </div>
 
-                      {isQuotation ? (
-                        <div className="grid gap-3 pt-2 border-t">
-                          <div className="space-y-1">
-                            <Label className="text-xs">Bahan Kemeja</Label>
-                            <Textarea
-                              rows={2}
-                              value={it.bahan_kemeja ?? ""}
-                              onChange={(e) => updateItem(idx, { bahan_kemeja: e.target.value })}
-                            />
-                          </div>
-                          <div className="space-y-1">
-                            <Label className="text-xs">Bordir</Label>
-                            <Textarea
-                              rows={2}
-                              value={it.bordir ?? ""}
-                              onChange={(e) => updateItem(idx, { bordir: e.target.value })}
-                            />
-                          </div>
-                          <div className="space-y-1">
-                            <Label className="text-xs">Benang</Label>
-                            <Textarea
-                              rows={2}
-                              value={it.benang ?? ""}
-                              onChange={(e) => updateItem(idx, { benang: e.target.value })}
-                            />
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="grid gap-3 sm:grid-cols-2 pt-2 border-t">
-                          <div className="space-y-1">
-                            <Label className="text-xs">Bahan</Label>
-                            <Input
-                              value={it.bahan ?? ""}
-                              onChange={(e) => updateItem(idx, { bahan: e.target.value })}
-                            />
-                          </div>
-                          <div className="space-y-1">
-                            <Label className="text-xs">Warna</Label>
-                            <Input
-                              value={it.warna ?? ""}
-                              onChange={(e) => updateItem(idx, { warna: e.target.value })}
-                            />
-                          </div>
-                        </div>
-                      )}
+                      <ItemDetailsFields
+                        item={it}
+                        isQuotation={isQuotation}
+                        onChange={(patch) => updateItem(idx, patch)}
+                      />
                     </div>
                   ))}
                 </div>

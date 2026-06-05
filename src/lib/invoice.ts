@@ -44,6 +44,26 @@ const formatDate = (dateStr: string | null | undefined) => {
   });
 };
 
+// Invoice (order) renders only the basic Bahan info — skips quotation-only
+// fields like Bordir / Benang / Jahitan and Bahan.Spec.
+function formatOrderDetails(details: unknown): string {
+  if (!details || typeof details !== "object") return "";
+  const d = details as Record<string, any>;
+  const parts: string[] = [];
+  const bahan = d.Bahan;
+  if (bahan && typeof bahan === "object") {
+    const b = bahan as Record<string, any>;
+    const inner: string[] = [];
+    if (b.Name) inner.push(String(b.Name));
+    if (b.Color) inner.push(String(b.Color));
+    if (inner.length) parts.push(`Bahan: ${inner.join(" - ")}`);
+  } else if (typeof bahan === "string" && bahan.trim()) {
+    parts.push(`Bahan: ${bahan}`);
+  }
+  if (d.Warna) parts.push(`Warna: ${d.Warna}`);
+  return parts.join(", ");
+}
+
 async function loadImageDataURL(url: string): Promise<string | null> {
   try {
     const res = await fetch(url);
@@ -153,16 +173,11 @@ export async function generateInvoicePDF({
 
   const tableBody = items.map((item, idx) => {
     const subtotal = item.subtotal ?? item.qty * item.price;
-    const detailStr =
-      item.details && Object.keys(item.details).length
-        ? "\n" +
-          Object.entries(item.details)
-            .map(([k, v]) => `${k}: ${v}`)
-            .join(", ")
-        : "";
+    const detailStr = formatOrderDetails(item.details);
     return [
       String(idx + 1),
-      (item.product_name || item.product?.name || "-") + detailStr,
+      (item.product_name || item.product?.name || "-") +
+        (detailStr ? "\n" + detailStr : ""),
       String(item.qty),
       formatCurrency(item.price),
       formatCurrency(subtotal),
