@@ -833,13 +833,13 @@ function OrdersPage() {
 
   const setFilter = (patch: Partial<typeof search>) => {
     navigate({
-      search: (prev) => ({ ...prev, ...patch, page: 1 }),
+      search: (prev: typeof search) => ({ ...prev, ...patch, page: 1 }),
       replace: true,
     });
   };
 
   const setPage = (p: number) =>
-    navigate({ search: (prev) => ({ ...prev, page: p }), replace: true });
+    navigate({ search: (prev: typeof search) => ({ ...prev, page: p }), replace: true });
 
   const queryParams = useMemo(
     () => ({
