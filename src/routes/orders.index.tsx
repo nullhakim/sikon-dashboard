@@ -51,10 +51,19 @@ export const Route = createFileRoute("/orders/")({
       { name: "description", content: "Manage konveksi orders: create, view, update status." },
     ],
   }),
+  validateSearch: (search: Record<string, unknown>) => ({
+    page: Number(search.page) > 0 ? Number(search.page) : 1,
+    search: typeof search.search === "string" ? search.search : "",
+    order_status: typeof search.order_status === "string" ? search.order_status : "",
+    payment_status: typeof search.payment_status === "string" ? search.payment_status : "",
+    start_date: typeof search.start_date === "string" ? search.start_date : "",
+    end_date: typeof search.end_date === "string" ? search.end_date : "",
+  }),
   component: OrdersPage,
 });
 
 const statusList: OrderStatus[] = ["quotation", "pending", "production", "completed", "canceled"];
+const paymentStatusList = ["unpaid", "partial", "paid"];
 
 const statusVariant: Record<string, string> = {
   quotation: "bg-violet-100 text-violet-800 border-violet-200",
