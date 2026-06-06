@@ -82,9 +82,26 @@ export const usersService = {
 };
 
 // Orders
+export interface OrdersListParams extends PageParams {
+  search?: string;
+  order_status?: string;
+  payment_status?: string;
+  start_date?: string;
+  end_date?: string;
+}
 export const ordersService = {
-  list: (p: PageParams = {}) =>
-    api.get<ApiPaginated<Order>>("/orders", { page: p.page ?? 1, limit: p.limit ?? 10 }),
+  list: (p: OrdersListParams = {}) => {
+    const q: Record<string, string | number> = {
+      page: p.page ?? 1,
+      limit: p.limit ?? 10,
+    };
+    if (p.search) q.search = p.search;
+    if (p.order_status) q.order_status = p.order_status;
+    if (p.payment_status) q.payment_status = p.payment_status;
+    if (p.start_date) q.start_date = p.start_date;
+    if (p.end_date) q.end_date = p.end_date;
+    return api.get<ApiPaginated<Order>>("/orders", q);
+  },
   get: (id: string) => api.get<ApiSuccess<Order>>(`/orders/${id}`),
   create: (body: {
     customer_id: string;
