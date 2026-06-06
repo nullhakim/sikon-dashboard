@@ -823,7 +823,7 @@ function OrdersPage() {
     if (searchInput === search.search) return;
     const t = setTimeout(() => {
       navigate({
-        search: (prev) => ({ ...prev, search: searchInput, page: 1 }),
+        search: (prev: typeof search) => ({ ...prev, search: searchInput, page: 1 }),
         replace: true,
       });
     }, 500);
