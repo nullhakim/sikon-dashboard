@@ -500,6 +500,12 @@ function CreateOrderDialog({ open, onClose, mode }: { open: boolean; onClose: ()
           </Button>
         </DialogFooter>
       </DialogContent>
+      <QuickCreateCustomerDialog
+        open={newCustomerOpen}
+        onClose={() => setNewCustomerOpen(false)}
+        salesId={salesId}
+        onCreated={(c) => setCustomerId(c.id)}
+      />
     </Dialog>
   );
 }
