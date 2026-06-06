@@ -56,8 +56,12 @@ export const bankAccountsService = {
 
 // Customers
 export const customersService = {
-  list: (p: PageParams = {}) =>
-    api.get<ApiPaginated<Customer>>("/customers", { page: p.page ?? 1, limit: p.limit ?? 10 }),
+  list: (p: PageParams & { sales_id?: string } = {}) =>
+    api.get<ApiPaginated<Customer>>("/customers", {
+      page: p.page ?? 1,
+      limit: p.limit ?? 10,
+      ...(p.sales_id ? { sales_id: p.sales_id } : {}),
+    }),
   get: (id: string) => api.get<ApiSuccess<Customer>>(`/customers/${id}`),
   create: (body: Partial<Customer>) => api.post<ApiSuccess<Customer>>("/customers", body),
   update: (id: string, body: Partial<Customer>) =>
