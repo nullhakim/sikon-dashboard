@@ -1,8 +1,13 @@
-import { useState, useEffect } from "react";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { useState, useEffect, useMemo } from "react";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, ChevronLeft, ChevronRight, Trash2, Eye, Pencil } from "lucide-react";
+import { Plus, ChevronLeft, ChevronRight, Trash2, Eye, Pencil, Search, Filter, X, CalendarIcon } from "lucide-react";
+import { format } from "date-fns";
 import { toast } from "sonner";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -46,10 +51,19 @@ export const Route = createFileRoute("/orders/")({
       { name: "description", content: "Manage konveksi orders: create, view, update status." },
     ],
   }),
+  validateSearch: (search: Record<string, unknown>) => ({
+    page: Number(search.page) > 0 ? Number(search.page) : 1,
+    search: typeof search.search === "string" ? search.search : "",
+    order_status: typeof search.order_status === "string" ? search.order_status : "",
+    payment_status: typeof search.payment_status === "string" ? search.payment_status : "",
+    start_date: typeof search.start_date === "string" ? search.start_date : "",
+    end_date: typeof search.end_date === "string" ? search.end_date : "",
+  }),
   component: OrdersPage,
 });
 
 const statusList: OrderStatus[] = ["quotation", "pending", "production", "completed", "canceled"];
+const paymentStatusList = ["unpaid", "partial", "paid"];
 
 const statusVariant: Record<string, string> = {
   quotation: "bg-violet-100 text-violet-800 border-violet-200",
@@ -790,16 +804,59 @@ export function UpdateOrderDialog({
 
 
 function OrdersPage() {
-  const [page, setPage] = useState(1);
+  const search = Route.useSearch();
+  const navigate = useNavigate({ from: Route.fullPath });
   const limit = 10;
   const qc = useQueryClient();
 
   const [editOrderId, setEditOrderId] = useState<string | null>(null);
   const [createMode, setCreateMode] = useState<"quotation" | "order" | null>(null);
 
-  const { data, isLoading, isError, error } = useQuery({
-    queryKey: ["orders", { page, limit }],
-    queryFn: () => ordersService.list({ page, limit }),
+  // Local input state for debounced search box
+  const [searchInput, setSearchInput] = useState(search.search);
+  useEffect(() => {
+    setSearchInput(search.search);
+  }, [search.search]);
+
+  // Debounce the search input -> URL
+  useEffect(() => {
+    if (searchInput === search.search) return;
+    const t = setTimeout(() => {
+      navigate({
+        search: (prev: typeof search) => ({ ...prev, search: searchInput, page: 1 }),
+        replace: true,
+      });
+    }, 500);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchInput]);
+
+  const setFilter = (patch: Partial<typeof search>) => {
+    navigate({
+      search: (prev: typeof search) => ({ ...prev, ...patch, page: 1 }),
+      replace: true,
+    });
+  };
+
+  const setPage = (p: number) =>
+    navigate({ search: (prev: typeof search) => ({ ...prev, page: p }), replace: true });
+
+  const queryParams = useMemo(
+    () => ({
+      page: search.page,
+      limit,
+      search: search.search || undefined,
+      order_status: search.order_status || undefined,
+      payment_status: search.payment_status || undefined,
+      start_date: search.start_date || undefined,
+      end_date: search.end_date || undefined,
+    }),
+    [search],
+  );
+
+  const { data, isLoading, isError, error, isFetching } = useQuery({
+    queryKey: ["orders", queryParams],
+    queryFn: () => ordersService.list(queryParams),
   });
 
   const statusMut = useMutation({
@@ -823,6 +880,35 @@ function OrdersPage() {
 
   const orders = data?.data ?? [];
   const totalPage = data?.paging?.total_page ?? 1;
+  const page = search.page;
+
+  const startDate = search.start_date ? new Date(search.start_date) : undefined;
+  const endDate = search.end_date ? new Date(search.end_date) : undefined;
+
+  const activeFilterCount =
+    (search.order_status ? 1 : 0) +
+    (search.payment_status ? 1 : 0) +
+    (search.start_date || search.end_date ? 1 : 0);
+
+  const hasAnyFilter =
+    !!search.search ||
+    !!search.order_status ||
+    !!search.payment_status ||
+    !!search.start_date ||
+    !!search.end_date;
+
+  const clearAll = () =>
+    navigate({
+      search: () => ({
+        page: 1,
+        search: "",
+        order_status: "",
+        payment_status: "",
+        start_date: "",
+        end_date: "",
+      }),
+      replace: true,
+    });
 
   return (
     <div className="space-y-6">
@@ -844,8 +930,155 @@ function OrdersPage() {
       </div>
 
       <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">All Orders</CardTitle>
+        <CardHeader className="pb-3 space-y-3">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <CardTitle className="text-base">All Orders</CardTitle>
+            <div className="flex items-center gap-2 flex-1 sm:flex-initial sm:min-w-[420px] sm:justify-end flex-wrap">
+              <div className="relative flex-1 sm:max-w-xs min-w-[200px]">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                  placeholder="Search by order number…"
+                  className="pl-8 h-9"
+                />
+              </div>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className="h-9">
+                    <Filter className="h-4 w-4" />
+                    Filters
+                    {activeFilterCount > 0 && (
+                      <span className="ml-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-semibold text-primary-foreground">
+                        {activeFilterCount}
+                      </span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent align="end" className="w-80 space-y-4">
+                  <div className="space-y-2">
+                    <Label className="text-xs">Order Status</Label>
+                    <Select
+                      value={search.order_status || "all"}
+                      onValueChange={(v) =>
+                        setFilter({ order_status: v === "all" ? "" : v })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All</SelectItem>
+                        {statusList.map((s) => (
+                          <SelectItem key={s} value={s} className="capitalize">
+                            {s}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-xs">Payment Status</Label>
+                    <Select
+                      value={search.payment_status || "all"}
+                      onValueChange={(v) =>
+                        setFilter({ payment_status: v === "all" ? "" : v })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All</SelectItem>
+                        {paymentStatusList.map((s) => (
+                          <SelectItem key={s} value={s} className="capitalize">
+                            {s}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-xs">Date Range</Label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className={cn(
+                              "justify-start font-normal h-9",
+                              !startDate && "text-muted-foreground",
+                            )}
+                          >
+                            <CalendarIcon className="h-3.5 w-3.5" />
+                            {startDate ? format(startDate, "yyyy-MM-dd") : "Start"}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={startDate}
+                            onSelect={(d) =>
+                              setFilter({
+                                start_date: d ? format(d, "yyyy-MM-dd") : "",
+                              })
+                            }
+                            className="pointer-events-auto"
+                          />
+                        </PopoverContent>
+                      </Popover>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className={cn(
+                              "justify-start font-normal h-9",
+                              !endDate && "text-muted-foreground",
+                            )}
+                          >
+                            <CalendarIcon className="h-3.5 w-3.5" />
+                            {endDate ? format(endDate, "yyyy-MM-dd") : "End"}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={endDate}
+                            onSelect={(d) =>
+                              setFilter({
+                                end_date: d ? format(d, "yyyy-MM-dd") : "",
+                              })
+                            }
+                            className="pointer-events-auto"
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end pt-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={clearAll}
+                      disabled={!hasAnyFilter}
+                    >
+                      Clear filters
+                    </Button>
+                  </div>
+                </PopoverContent>
+              </Popover>
+              {hasAnyFilter && (
+                <Button variant="ghost" size="sm" className="h-9" onClick={clearAll}>
+                  <X className="h-4 w-4" /> Reset
+                </Button>
+              )}
+            </div>
+          </div>
         </CardHeader>
         <CardContent className="p-0">
           <Table>
@@ -861,29 +1094,39 @@ function OrdersPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {isLoading && (
-                <TableRow>
-                  <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
-                    Loading orders…
-                  </TableCell>
-                </TableRow>
-              )}
-              {isError && (
+              {isLoading &&
+                Array.from({ length: 5 }).map((_, i) => (
+                  <TableRow key={`sk-${i}`}>
+                    {Array.from({ length: 7 }).map((_, j) => (
+                      <TableCell key={j}>
+                        <Skeleton className="h-4 w-full" />
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))}
+              {isError && !isLoading && (
                 <TableRow>
                   <TableCell colSpan={7} className="text-center text-destructive py-8">
                     {(error as Error)?.message ?? "Failed to load orders"}
                   </TableCell>
                 </TableRow>
               )}
-              {!isLoading && orders.length === 0 && (
+              {!isLoading && !isError && orders.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
-                    No orders found.
+                  <TableCell colSpan={7} className="text-center text-muted-foreground py-10">
+                    <div className="space-y-1">
+                      <p className="font-medium">No orders found</p>
+                      <p className="text-xs">
+                        {hasAnyFilter
+                          ? "No orders match your criteria. Try adjusting filters."
+                          : "Create your first order to get started."}
+                      </p>
+                    </div>
                   </TableCell>
                 </TableRow>
               )}
               {orders.map((o) => (
-                <TableRow key={o.id}>
+                <TableRow key={o.id} className={isFetching ? "opacity-70" : ""}>
                   <TableCell className="font-mono text-xs">
                     {o.order_number ?? o.id.slice(0, 8)}
                   </TableCell>
@@ -965,7 +1208,7 @@ function OrdersPage() {
             variant="outline"
             size="sm"
             disabled={page <= 1}
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            onClick={() => setPage(Math.max(1, page - 1))}
           >
             <ChevronLeft className="h-4 w-4" /> Prev
           </Button>
@@ -973,12 +1216,13 @@ function OrdersPage() {
             variant="outline"
             size="sm"
             disabled={page >= totalPage}
-            onClick={() => setPage((p) => p + 1)}
+            onClick={() => setPage(page + 1)}
           >
             Next <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
       </div>
+
 
       <UpdateOrderDialog
         orderId={editOrderId}
