@@ -207,10 +207,14 @@ function ItemDetailsFields({
 function CreateOrderDialog({ open, onClose, mode }: { open: boolean; onClose: () => void; mode: "quotation" | "order" }) {
   const isQuotation = mode === "quotation";
   const qc = useQueryClient();
+  const [customerId, setCustomerId] = useState("");
+  const [salesId, setSalesId] = useState("");
+  const [newCustomerOpen, setNewCustomerOpen] = useState(false);
+
   const customers = useQuery({
-    queryKey: ["customers", { page: 1, limit: 100 }],
-    queryFn: () => customersService.list({ page: 1, limit: 100 }),
-    enabled: open,
+    queryKey: ["customers", { sales_id: salesId, limit: 100 }],
+    queryFn: () => customersService.list({ page: 1, limit: 100, sales_id: salesId }),
+    enabled: open && !!salesId,
   });
   const products = useQuery({
     queryKey: ["products", { page: 1, limit: 100 }],
@@ -223,8 +227,6 @@ function CreateOrderDialog({ open, onClose, mode }: { open: boolean; onClose: ()
     enabled: open,
   });
 
-  const [customerId, setCustomerId] = useState("");
-  const [salesId, setSalesId] = useState("");
   const [courier, setCourier] = useState("");
   const [shippingCost, setShippingCost] = useState<number | "">("");
   const [address, setAddress] = useState("");
