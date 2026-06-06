@@ -37,6 +37,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ordersService, customersService, productsService, usersService } from "@/lib/services";
 import { formatIDR, formatDate } from "@/lib/format";
 import type { OrderStatus } from "@/lib/types";
+import { QuickCreateCustomerDialog } from "@/components/QuickCreateCustomerDialog";
 
 export const Route = createFileRoute("/orders/")({
   head: () => ({
@@ -206,10 +207,14 @@ function ItemDetailsFields({
 function CreateOrderDialog({ open, onClose, mode }: { open: boolean; onClose: () => void; mode: "quotation" | "order" }) {
   const isQuotation = mode === "quotation";
   const qc = useQueryClient();
+  const [customerId, setCustomerId] = useState("");
+  const [salesId, setSalesId] = useState("");
+  const [newCustomerOpen, setNewCustomerOpen] = useState(false);
+
   const customers = useQuery({
-    queryKey: ["customers", { page: 1, limit: 100 }],
-    queryFn: () => customersService.list({ page: 1, limit: 100 }),
-    enabled: open,
+    queryKey: ["customers", { sales_id: salesId, limit: 100 }],
+    queryFn: () => customersService.list({ page: 1, limit: 100, sales_id: salesId }),
+    enabled: open && !!salesId,
   });
   const products = useQuery({
     queryKey: ["products", { page: 1, limit: 100 }],
@@ -222,8 +227,6 @@ function CreateOrderDialog({ open, onClose, mode }: { open: boolean; onClose: ()
     enabled: open,
   });
 
-  const [customerId, setCustomerId] = useState("");
-  const [salesId, setSalesId] = useState("");
   const [courier, setCourier] = useState("");
   const [shippingCost, setShippingCost] = useState<number | "">("");
   const [address, setAddress] = useState("");
@@ -305,23 +308,14 @@ function CreateOrderDialog({ open, onClose, mode }: { open: boolean; onClose: ()
               </CardHeader>
               <CardContent className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label>Customer</Label>
-                  <Select value={customerId} onValueChange={setCustomerId}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select customer" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {customers.data?.data?.map((c) => (
-                        <SelectItem key={c.id} value={c.id}>
-                          {c.name} {c.phone ? `· ${c.phone}` : ""}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
                   <Label>Sales Person</Label>
-                  <Select value={salesId} onValueChange={setSalesId}>
+                  <Select
+                    value={salesId}
+                    onValueChange={(v) => {
+                      setSalesId(v);
+                      setCustomerId("");
+                    }}
+                  >
                     <SelectTrigger>
                       <SelectValue placeholder="Select sales" />
                     </SelectTrigger>
@@ -329,6 +323,40 @@ function CreateOrderDialog({ open, onClose, mode }: { open: boolean; onClose: ()
                       {users.data?.data?.map((u) => (
                         <SelectItem key={u.id} value={u.id}>
                           {u.name} {u.role ? `(${u.role})` : ""}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label>Customer</Label>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 px-2 text-xs"
+                      disabled={!salesId}
+                      onClick={() => setNewCustomerOpen(true)}
+                    >
+                      <Plus className="h-3 w-3 mr-1" /> New
+                    </Button>
+                  </div>
+                  <Select value={customerId} onValueChange={setCustomerId} disabled={!salesId}>
+                    <SelectTrigger>
+                      <SelectValue
+                        placeholder={salesId ? "Select customer" : "Pick sales first"}
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {customers.data?.data?.length === 0 && (
+                        <div className="px-2 py-3 text-xs text-muted-foreground">
+                          No customers for this sales yet.
+                        </div>
+                      )}
+                      {customers.data?.data?.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.name} {c.phone ? `· ${c.phone}` : ""}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -472,6 +500,12 @@ function CreateOrderDialog({ open, onClose, mode }: { open: boolean; onClose: ()
           </Button>
         </DialogFooter>
       </DialogContent>
+      <QuickCreateCustomerDialog
+        open={newCustomerOpen}
+        onClose={() => setNewCustomerOpen(false)}
+        salesId={salesId}
+        onCreated={(c) => setCustomerId(c.id)}
+      />
     </Dialog>
   );
 }
