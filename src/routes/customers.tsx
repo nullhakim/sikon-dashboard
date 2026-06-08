@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, Pencil, Trash2, ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { toast } from "sonner";
+import { z } from "zod";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -36,7 +37,15 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+const searchSchema = z.object({
+  search: z.string().optional().catch(""),
+  sales_id: z.string().optional().catch(""),
+  page: z.number().catch(1),
+  limit: z.number().catch(10),
+});
+
 export const Route = createFileRoute("/customers")({
+  validateSearch: searchSchema,
   head: () => ({
     meta: [
       { title: "Customers — SIKOn ERP" },
@@ -63,17 +72,29 @@ const emptyForm: FormState = {
 };
 
 function CustomersPage() {
-  const [page, setPage] = useState(1);
-  const limit = 10;
+  const searchParams = Route.useSearch();
+  const navigate = Route.useNavigate();
   const qc = useQueryClient();
 
   const [editing, setEditing] = useState<Customer | null>(null);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<FormState>(emptyForm);
+  const [searchInput, setSearchInput] = useState(searchParams.search || "");
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      if (searchInput !== (searchParams.search || "")) {
+        navigate({
+          search: (prev) => ({ ...prev, search: searchInput || undefined, page: 1 }),
+        });
+      }
+    }, 500);
+    return () => clearTimeout(timeout);
+  }, [searchInput, navigate, searchParams.search]);
 
   const { data, isLoading, isError, error } = useQuery({
-    queryKey: ["customers", { page, limit }],
-    queryFn: () => customersService.list({ page, limit }),
+    queryKey: ["customers", searchParams],
+    queryFn: () => customersService.list(searchParams),
   });
 
   const { data: usersData } = useQuery({
@@ -186,6 +207,42 @@ function CustomersPage() {
         </Button>
       </div>
 
+      <div className="flex flex-col sm:flex-row gap-4">
+        <div className="relative flex-1">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search customers by name or phone..."
+            className="pl-8"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+          />
+        </div>
+        <Select
+          value={searchParams.sales_id || "all"}
+          onValueChange={(val) => {
+            navigate({
+              search: (prev) => ({
+                ...prev,
+                sales_id: val === "all" ? undefined : val,
+                page: 1,
+              }),
+            });
+          }}
+        >
+          <SelectTrigger className="w-full sm:w-[250px]">
+            <SelectValue placeholder="All Sales" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Sales</SelectItem>
+            {salesUsers.map((u) => (
+              <SelectItem key={u.id} value={u.id}>
+                {u.name} {u.email ? `(${u.email})` : ""}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base">All Customers</CardTitle>
@@ -220,7 +277,7 @@ function CustomersPage() {
               {!isLoading && rows.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
-                    No customers found.
+                    No customers found matching your criteria.
                   </TableCell>
                 </TableRow>
               )}
@@ -264,22 +321,22 @@ function CustomersPage() {
 
       <div className="flex items-center justify-between">
         <p className="text-xs text-muted-foreground">
-          Page {page} of {totalPage}
+          Page {searchParams.page} of {totalPage}
         </p>
         <div className="flex gap-2">
           <Button
             variant="outline"
             size="sm"
-            disabled={page <= 1}
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={searchParams.page <= 1}
+            onClick={() => navigate({ search: (prev) => ({ ...prev, page: Math.max(1, prev.page - 1) }) })}
           >
             <ChevronLeft className="h-4 w-4" /> Prev
           </Button>
           <Button
             variant="outline"
             size="sm"
-            disabled={page >= totalPage}
-            onClick={() => setPage((p) => p + 1)}
+            disabled={searchParams.page >= totalPage}
+            onClick={() => navigate({ search: (prev) => ({ ...prev, page: prev.page + 1 }) })}
           >
             Next <ChevronRight className="h-4 w-4" />
           </Button>

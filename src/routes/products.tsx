@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, Pencil, Trash2, ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { toast } from "sonner";
+import { z } from "zod";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -36,7 +37,15 @@ import { productsService, categoriesService } from "@/lib/services";
 import { formatIDR } from "@/lib/format";
 import type { Product } from "@/lib/types";
 
+const searchSchema = z.object({
+  search: z.string().optional().catch(""),
+  category_id: z.string().optional().catch(""),
+  page: z.number().catch(1),
+  limit: z.number().catch(10),
+});
+
 export const Route = createFileRoute("/products")({
+  validateSearch: searchSchema,
   head: () => ({
     meta: [
       { title: "Products — SIKOn ERP" },
@@ -56,17 +65,29 @@ interface FormState {
 const emptyForm: FormState = { name: "", base_price: "", category_id: "", description: "" };
 
 function ProductsPage() {
-  const [page, setPage] = useState(1);
-  const limit = 10;
+  const searchParams = Route.useSearch();
+  const navigate = Route.useNavigate();
   const qc = useQueryClient();
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
   const [form, setForm] = useState<FormState>(emptyForm);
+  const [searchInput, setSearchInput] = useState(searchParams.search || "");
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      if (searchInput !== (searchParams.search || "")) {
+        navigate({
+          search: (prev) => ({ ...prev, search: searchInput || undefined, page: 1 }),
+        });
+      }
+    }, 500);
+    return () => clearTimeout(timeout);
+  }, [searchInput, navigate, searchParams.search]);
 
   const { data, isLoading, isError, error } = useQuery({
-    queryKey: ["products", { page, limit }],
-    queryFn: () => productsService.list({ page, limit }),
+    queryKey: ["products", searchParams],
+    queryFn: () => productsService.list(searchParams),
   });
 
   const { data: catData } = useQuery({
@@ -172,6 +193,42 @@ function ProductsPage() {
         </Button>
       </div>
 
+      <div className="flex flex-col sm:flex-row gap-4">
+        <div className="relative flex-1">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search products by name..."
+            className="pl-8"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+          />
+        </div>
+        <Select
+          value={searchParams.category_id || "all"}
+          onValueChange={(val) => {
+            navigate({
+              search: (prev) => ({
+                ...prev,
+                category_id: val === "all" ? undefined : val,
+                page: 1,
+              }),
+            });
+          }}
+        >
+          <SelectTrigger className="w-full sm:w-[250px]">
+            <SelectValue placeholder="All Categories" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Categories</SelectItem>
+            {categories.map((c) => (
+              <SelectItem key={c.id} value={c.id}>
+                {c.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base">All Products</CardTitle>
@@ -204,7 +261,7 @@ function ProductsPage() {
               {!isLoading && rows.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={4} className="py-8 text-center text-muted-foreground">
-                    No products found.
+                    No products found matching your criteria.
                   </TableCell>
                 </TableRow>
               )}
@@ -250,22 +307,22 @@ function ProductsPage() {
 
       <div className="flex items-center justify-between">
         <p className="text-xs text-muted-foreground">
-          Page {page} of {totalPage}
+          Page {searchParams.page} of {totalPage}
         </p>
         <div className="flex gap-2">
           <Button
             variant="outline"
             size="sm"
-            disabled={page <= 1}
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={searchParams.page <= 1}
+            onClick={() => navigate({ search: (prev) => ({ ...prev, page: Math.max(1, prev.page - 1) }) })}
           >
             <ChevronLeft className="h-4 w-4" /> Prev
           </Button>
           <Button
             variant="outline"
             size="sm"
-            disabled={page >= totalPage}
-            onClick={() => setPage((p) => p + 1)}
+            disabled={searchParams.page >= totalPage}
+            onClick={() => navigate({ search: (prev) => ({ ...prev, page: prev.page + 1 }) })}
           >
             Next <ChevronRight className="h-4 w-4" />
           </Button>

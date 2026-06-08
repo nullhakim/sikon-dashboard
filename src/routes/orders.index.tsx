@@ -58,6 +58,7 @@ export const Route = createFileRoute("/orders/")({
     payment_status: typeof search.payment_status === "string" ? search.payment_status : "",
     start_date: typeof search.start_date === "string" ? search.start_date : "",
     end_date: typeof search.end_date === "string" ? search.end_date : "",
+    sales_id: typeof search.sales_id === "string" ? search.sales_id : "",
   }),
   component: OrdersPage,
 });
@@ -236,8 +237,8 @@ function CreateOrderDialog({ open, onClose, mode }: { open: boolean; onClose: ()
     enabled: open,
   });
   const users = useQuery({
-    queryKey: ["users", { page: 1, limit: 100 }],
-    queryFn: () => usersService.list({ page: 1, limit: 100 }),
+    queryKey: ["users", "sales"],
+    queryFn: () => usersService.list({ role: "sales", limit: 100 }),
     enabled: open,
   });
 
@@ -850,6 +851,7 @@ function OrdersPage() {
       payment_status: search.payment_status || undefined,
       start_date: search.start_date || undefined,
       end_date: search.end_date || undefined,
+      sales_id: search.sales_id || undefined,
     }),
     [search],
   );
@@ -858,6 +860,12 @@ function OrdersPage() {
     queryKey: ["orders", queryParams],
     queryFn: () => ordersService.list(queryParams),
   });
+
+  const { data: usersData } = useQuery({
+    queryKey: ["users", "sales"],
+    queryFn: () => usersService.list({ role: "sales", limit: 100 }),
+  });
+  const salesUsers = usersData?.data ?? [];
 
   const statusMut = useMutation({
     mutationFn: ({ id, status }: { id: string; status: OrderStatus }) =>
@@ -888,12 +896,14 @@ function OrdersPage() {
   const activeFilterCount =
     (search.order_status ? 1 : 0) +
     (search.payment_status ? 1 : 0) +
+    (search.sales_id ? 1 : 0) +
     (search.start_date || search.end_date ? 1 : 0);
 
   const hasAnyFilter =
     !!search.search ||
     !!search.order_status ||
     !!search.payment_status ||
+    !!search.sales_id ||
     !!search.start_date ||
     !!search.end_date;
 
@@ -906,6 +916,7 @@ function OrdersPage() {
         payment_status: "",
         start_date: "",
         end_date: "",
+        sales_id: "",
       }),
       replace: true,
     });
@@ -994,6 +1005,28 @@ function OrdersPage() {
                         {paymentStatusList.map((s) => (
                           <SelectItem key={s} value={s} className="capitalize">
                             {s}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-xs">Sales</Label>
+                    <Select
+                      value={search.sales_id || "all"}
+                      onValueChange={(v) =>
+                        setFilter({ sales_id: v === "all" ? "" : v })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All</SelectItem>
+                        {salesUsers.map((u) => (
+                          <SelectItem key={u.id} value={u.id} className="capitalize">
+                            {u.name}
                           </SelectItem>
                         ))}
                       </SelectContent>
