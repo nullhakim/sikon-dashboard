@@ -28,9 +28,20 @@ export const categoriesService = {
 };
 
 // Products
+export interface ProductsListParams extends PageParams {
+  search?: string;
+  category_id?: string;
+}
 export const productsService = {
-  list: (p: PageParams = {}) =>
-    api.get<ApiPaginated<Product>>("/products", { page: p.page ?? 1, limit: p.limit ?? 10 }),
+  list: (p: ProductsListParams = {}) => {
+    const q: Record<string, string | number> = {
+      page: p.page ?? 1,
+      limit: p.limit ?? 10,
+    };
+    if (p.search) q.search = p.search;
+    if (p.category_id) q.category_id = p.category_id;
+    return api.get<ApiPaginated<Product>>("/products", q);
+  },
   get: (id: string) => api.get<ApiSuccess<Product>>(`/products/${id}`),
   create: (body: Partial<Product>) => api.post<ApiSuccess<Product>>("/products", body),
   update: (id: string, body: Partial<Product>) =>
@@ -54,14 +65,21 @@ export const bankAccountsService = {
   delete: (id: string) => api.delete<ApiSuccess<unknown>>(`/bank-accounts/${id}`),
 };
 
-// Customers
+export interface CustomersListParams extends PageParams {
+  search?: string;
+  sales_id?: string;
+}
+
 export const customersService = {
-  list: (p: PageParams & { sales_id?: string } = {}) =>
-    api.get<ApiPaginated<Customer>>("/customers", {
+  list: (p: CustomersListParams = {}) => {
+    const q: Record<string, string | number> = {
       page: p.page ?? 1,
       limit: p.limit ?? 10,
-      ...(p.sales_id ? { sales_id: p.sales_id } : {}),
-    }),
+    };
+    if (p.search) q.search = p.search;
+    if (p.sales_id) q.sales_id = p.sales_id;
+    return api.get<ApiPaginated<Customer>>("/customers", q);
+  },
   get: (id: string) => api.get<ApiSuccess<Customer>>(`/customers/${id}`),
   create: (body: Partial<Customer>) => api.post<ApiSuccess<Customer>>("/customers", body),
   update: (id: string, body: Partial<Customer>) =>
@@ -70,9 +88,16 @@ export const customersService = {
 };
 
 // Users / Sales
+export interface UsersListParams extends PageParams {
+  role?: string;
+}
 export const usersService = {
-  list: (p: PageParams = {}) =>
-    api.get<ApiPaginated<User>>("/users", { page: p.page ?? 1, limit: p.limit ?? 10 }),
+  list: (p: UsersListParams = {}) =>
+    api.get<ApiPaginated<User>>("/users", { 
+      page: p.page ?? 1, 
+      limit: p.limit ?? 10,
+      ...(p.role ? { role: p.role } : {})
+    }),
   get: (id: string) => api.get<ApiSuccess<User>>(`/users/${id}`),
   create: (body: Partial<User> & { password?: string }) =>
     api.post<ApiSuccess<User>>("/users/register", body),
@@ -88,6 +113,7 @@ export interface OrdersListParams extends PageParams {
   payment_status?: string;
   start_date?: string;
   end_date?: string;
+  sales_id?: string;
 }
 export const ordersService = {
   list: (p: OrdersListParams = {}) => {
@@ -100,6 +126,7 @@ export const ordersService = {
     if (p.payment_status) q.payment_status = p.payment_status;
     if (p.start_date) q.start_date = p.start_date;
     if (p.end_date) q.end_date = p.end_date;
+    if (p.sales_id) q.sales_id = p.sales_id;
     return api.get<ApiPaginated<Order>>("/orders", q);
   },
   get: (id: string) => api.get<ApiSuccess<Order>>(`/orders/${id}`),
@@ -139,9 +166,25 @@ export const ordersService = {
 };
 
 // Payments
+export interface PaymentsListParams extends PageParams {
+  search?: string;
+  payment_type?: string;
+  start_date?: string;
+  end_date?: string;
+}
+
 export const paymentsService = {
-  list: (p: PageParams = {}) =>
-    api.get<ApiPaginated<Payment>>("/payments", { page: p.page ?? 1, limit: p.limit ?? 10 }),
+  list: (p: PaymentsListParams = {}) => {
+    const q: Record<string, string | number> = {
+      page: p.page ?? 1,
+      limit: p.limit ?? 10,
+    };
+    if (p.search) q.search = p.search;
+    if (p.payment_type) q.payment_type = p.payment_type;
+    if (p.start_date) q.start_date = p.start_date;
+    if (p.end_date) q.end_date = p.end_date;
+    return api.get<ApiPaginated<Payment>>("/payments", q);
+  },
   get: (id: string) => api.get<ApiSuccess<Payment>>(`/payments/${id}`),
   create: (body: {
     order_id: string;

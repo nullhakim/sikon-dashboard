@@ -87,7 +87,7 @@ export async function generateInvoicePDF({
   payments = [],
   bankAccounts = [],
   options,
-}: InvoiceData) {
+}: InvoiceData): Promise<jsPDF> {
   const { withStamp = false, withSignature = false } = options || {};
 
 
@@ -143,8 +143,10 @@ export async function generateInvoicePDF({
   doc.text(customer?.name || "-", col1, y + 7);
   doc.setFontSize(9);
   doc.setTextColor(100, 100, 100);
-  if (customer?.address) doc.text(customer.address, col1, y + 14, { maxWidth: 80 });
-  if (customer?.phone) doc.text(`Tel: ${customer.phone}`, col1, y + 22);
+  // if (customer?.address) doc.text(customer.address, col1, y + 14, { maxWidth: 80 });
+  // if (customer?.phone) doc.text(`Tel: ${customer.phone}`, col1, y + 22);
+  doc.text("Address: ", col1, y + 14, { maxWidth: 80 });
+  doc.text("Phone: ", col1, y + 22);
 
   doc.setTextColor(30, 41, 59);
   doc.setFontSize(9);
@@ -152,7 +154,8 @@ export async function generateInvoicePDF({
   const invNumber = order.order_number
     ? `INV-${order.order_number}`
     : `INV-${order.id.slice(0, 8).toUpperCase()}`;
-  const infoLabels = ["No. Invoice", "Tanggal", "Status Order", "Status Bayar"];
+  const infoLabels = ["No. Invoice", "Tanggal"];
+  // const infoLabels = ["No. Invoice", "Tanggal", "Status Order", "Status Bayar"];
   const infoValues = [
     invNumber,
     formatDate(order.created_at),
@@ -177,7 +180,7 @@ export async function generateInvoicePDF({
     return [
       String(idx + 1),
       (item.product_name || item.product?.name || "-") +
-        (detailStr ? "\n" + detailStr : ""),
+      (detailStr ? "\n" + detailStr : ""),
       String(item.qty),
       formatCurrency(item.price),
       formatCurrency(subtotal),
@@ -248,22 +251,22 @@ export async function generateInvoicePDF({
   doc.text(formatCurrency(sisa), pageWidth - margin, ty, { align: "right" });
 
   // Payment status badge
-  ty += 12;
-  const payStatus = (order.payment_status || "unpaid").toLowerCase();
-  const badgeColors: Record<string, [number, number, number]> = {
-    paid: [34, 197, 94],
-    partial: [234, 179, 8],
-    unpaid: [239, 68, 68],
-  };
-  const badgeColor = badgeColors[payStatus] || badgeColors.unpaid;
-  doc.setFillColor(badgeColor[0], badgeColor[1], badgeColor[2]);
-  const statusText = payStatus.toUpperCase();
-  const statusWidth = doc.getTextWidth(statusText) + 12;
-  doc.roundedRect(pageWidth - margin - statusWidth, ty - 5, statusWidth, 8, 2, 2, "F");
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(8);
-  doc.setFont("helvetica", "bold");
-  doc.text(statusText, pageWidth - margin - statusWidth / 2, ty, { align: "center" });
+  // ty += 12;
+  // const payStatus = (order.payment_status || "unpaid").toLowerCase();
+  // const badgeColors: Record<string, [number, number, number]> = {
+  //   paid: [34, 197, 94],
+  //   partial: [234, 179, 8],
+  //   unpaid: [239, 68, 68],
+  // };
+  // const badgeColor = badgeColors[payStatus] || badgeColors.unpaid;
+  // doc.setFillColor(badgeColor[0], badgeColor[1], badgeColor[2]);
+  // const statusText = payStatus.toUpperCase();
+  // const statusWidth = doc.getTextWidth(statusText) + 12;
+  // doc.roundedRect(pageWidth - margin - statusWidth, ty - 5, statusWidth, 8, 2, 2, "F");
+  // doc.setTextColor(255, 255, 255);
+  // doc.setFontSize(8);
+  // doc.setFont("helvetica", "bold");
+  // doc.text(statusText, pageWidth - margin - statusWidth / 2, ty, { align: "center" });
 
   // === 5. BANK INFO ===
   const bankY = finalY + 10;
@@ -373,7 +376,5 @@ export async function generateInvoicePDF({
     maxWidth: pageWidth - margin * 2,
   });
 
-  const custName = (customer?.name || "Unknown").replace(/\s+/g, "_");
-  const fileName = `Invoice-${custName}-${order.order_number ?? order.id.slice(0, 8)}.pdf`;
-  doc.save(fileName);
+  return doc;
 }

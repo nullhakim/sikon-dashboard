@@ -276,6 +276,7 @@ function OrderDetailPage() {
   const [withStamp, setWithStamp] = useState(false);
   const [withSignature, setWithSignature] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
 
   const orderQ = useQuery({
     queryKey: ["order", orderId],
@@ -314,6 +315,43 @@ function OrderDetailPage() {
   const paid = payments.reduce((s, p) => s + (p.amount || 0), 0);
   const remaining = Math.max(0, total - paid);
 
+  useEffect(() => {
+    if (!pdfOpen || !order) return;
+    let isActive = true;
+    let currentUrl: string | null = null;
+
+    async function loadPdf() {
+      try {
+        let bankAccounts: Awaited<ReturnType<typeof bankAccountsService.byUser>>["data"] = [];
+        if (salesId) {
+          const res = await bankAccountsService.byUser(salesId);
+          bankAccounts = res.data ?? [];
+        }
+        const doc = await generateInvoicePDF({
+          order: order!,
+          items: order!.items ?? [],
+          customer: order!.customer ?? null,
+          payments,
+          bankAccounts,
+          options: { withStamp, withSignature },
+        });
+        if (isActive) {
+          const blob = doc.output("blob");
+          currentUrl = URL.createObjectURL(blob);
+          setPdfUrl(currentUrl);
+        }
+      } catch (err) {
+        if (isActive) toast.error("Failed to generate PDF preview");
+      }
+    }
+    loadPdf();
+
+    return () => {
+      isActive = false;
+      if (currentUrl) URL.revokeObjectURL(currentUrl);
+    };
+  }, [pdfOpen, order, items, order?.customer, payments, salesId, withStamp, withSignature]);
+
   async function handleDownloadPdf() {
     if (!order) return;
     setGenerating(true);
@@ -323,7 +361,7 @@ function OrderDetailPage() {
         const res = await bankAccountsService.byUser(salesId);
         bankAccounts = res.data ?? [];
       }
-      await generateInvoicePDF({
+      const doc = await generateInvoicePDF({
         order,
         items: order.items ?? [],
         customer: order.customer ?? null,
@@ -331,6 +369,9 @@ function OrderDetailPage() {
         bankAccounts,
         options: { withStamp, withSignature },
       });
+      const custName = (order.customer?.name || "Unknown").replace(/\s+/g, "_");
+      const fileName = `Invoice-${custName}-${order.order_number ?? order.id.slice(0, 8)}.pdf`;
+      doc.save(fileName);
       setPdfOpen(false);
     } catch (err) {
       toast.error((err as Error).message);
@@ -642,51 +683,61 @@ function OrderDetailPage() {
       />
 
       <Dialog open={pdfOpen} onOpenChange={(v) => !v && setPdfOpen(false)}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Generate Invoice PDF</DialogTitle>
-            <DialogDescription>
-              Pilih elemen yang ingin disertakan dalam invoice.
-            </DialogDescription>
+            <DialogTitle className="flex items-center justify-between gap-4">
+              <span>Preview Invoice PDF</span>
+              <Button onClick={handleDownloadPdf} disabled={generating || !pdfUrl} size="sm">
+                {generating ? "Generating…" : <><FileDown className="h-4 w-4 mr-1" /> Download PDF</>}
+              </Button>
+            </DialogTitle>
           </DialogHeader>
-          <div className="space-y-3 py-2">
-            <label className="flex items-center gap-3 rounded-md border p-3 cursor-pointer hover:bg-muted/50">
-              <input
-                type="checkbox"
-                className="h-4 w-4"
-                checked={withStamp}
-                onChange={(e) => setWithStamp(e.target.checked)}
-              />
-              <div>
-                <div className="text-sm font-medium">Sertakan Stempel</div>
-                <div className="text-xs text-muted-foreground">
-                  Tambahkan stempel perusahaan pada area tanda tangan.
-                </div>
+
+          <div className="grid md:grid-cols-[300px_1fr] gap-6">
+            <div className="space-y-4">
+              <div className="text-sm font-medium">Pengaturan PDF</div>
+              <div className="space-y-3">
+                <label className="flex items-center gap-3 rounded-md border p-3 cursor-pointer hover:bg-muted/50">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4"
+                    checked={withStamp}
+                    onChange={(e) => setWithStamp(e.target.checked)}
+                  />
+                  <div>
+                    <div className="text-sm font-medium">Sertakan Stempel</div>
+                    <div className="text-xs text-muted-foreground">
+                      Tambahkan stempel perusahaan pada area tanda tangan.
+                    </div>
+                  </div>
+                </label>
+                <label className="flex items-center gap-3 rounded-md border p-3 cursor-pointer hover:bg-muted/50">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4"
+                    checked={withSignature}
+                    onChange={(e) => setWithSignature(e.target.checked)}
+                  />
+                  <div>
+                    <div className="text-sm font-medium">Sertakan Tanda Tangan</div>
+                    <div className="text-xs text-muted-foreground">
+                      Tambahkan tanda tangan manager di atas nama.
+                    </div>
+                  </div>
+                </label>
               </div>
-            </label>
-            <label className="flex items-center gap-3 rounded-md border p-3 cursor-pointer hover:bg-muted/50">
-              <input
-                type="checkbox"
-                className="h-4 w-4"
-                checked={withSignature}
-                onChange={(e) => setWithSignature(e.target.checked)}
-              />
-              <div>
-                <div className="text-sm font-medium">Sertakan Tanda Tangan</div>
-                <div className="text-xs text-muted-foreground">
-                  Tambahkan tanda tangan manager di atas nama.
+            </div>
+
+            <div className="bg-muted/40 p-4 rounded-md flex justify-center min-h-[600px]">
+              {pdfUrl ? (
+                <iframe src={pdfUrl} className="w-full h-[80vh] rounded border bg-white shadow-sm" />
+              ) : (
+                <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
+                  Generating preview...
                 </div>
-              </div>
-            </label>
+              )}
+            </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setPdfOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleDownloadPdf} disabled={generating}>
-              {generating ? "Generating…" : "Download PDF"}
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
 
