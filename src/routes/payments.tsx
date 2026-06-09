@@ -1,11 +1,16 @@
 import { useState, useEffect } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, ChevronLeft, ChevronRight, Trash2, Pencil } from "lucide-react";
+import { Plus, ChevronLeft, ChevronRight, Trash2, Pencil, Search, Filter, X, CalendarIcon } from "lucide-react";
+import { format } from "date-fns";
 import { toast } from "sonner";
+import { z } from "zod";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { cn } from "@/lib/utils";
 import {
   Table,
   TableBody,
@@ -46,7 +51,17 @@ import { paymentsService, ordersService, bankAccountsService } from "@/lib/servi
 import { formatIDR, formatDateISO, datetimeLocalToISO, formatDate } from "@/lib/format";
 import type { Payment } from "@/lib/types";
 
+const searchSchema = z.object({
+  search: z.string().optional().catch(""),
+  payment_type: z.string().optional().catch(""),
+  start_date: z.string().optional().catch(""),
+  end_date: z.string().optional().catch(""),
+  page: z.number().catch(1),
+  limit: z.number().catch(10),
+});
+
 export const Route = createFileRoute("/payments")({
+  validateSearch: searchSchema,
   head: () => ({
     meta: [
       { title: "Payments — SIKOn ERP" },
@@ -331,18 +346,50 @@ function EditPaymentDialog({
 // ─── Main Page ──────────────────────────────────────────────────────────
 
 function PaymentsPage() {
-  const [page, setPage] = useState(1);
-  const limit = 10;
+  const searchParams = Route.useSearch();
+  const navigate = Route.useNavigate();
   const qc = useQueryClient();
 
   const [createOpen, setCreateOpen] = useState(false);
   const [editPayment, setEditPayment] = useState<Payment | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [searchInput, setSearchInput] = useState(searchParams.search || "");
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      if (searchInput !== (searchParams.search || "")) {
+        navigate({
+          search: (prev) => ({ ...prev, search: searchInput || undefined, page: 1 }),
+        });
+      }
+    }, 500);
+    return () => clearTimeout(timeout);
+  }, [searchInput, navigate, searchParams.search]);
 
   const { data, isLoading, isError, error } = useQuery({
-    queryKey: ["payments", { page, limit }],
-    queryFn: () => paymentsService.list({ page, limit }),
+    queryKey: ["payments", searchParams],
+    queryFn: () => paymentsService.list(searchParams),
   });
+
+  const startDate = searchParams.start_date ? new Date(searchParams.start_date) : undefined;
+  const endDate = searchParams.end_date ? new Date(searchParams.end_date) : undefined;
+
+  const activeFilterCount =
+    (searchParams.payment_type ? 1 : 0) +
+    (searchParams.start_date || searchParams.end_date ? 1 : 0);
+
+  const hasAnyFilter = !!searchParams.search || activeFilterCount > 0;
+
+  const clearAll = () =>
+    navigate({
+      search: () => ({ page: 1, limit: 10 }),
+    });
+
+  const setFilter = (patch: Partial<typeof searchParams>) => {
+    navigate({
+      search: (prev) => ({ ...prev, ...patch, page: 1 }),
+    });
+  };
 
   const deleteMut = useMutation({
     mutationFn: (id: string) => paymentsService.delete(id),
@@ -371,8 +418,129 @@ function PaymentsPage() {
       </div>
 
       <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">Payment History</CardTitle>
+        <CardHeader className="pb-3 space-y-3">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 flex-wrap">
+            <CardTitle className="text-base">Payment History</CardTitle>
+            <div className="flex items-center gap-2 flex-1 sm:flex-initial sm:min-w-[420px] sm:justify-end flex-wrap">
+              <div className="relative flex-1 sm:max-w-xs min-w-[200px]">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                  placeholder="Search by Reference or Order ID..."
+                  className="pl-8 h-9"
+                />
+              </div>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className="h-9">
+                    <Filter className="h-4 w-4" />
+                    Filters
+                    {activeFilterCount > 0 && (
+                      <span className="ml-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-semibold text-primary-foreground">
+                        {activeFilterCount}
+                      </span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent align="end" className="w-80 space-y-4">
+                  <div className="space-y-2">
+                    <Label className="text-xs">Payment Type</Label>
+                    <Select
+                      value={searchParams.payment_type || "all"}
+                      onValueChange={(v) =>
+                        setFilter({ payment_type: v === "all" ? undefined : v })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="All Types" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All</SelectItem>
+                        {paymentTypeList.map((t) => (
+                          <SelectItem key={t} value={t} className="uppercase">
+                            {t}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-xs">Date Range</Label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className={cn(
+                              "justify-start font-normal h-9",
+                              !startDate && "text-muted-foreground"
+                            )}
+                          >
+                            <CalendarIcon className="h-3.5 w-3.5" />
+                            {startDate ? format(startDate, "yyyy-MM-dd") : "Start"}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={startDate}
+                            onSelect={(d) =>
+                              setFilter({ start_date: d ? format(d, "yyyy-MM-dd") : undefined })
+                            }
+                            className="pointer-events-auto"
+                          />
+                        </PopoverContent>
+                      </Popover>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className={cn(
+                              "justify-start font-normal h-9",
+                              !endDate && "text-muted-foreground"
+                            )}
+                          >
+                            <CalendarIcon className="h-3.5 w-3.5" />
+                            {endDate ? format(endDate, "yyyy-MM-dd") : "End"}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={endDate}
+                            onSelect={(d) =>
+                              setFilter({ end_date: d ? format(d, "yyyy-MM-dd") : undefined })
+                            }
+                            className="pointer-events-auto"
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end pt-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={clearAll}
+                      disabled={!hasAnyFilter}
+                    >
+                      Clear filters
+                    </Button>
+                  </div>
+                </PopoverContent>
+              </Popover>
+              {hasAnyFilter && (
+                <Button variant="ghost" size="sm" className="h-9" onClick={clearAll}>
+                  <X className="h-4 w-4" /> Reset
+                </Button>
+              )}
+            </div>
+          </div>
         </CardHeader>
         <CardContent className="p-0">
           <Table>
@@ -403,7 +571,7 @@ function PaymentsPage() {
               ) : payments.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7} className="text-center py-10 text-muted-foreground">
-                    No payments recorded yet.
+                    No payments found matching your criteria.
                   </TableCell>
                 </TableRow>
               ) : (
@@ -461,19 +629,19 @@ function PaymentsPage() {
         <Button
           variant="outline"
           size="sm"
-          disabled={page <= 1}
-          onClick={() => setPage((p) => Math.max(1, p - 1))}
+          disabled={searchParams.page <= 1}
+          onClick={() => navigate({ search: (prev) => ({ ...prev, page: Math.max(1, prev.page - 1) }) })}
         >
           <ChevronLeft className="h-4 w-4" />
         </Button>
         <span className="text-sm text-muted-foreground">
-          Page {page} of {totalPage}
+          Page {searchParams.page} of {totalPage}
         </span>
         <Button
           variant="outline"
           size="sm"
-          disabled={page >= totalPage}
-          onClick={() => setPage((p) => p + 1)}
+          disabled={searchParams.page >= totalPage}
+          onClick={() => navigate({ search: (prev) => ({ ...prev, page: prev.page + 1 }) })}
         >
           <ChevronRight className="h-4 w-4" />
         </Button>
