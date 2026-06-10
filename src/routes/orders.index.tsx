@@ -1118,6 +1118,7 @@ function OrdersPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Invoice</TableHead>
+                <TableHead>Sales</TableHead>
                 <TableHead>Customer</TableHead>
                 <TableHead>Created</TableHead>
                 <TableHead>Status</TableHead>
@@ -1162,6 +1163,9 @@ function OrdersPage() {
                 <TableRow key={o.id} className={isFetching ? "opacity-70" : ""}>
                   <TableCell className="font-mono text-xs">
                     {o.order_number ?? o.id.slice(0, 8)}
+                  </TableCell>
+                  <TableCell className="font-medium">
+                    {o.sales?.name ?? "—"}
                   </TableCell>
                   <TableCell className="font-medium">
                     {o.customer?.name ?? "—"}
