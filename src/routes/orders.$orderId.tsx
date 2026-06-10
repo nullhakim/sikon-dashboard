@@ -38,6 +38,7 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 
 import {
   ordersService,
@@ -275,6 +276,7 @@ function OrderDetailPage() {
   const [quotationOpen, setQuotationOpen] = useState(false);
   const [withStamp, setWithStamp] = useState(false);
   const [withSignature, setWithSignature] = useState(false);
+  const [pdfNote, setPdfNote] = useState("");
   const [generating, setGenerating] = useState(false);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
 
@@ -316,6 +318,17 @@ function OrderDetailPage() {
   const remaining = Math.max(0, total - paid);
 
   useEffect(() => {
+    if (pdfOpen) {
+      if (paid === 0) {
+        const minDp = Math.ceil(total * 0.5);
+        setPdfNote(`* Minimal DP 50%: ${formatIDR(minDp)}`);
+      } else {
+        setPdfNote("");
+      }
+    }
+  }, [pdfOpen, paid, total]);
+
+  useEffect(() => {
     if (!pdfOpen || !order) return;
     let isActive = true;
     let currentUrl: string | null = null;
@@ -333,7 +346,7 @@ function OrderDetailPage() {
           customer: order!.customer ?? null,
           payments,
           bankAccounts,
-          options: { withStamp, withSignature },
+          options: { withStamp, withSignature, note: pdfNote },
         });
         if (isActive) {
           const blob = doc.output("blob");
@@ -350,7 +363,7 @@ function OrderDetailPage() {
       isActive = false;
       if (currentUrl) URL.revokeObjectURL(currentUrl);
     };
-  }, [pdfOpen, order, items, order?.customer, payments, salesId, withStamp, withSignature]);
+  }, [pdfOpen, order, items, order?.customer, payments, salesId, withStamp, withSignature, pdfNote]);
 
   async function handleDownloadPdf() {
     if (!order) return;
@@ -367,7 +380,7 @@ function OrderDetailPage() {
         customer: order.customer ?? null,
         payments,
         bankAccounts,
-        options: { withStamp, withSignature },
+        options: { withStamp, withSignature, note: pdfNote },
       });
       const custName = (order.customer?.name || "Unknown").replace(/\s+/g, "_");
       const fileName = `Invoice-${custName}-${order.order_number ?? order.id.slice(0, 8)}.pdf`;
@@ -697,6 +710,15 @@ function OrderDetailPage() {
             <div className="space-y-4">
               <div className="text-sm font-medium">Pengaturan PDF</div>
               <div className="space-y-3">
+                <div className="space-y-1.5">
+                  <Label>Catatan Tambahan</Label>
+                  <Textarea
+                    value={pdfNote}
+                    onChange={(e) => setPdfNote(e.target.value)}
+                    placeholder="Contoh: * Minimal DP 50%..."
+                    className="h-20 resize-none"
+                  />
+                </div>
                 <label className="flex items-center gap-3 rounded-md border p-3 cursor-pointer hover:bg-muted/50">
                   <input
                     type="checkbox"

@@ -6,6 +6,7 @@ import type { Order, OrderItem, Customer, Payment, BankAccount } from "./types";
 export interface InvoiceOptions {
   withStamp?: boolean;
   withSignature?: boolean;
+  note?: string;
 }
 
 interface InvoiceData {
@@ -284,12 +285,12 @@ export async function generateInvoicePDF({
     doc.text(line, margin, bankY + 6 + i * 5);
   });
 
-  if (amountPaid === 0) {
-    const minDp = Math.ceil(totalAmount * 0.5);
+  if (options?.note) {
     doc.setFont("helvetica", "bold");
     doc.setTextColor(239, 68, 68);
+    const noteLines = doc.splitTextToSize(options.note, pageWidth - margin * 2);
     doc.text(
-      `* Minimal DP 50%: ${formatCurrency(minDp)}`,
+      noteLines,
       margin,
       bankY + 6 + bankLines.length * 5 + 2,
     );
