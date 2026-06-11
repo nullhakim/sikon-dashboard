@@ -34,6 +34,29 @@ const formatBankLine = (b: BankAccount) =>
 
 const formatCurrency = (value: number) => "Rp " + Math.round(value || 0).toLocaleString("id-ID");
 
+function terbilang(n: number): string {
+  if (n < 0) return "Minus " + terbilang(-n);
+  n = Math.round(n);
+  if (n === 0) return "Nol";
+
+  const satuan = ["", "Satu", "Dua", "Tiga", "Empat", "Lima", "Enam", "Tujuh", "Delapan", "Sembilan", "Sepuluh", "Sebelas"];
+
+  const convert = (val: number): string => {
+    if (val < 12) return satuan[val];
+    if (val < 20) return satuan[val - 10] + " Belas";
+    if (val < 100) return satuan[Math.floor(val / 10)] + " Puluh" + (val % 10 ? " " + convert(val % 10) : "");
+    if (val < 200) return "Seratus" + (val % 100 ? " " + convert(val % 100) : "");
+    if (val < 1000) return satuan[Math.floor(val / 100)] + " Ratus" + (val % 100 ? " " + convert(val % 100) : "");
+    if (val < 2000) return "Seribu" + (val % 1000 ? " " + convert(val % 1000) : "");
+    if (val < 1_000_000) return convert(Math.floor(val / 1000)) + " Ribu" + (val % 1000 ? " " + convert(val % 1000) : "");
+    if (val < 1_000_000_000) return convert(Math.floor(val / 1_000_000)) + " Juta" + (val % 1_000_000 ? " " + convert(val % 1_000_000) : "");
+    if (val < 1_000_000_000_000) return convert(Math.floor(val / 1_000_000_000)) + " Miliar" + (val % 1_000_000_000 ? " " + convert(val % 1_000_000_000) : "");
+    return convert(Math.floor(val / 1_000_000_000_000)) + " Triliun" + (val % 1_000_000_000_000 ? " " + convert(val % 1_000_000_000_000) : "");
+  };
+
+  return convert(n) + " Rupiah";
+}
+
 const formatDate = (dateStr: string | null | undefined) => {
   if (!dateStr) return "-";
   const d = new Date(dateStr);
@@ -251,6 +274,18 @@ export async function generateInvoicePDF({
   doc.text("Sisa Tagihan", totalsX, ty);
   doc.text(formatCurrency(sisa), pageWidth - margin, ty, { align: "right" });
 
+  // Terbilang (amount in words) — only when there's a remaining balance
+  if (sisa > 0) {
+    ty += 8;
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "italic");
+    doc.setTextColor(100, 100, 100);
+    const terbilangText = `Terbilang: ${terbilang(sisa)}`;
+    const terbilangLines = doc.splitTextToSize(terbilangText, 80);
+    doc.text(terbilangLines, totalsX, ty);
+    doc.setTextColor(30, 41, 59);
+  }
+
   // Payment status badge
   // ty += 12;
   // const payStatus = (order.payment_status || "unpaid").toLowerCase();
@@ -358,9 +393,8 @@ export async function generateInvoicePDF({
     doc.setFontSize(120);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(34, 197, 94);
-    doc.text("LUNAS", pageWidth / 2, pageHeight / 2 + 20, {
+    doc.text("LUNAS", pageWidth / 2, pageHeight / 2, {
       align: "center",
-      angle: 45,
     });
     doc.restoreGraphicsState();
   }
