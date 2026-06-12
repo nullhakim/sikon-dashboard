@@ -85,7 +85,7 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-interface Item {
+export interface Item {
   product_id: string;
   qty: number;
   price: number;
@@ -102,7 +102,7 @@ interface Item {
 export const BORDIR_AUTOFILL = "Bordir Menggunakan Sistem Komputerisasi";
 export const BENANG_AUTOFILL = "Benang Bordir Menggunakan Benang Polyster";
 
-function buildItemDetails(
+export function buildItemDetails(
   it: Item,
   isQuotation: boolean,
 ): Record<string, any> | undefined {
@@ -121,7 +121,7 @@ function buildItemDetails(
 }
 
 
-function ItemDetailsFields({
+export function ItemDetailsFields({
   item,
   isQuotation,
   onChange,

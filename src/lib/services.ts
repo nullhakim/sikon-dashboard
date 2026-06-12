@@ -163,6 +163,12 @@ export const ordersService = {
     api.patch<ApiSuccess<unknown>>(`/orders/${id}/status`, { order_status: status }),
   delete: (id: string) => api.delete<ApiSuccess<unknown>>(`/orders/${id}`),
   payments: (orderId: string) => api.get<ApiSuccess<Payment[]>>(`payments/order/${orderId}`),
+  addItem: (orderId: string, body: { product_id: string; qty: number; price: number; details?: Record<string, string> }) =>
+    api.post<ApiSuccess<unknown>>(`/orders/${orderId}/items`, body),
+  updateItem: (orderId: string, itemId: string, body: { product_id: string; qty: number; price: number; details?: Record<string, string> }) =>
+    api.put<ApiSuccess<unknown>>(`/orders/${orderId}/items/${itemId}`, body),
+  deleteItem: (orderId: string, itemId: string) =>
+    api.delete<ApiSuccess<unknown>>(`/orders/${orderId}/items/${itemId}`),
 };
 
 // Payments
