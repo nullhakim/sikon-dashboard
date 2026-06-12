@@ -39,19 +39,51 @@ function terbilang(n: number): string {
   n = Math.round(n);
   if (n === 0) return "Nol";
 
-  const satuan = ["", "Satu", "Dua", "Tiga", "Empat", "Lima", "Enam", "Tujuh", "Delapan", "Sembilan", "Sepuluh", "Sebelas"];
+  const satuan = [
+    "",
+    "Satu",
+    "Dua",
+    "Tiga",
+    "Empat",
+    "Lima",
+    "Enam",
+    "Tujuh",
+    "Delapan",
+    "Sembilan",
+    "Sepuluh",
+    "Sebelas",
+  ];
 
   const convert = (val: number): string => {
     if (val < 12) return satuan[val];
     if (val < 20) return satuan[val - 10] + " Belas";
-    if (val < 100) return satuan[Math.floor(val / 10)] + " Puluh" + (val % 10 ? " " + convert(val % 10) : "");
+    if (val < 100)
+      return satuan[Math.floor(val / 10)] + " Puluh" + (val % 10 ? " " + convert(val % 10) : "");
     if (val < 200) return "Seratus" + (val % 100 ? " " + convert(val % 100) : "");
-    if (val < 1000) return satuan[Math.floor(val / 100)] + " Ratus" + (val % 100 ? " " + convert(val % 100) : "");
+    if (val < 1000)
+      return satuan[Math.floor(val / 100)] + " Ratus" + (val % 100 ? " " + convert(val % 100) : "");
     if (val < 2000) return "Seribu" + (val % 1000 ? " " + convert(val % 1000) : "");
-    if (val < 1_000_000) return convert(Math.floor(val / 1000)) + " Ribu" + (val % 1000 ? " " + convert(val % 1000) : "");
-    if (val < 1_000_000_000) return convert(Math.floor(val / 1_000_000)) + " Juta" + (val % 1_000_000 ? " " + convert(val % 1_000_000) : "");
-    if (val < 1_000_000_000_000) return convert(Math.floor(val / 1_000_000_000)) + " Miliar" + (val % 1_000_000_000 ? " " + convert(val % 1_000_000_000) : "");
-    return convert(Math.floor(val / 1_000_000_000_000)) + " Triliun" + (val % 1_000_000_000_000 ? " " + convert(val % 1_000_000_000_000) : "");
+    if (val < 1_000_000)
+      return (
+        convert(Math.floor(val / 1000)) + " Ribu" + (val % 1000 ? " " + convert(val % 1000) : "")
+      );
+    if (val < 1_000_000_000)
+      return (
+        convert(Math.floor(val / 1_000_000)) +
+        " Juta" +
+        (val % 1_000_000 ? " " + convert(val % 1_000_000) : "")
+      );
+    if (val < 1_000_000_000_000)
+      return (
+        convert(Math.floor(val / 1_000_000_000)) +
+        " Miliar" +
+        (val % 1_000_000_000 ? " " + convert(val % 1_000_000_000) : "")
+      );
+    return (
+      convert(Math.floor(val / 1_000_000_000_000)) +
+      " Triliun" +
+      (val % 1_000_000_000_000 ? " " + convert(val % 1_000_000_000_000) : "")
+    );
   };
 
   return convert(n) + " Rupiah";
@@ -113,7 +145,6 @@ export async function generateInvoicePDF({
   options,
 }: InvoiceData): Promise<jsPDF> {
   const { withStamp = false, withSignature = false } = options || {};
-
 
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -203,8 +234,7 @@ export async function generateInvoicePDF({
     const detailStr = formatOrderDetails(item.details);
     return [
       String(idx + 1),
-      (item.product_name || item.product?.name || "-") +
-      (detailStr ? "\n" + detailStr : ""),
+      (item.product_name || item.product?.name || "-") + (detailStr ? "\n" + detailStr : ""),
       String(item.qty),
       formatCurrency(item.price),
       formatCurrency(subtotal),
@@ -307,12 +337,12 @@ export async function generateInvoicePDF({
   // === 5. BANK INFO ===
   const bankY = finalY + 10;
   doc.setTextColor(30, 41, 59);
-  doc.setFontSize(9);
+  doc.setFontSize(15);
   doc.setFont("helvetica", "bold");
   doc.text("Informasi Pembayaran:", margin, bankY);
 
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(7);
+  doc.setFontSize(9);
   const bankLines = bankAccounts.length
     ? bankAccounts.map(formatBankLine)
     : ["(Belum ada rekening sales yang terdaftar)"];
@@ -322,14 +352,12 @@ export async function generateInvoicePDF({
 
   if (options?.note) {
     doc.setFont("helvetica", "bold");
+    doc.setFontSize(12);
     doc.setTextColor(239, 68, 68);
     const noteLines = doc.splitTextToSize(options.note, pageWidth - margin * 2);
-    doc.text(
-      noteLines,
-      margin,
-      bankY + 6 + bankLines.length * 5 + 2,
-    );
+    doc.text(noteLines, margin, bankY + 6 + bankLines.length * 5 + 2);
     doc.setTextColor(30, 41, 59);
+    doc.setFontSize(12);
   }
 
   // === 6. SIGNATURE ===
@@ -346,14 +374,7 @@ export async function generateInvoicePDF({
     if (stempelData) {
       try {
         const size = 35;
-        doc.addImage(
-          stempelData,
-          "PNG",
-          pageWidth - margin - 70,
-          sigY + 5,
-          size,
-          size,
-        );
+        doc.addImage(stempelData, "PNG", pageWidth - margin - 70, sigY + 5, size, size);
       } catch {
         // ignore
       }
@@ -367,14 +388,7 @@ export async function generateInvoicePDF({
       try {
         const w = 35;
         const h = 25;
-        doc.addImage(
-          sigData,
-          "PNG",
-          pageWidth - margin - 25 - w / 2,
-          sigY + 7,
-          w,
-          h,
-        );
+        doc.addImage(sigData, "PNG", pageWidth - margin - 25 - w / 2, sigY + 7, w, h);
       } catch {
         // ignore
       }
@@ -398,7 +412,6 @@ export async function generateInvoicePDF({
     });
     doc.restoreGraphicsState();
   }
-
 
   // === 8. FOOTER ===
   doc.setTextColor(150, 150, 150);
@@ -467,7 +480,7 @@ export async function generateKwitansiPDF({
   doc.setTextColor(30, 41, 59);
 
   let y = 75;
-  
+
   // Kwitansi No
   doc.setFontSize(11);
   doc.setFont("helvetica", "bold");
@@ -484,11 +497,11 @@ export async function generateKwitansiPDF({
   y += 15;
   doc.setFont("helvetica", "bold");
   doc.text("Banyaknya Uang", margin, y);
-  
+
   // Background for terbilang
   doc.setFillColor(245, 247, 250);
   doc.rect(margin + 40, y - 6, pageWidth - margin * 2 - 40, 16, "F");
-  
+
   doc.setFont("helvetica", "bold");
   doc.setFontSize(11);
   const terbilangText = terbilang(payment.amount);
@@ -502,40 +515,47 @@ export async function generateKwitansiPDF({
   const invNumber = order.order_number
     ? `INV-${order.order_number}`
     : `INV-${order.id.slice(0, 8).toUpperCase()}`;
-  
+
   const paymentTypeName = payment.payment_type.toUpperCase();
-  const notes = payment.payment_type === "dp" ? `Down Payment (DP)` : payment.payment_type === "settlement" ? `Pelunasan` : payment.payment_type === "installment" ? `Cicilan` : paymentTypeName;
+  const notes =
+    payment.payment_type === "dp"
+      ? `Down Payment (DP)`
+      : payment.payment_type === "settlement"
+        ? `Pelunasan`
+        : payment.payment_type === "installment"
+          ? `Cicilan`
+          : paymentTypeName;
 
   const paymentDesc = `: Pembayaran ${notes} untuk Tagihan ${invNumber}`;
   doc.text(paymentDesc, margin + 40, y);
   if (order.items && order.items.length > 0) {
-     const productMap = new Map<string, { name: string; qty: number }>();
-     order.items.forEach((item) => {
-       const pName = item.product_name || item.product?.name || "Produk";
-       const pId = item.product_id || pName;
-       if (productMap.has(pId)) {
-         productMap.get(pId)!.qty += item.qty;
-       } else {
-         productMap.set(pId, { name: pName, qty: item.qty });
-       }
-     });
+    const productMap = new Map<string, { name: string; qty: number }>();
+    order.items.forEach((item) => {
+      const pName = item.product_name || item.product?.name || "Produk";
+      const pId = item.product_id || pName;
+      if (productMap.has(pId)) {
+        productMap.get(pId)!.qty += item.qty;
+      } else {
+        productMap.set(pId, { name: pName, qty: item.qty });
+      }
+    });
 
-     const summaryParts = Array.from(productMap.values()).map((p) => `${p.qty} ${p.name}`);
-     let summaryStr = "";
-     if (summaryParts.length > 1) {
-       const last = summaryParts.pop();
-       summaryStr = summaryParts.join(", ") + " dan " + last;
-     } else if (summaryParts.length === 1) {
-       summaryStr = summaryParts[0];
-     }
+    const summaryParts = Array.from(productMap.values()).map((p) => `${p.qty} ${p.name}`);
+    let summaryStr = "";
+    if (summaryParts.length > 1) {
+      const last = summaryParts.pop();
+      summaryStr = summaryParts.join(", ") + " dan " + last;
+    } else if (summaryParts.length === 1) {
+      summaryStr = summaryParts[0];
+    }
 
-     if (summaryStr) {
-       doc.text(`  (Pemesanan ${summaryStr})`, margin + 40, y + 6);
-     }
+    if (summaryStr) {
+      doc.text(`  (Pemesanan ${summaryStr})`, margin + 40, y + 6);
+    }
   }
 
   y += 40;
-  
+
   // Total Box
   doc.setFillColor(30, 41, 59);
   doc.rect(margin, y, 70, 15, "F");
@@ -548,10 +568,12 @@ export async function generateKwitansiPDF({
   doc.setTextColor(30, 41, 59);
   const sigX = pageWidth - margin - 50;
   const sigY = y - 10;
-  
+
   doc.setFontSize(10);
   doc.setFont("helvetica", "normal");
-  doc.text(`Tasikmalaya, ${formatDate(payment.payment_date || payment.created_at)}`, sigX, sigY, { align: "center" });
+  doc.text(`Tasikmalaya, ${formatDate(payment.payment_date || payment.created_at)}`, sigX, sigY, {
+    align: "center",
+  });
   doc.text("Penerima,", sigX, sigY + 5, { align: "center" });
 
   if (withStamp) {
@@ -570,14 +592,14 @@ export async function generateKwitansiPDF({
       try {
         const w = 35;
         const h = 25;
-        doc.addImage(sigData, "PNG", sigX - w/2, sigY + 7, w, h);
+        doc.addImage(sigData, "PNG", sigX - w / 2, sigY + 7, w, h);
       } catch {}
     }
   }
 
   doc.setFont("helvetica", "bold");
   doc.text("( Yusri Siti Aisyah., S.Ak )", sigX, sigY + 35, { align: "center" });
-  
+
   // Footer
   doc.setTextColor(150, 150, 150);
   doc.setFontSize(8);
