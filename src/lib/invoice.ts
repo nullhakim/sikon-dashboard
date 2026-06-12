@@ -413,3 +413,178 @@ export async function generateInvoicePDF({
 
   return doc;
 }
+
+export async function generateKwitansiPDF({
+  payment,
+  order,
+  customer,
+  options,
+}: {
+  payment: Payment;
+  order: Order;
+  customer: Customer | null;
+  options?: InvoiceOptions;
+}): Promise<jsPDF> {
+  const { withStamp = false, withSignature = false } = options || {};
+
+  const doc = new jsPDF("landscape", "mm", "a4");
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const margin = 20;
+
+  // Header background
+  doc.setFillColor(30, 41, 59);
+  doc.rect(0, 0, pageWidth, 50, "F");
+
+  const logoData = await loadImageDataURL("/assets/logo.png");
+  if (logoData) {
+    try {
+      doc.addImage(logoData, "PNG", margin, 12, 25, 25);
+    } catch {
+      // ignore
+    }
+  }
+
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(22);
+  doc.setFont("helvetica", "bold");
+  doc.text(COMPANY.name, margin + 30, 24);
+
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "normal");
+  doc.text(COMPANY.tagline, margin + 30, 32);
+
+  doc.setFontSize(8);
+  const headerRightX = pageWidth - margin;
+  doc.text(COMPANY.address, headerRightX, 18, { align: "right", maxWidth: 100 });
+  doc.text(`Tel: ${COMPANY.phone} | ${COMPANY.email}`, headerRightX, 28, { align: "right" });
+  doc.text(`${COMPANY.website} | IG: ${COMPANY.instagram}`, headerRightX, 33, { align: "right" });
+
+  doc.setFontSize(28);
+  doc.setFont("helvetica", "bold");
+  doc.text("KWITANSI", pageWidth - margin, 46, { align: "right" });
+
+  doc.setTextColor(30, 41, 59);
+
+  let y = 75;
+  
+  // Kwitansi No
+  doc.setFontSize(11);
+  doc.setFont("helvetica", "bold");
+  doc.text("No.", margin, y);
+  doc.setFont("helvetica", "normal");
+  doc.text(`: ${payment.reference_number || payment.id.slice(0, 8).toUpperCase()}`, margin + 40, y);
+
+  y += 15;
+  doc.setFont("helvetica", "bold");
+  doc.text("Sudah Terima Dari", margin, y);
+  doc.setFont("helvetica", "normal");
+  doc.text(`: ${customer?.name || "-"}`, margin + 40, y);
+
+  y += 15;
+  doc.setFont("helvetica", "bold");
+  doc.text("Banyaknya Uang", margin, y);
+  
+  // Background for terbilang
+  doc.setFillColor(245, 247, 250);
+  doc.rect(margin + 40, y - 6, pageWidth - margin * 2 - 40, 16, "F");
+  
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(11);
+  const terbilangText = terbilang(payment.amount);
+  doc.text(`: ${terbilangText}`, margin + 42, y + 2);
+
+  y += 20;
+  doc.setFontSize(11);
+  doc.setFont("helvetica", "bold");
+  doc.text("Untuk Pembayaran", margin, y);
+  doc.setFont("helvetica", "normal");
+  const invNumber = order.order_number
+    ? `INV-${order.order_number}`
+    : `INV-${order.id.slice(0, 8).toUpperCase()}`;
+  
+  const paymentTypeName = payment.payment_type.toUpperCase();
+  const notes = payment.payment_type === "dp" ? `Down Payment (DP)` : payment.payment_type === "settlement" ? `Pelunasan` : payment.payment_type === "installment" ? `Cicilan` : paymentTypeName;
+
+  const paymentDesc = `: Pembayaran ${notes} untuk Tagihan ${invNumber}`;
+  doc.text(paymentDesc, margin + 40, y);
+  if (order.items && order.items.length > 0) {
+     const productMap = new Map<string, { name: string; qty: number }>();
+     order.items.forEach((item) => {
+       const pName = item.product_name || item.product?.name || "Produk";
+       const pId = item.product_id || pName;
+       if (productMap.has(pId)) {
+         productMap.get(pId)!.qty += item.qty;
+       } else {
+         productMap.set(pId, { name: pName, qty: item.qty });
+       }
+     });
+
+     const summaryParts = Array.from(productMap.values()).map((p) => `${p.qty} ${p.name}`);
+     let summaryStr = "";
+     if (summaryParts.length > 1) {
+       const last = summaryParts.pop();
+       summaryStr = summaryParts.join(", ") + " dan " + last;
+     } else if (summaryParts.length === 1) {
+       summaryStr = summaryParts[0];
+     }
+
+     if (summaryStr) {
+       doc.text(`  (Pemesanan ${summaryStr})`, margin + 40, y + 6);
+     }
+  }
+
+  y += 40;
+  
+  // Total Box
+  doc.setFillColor(30, 41, 59);
+  doc.rect(margin, y, 70, 15, "F");
+  doc.setTextColor(255, 255, 255);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(14);
+  doc.text(formatCurrency(payment.amount), margin + 35, y + 10, { align: "center" });
+
+  // Signature
+  doc.setTextColor(30, 41, 59);
+  const sigX = pageWidth - margin - 50;
+  const sigY = y - 10;
+  
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "normal");
+  doc.text(`Tasikmalaya, ${formatDate(payment.payment_date || payment.created_at)}`, sigX, sigY, { align: "center" });
+  doc.text("Penerima,", sigX, sigY + 5, { align: "center" });
+
+  if (withStamp) {
+    const stempelData = await loadImageDataURL("/assets/stempel-wift.png");
+    if (stempelData) {
+      try {
+        const size = 35;
+        doc.addImage(stempelData, "PNG", sigX - 35, sigY + 5, size, size);
+      } catch {}
+    }
+  }
+
+  if (withSignature) {
+    const sigData = await loadImageDataURL("/assets/ttd-manager.png");
+    if (sigData) {
+      try {
+        const w = 35;
+        const h = 25;
+        doc.addImage(sigData, "PNG", sigX - w/2, sigY + 7, w, h);
+      } catch {}
+    }
+  }
+
+  doc.setFont("helvetica", "bold");
+  doc.text("( Yusri Siti Aisyah., S.Ak )", sigX, sigY + 35, { align: "center" });
+  
+  // Footer
+  doc.setTextColor(150, 150, 150);
+  doc.setFontSize(8);
+  doc.setFont("helvetica", "normal");
+  doc.text(`${COMPANY.name} — ${COMPANY.address}`, pageWidth / 2, pageHeight - 15, {
+    align: "center",
+  });
+
+  return doc;
+}
