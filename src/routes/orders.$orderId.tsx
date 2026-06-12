@@ -47,7 +47,7 @@ import {
   productsService,
 } from "@/lib/services";
 import { formatIDR, formatDate, formatDateISO, datetimeLocalToISO } from "@/lib/format";
-import { generateInvoicePDF } from "@/lib/invoice";
+import { generateInvoicePDF, generateKwitansiPDF } from "@/lib/invoice";
 import { QuotationPdfDialog } from "@/components/QuotationPdfDialog";
 import { Item, buildItemDetails, ItemDetailsFields } from "@/routes/orders.index";
 export const Route = createFileRoute("/orders/$orderId")({
@@ -395,6 +395,137 @@ function UpdateShippingDialog({
   );
 }
 
+function KwitansiPdfDialog({
+  payment,
+  order,
+  customer,
+  open,
+  onClose,
+}: {
+  payment: any;
+  order: any;
+  customer: any;
+  open: boolean;
+  onClose: () => void;
+}) {
+  const [withStamp, setWithStamp] = useState(false);
+  const [withSignature, setWithSignature] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open || !payment || !order) return;
+    let isActive = true;
+    let currentUrl: string | null = null;
+
+    async function loadPdf() {
+      try {
+        const doc = await generateKwitansiPDF({
+          payment,
+          order,
+          customer,
+          options: { withStamp, withSignature },
+        });
+        if (isActive) {
+          const blob = doc.output("blob");
+          currentUrl = URL.createObjectURL(blob);
+          setPdfUrl(currentUrl);
+        }
+      } catch (err) {
+        if (isActive) toast.error("Failed to generate PDF preview");
+      }
+    }
+    loadPdf();
+
+    return () => {
+      isActive = false;
+      if (currentUrl) URL.revokeObjectURL(currentUrl);
+    };
+  }, [open, payment, order, customer, withStamp, withSignature]);
+
+  async function handleDownloadPdf() {
+    if (!payment || !order) return;
+    setGenerating(true);
+    try {
+      const doc = await generateKwitansiPDF({
+        payment,
+        order,
+        customer,
+        options: { withStamp, withSignature },
+      });
+      const custName = (customer?.name || "Unknown").replace(/\s+/g, "_");
+      const fileName = `Kwitansi-${custName}-${payment.payment_type}.pdf`;
+      doc.save(fileName);
+      onClose();
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setGenerating(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center justify-between gap-4">
+            <span>Preview Kwitansi PDF</span>
+            <Button onClick={handleDownloadPdf} disabled={generating || !pdfUrl} size="sm">
+              {generating ? "Generating..." : <><FileDown className="h-4 w-4 mr-1" /> Download Kwitansi</>}
+            </Button>
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="grid md:grid-cols-[300px_1fr] gap-6">
+          <div className="space-y-4">
+            <div className="text-sm font-medium">Pengaturan PDF</div>
+            <div className="space-y-3">
+              <label className="flex items-center gap-3 rounded-md border p-3 cursor-pointer hover:bg-muted/50">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4"
+                  checked={withStamp}
+                  onChange={(e) => setWithStamp(e.target.checked)}
+                />
+                <div>
+                  <div className="text-sm font-medium">Sertakan Stempel</div>
+                  <div className="text-xs text-muted-foreground">
+                    Tambahkan stempel perusahaan pada area tanda tangan.
+                  </div>
+                </div>
+              </label>
+              <label className="flex items-center gap-3 rounded-md border p-3 cursor-pointer hover:bg-muted/50">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4"
+                  checked={withSignature}
+                  onChange={(e) => setWithSignature(e.target.checked)}
+                />
+                <div>
+                  <div className="text-sm font-medium">Sertakan Tanda Tangan</div>
+                  <div className="text-xs text-muted-foreground">
+                    Tambahkan tanda tangan manager di atas nama.
+                  </div>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <div className="bg-muted/40 p-4 rounded-md flex justify-center min-h-[600px]">
+            {pdfUrl ? (
+              <iframe src={pdfUrl} className="w-full h-[50vh] rounded border bg-white shadow-sm" />
+            ) : (
+              <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
+                Generating preview...
+              </div>
+            )}
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function OrderItemDialog({
   orderId,
   isQuotation,
@@ -534,6 +665,8 @@ function OrderDetailPage() {
   const [quotationOpen, setQuotationOpen] = useState(false);
   const [itemOpen, setItemOpen] = useState(false);
   const [editItem, setEditItem] = useState<any>(null);
+  const [kwitansiOpen, setKwitansiOpen] = useState(false);
+  const [selectedPayment, setSelectedPayment] = useState<any>(null);
   const [withStamp, setWithStamp] = useState(false);
   const [withSignature, setWithSignature] = useState(false);
   const [pdfNote, setPdfNote] = useState("");
@@ -965,16 +1098,29 @@ function OrderDetailPage() {
                       {formatIDR(p.amount)}
                     </TableCell>
                     <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                        onClick={() => {
-                          if (confirm("Delete this payment?")) deletePayment.mutate(p.id);
-                        }}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      <div className="flex justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                          onClick={() => {
+                            setSelectedPayment(p);
+                            setKwitansiOpen(true);
+                          }}
+                        >
+                          <Printer className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                          onClick={() => {
+                            if (confirm("Delete this payment?")) deletePayment.mutate(p.id);
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))
@@ -1080,6 +1226,14 @@ function OrderDetailPage() {
         item={editItem}
         open={itemOpen}
         onClose={() => setItemOpen(false)}
+      />
+
+      <KwitansiPdfDialog
+        open={kwitansiOpen}
+        onClose={() => setKwitansiOpen(false)}
+        payment={selectedPayment}
+        order={order}
+        customer={order.customer ?? null}
       />
 
     </div>
