@@ -44,12 +44,12 @@ import {
   ordersService,
   paymentsService,
   bankAccountsService,
+  productsService,
 } from "@/lib/services";
 import { formatIDR, formatDate, formatDateISO, datetimeLocalToISO } from "@/lib/format";
-import { generateInvoicePDF } from "@/lib/invoice";
+import { generateInvoicePDF, generateKwitansiPDF } from "@/lib/invoice";
 import { QuotationPdfDialog } from "@/components/QuotationPdfDialog";
-import { UpdateOrderDialog } from "@/routes/orders.index";
-
+import { Item, buildItemDetails, ItemDetailsFields } from "@/routes/orders.index";
 export const Route = createFileRoute("/orders/$orderId")({
   head: () => ({
     meta: [
@@ -266,14 +266,407 @@ function AddPaymentDialog({
   );
 }
 
+function UpdateShippingDialog({
+  order,
+  open,
+  onClose,
+}: {
+  order: any;
+  open: boolean;
+  onClose: () => void;
+}) {
+  const qc = useQueryClient();
+  const isQuotation = (order?.order_status || "").toLowerCase() === "quotation";
+
+  const [form, setForm] = useState({
+    courier_name: "",
+    shipping_cost: 0,
+    shipping_address: "",
+    notes: "",
+    terms_conditions: "",
+  });
+
+  useEffect(() => {
+    if (order && open) {
+      setForm({
+        courier_name: order.courier_name || "",
+        shipping_cost: order.shipping_cost || 0,
+        shipping_address: order.shipping_address || "",
+        notes: order.notes || "",
+        terms_conditions: order.terms_conditions || "",
+      });
+    }
+  }, [order, open]);
+
+  const updateMut = useMutation({
+    mutationFn: (body: any) => ordersService.update(order.id, body),
+    onSuccess: () => {
+      toast.success("Shipping & Notes updated");
+      qc.invalidateQueries({ queryKey: ["order", order.id] });
+      qc.invalidateQueries({ queryKey: ["orders"] });
+      onClose();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!order) return;
+
+    updateMut.mutate({
+      customer_id: order.customer_id,
+      sales_id: order.sales_id || "",
+      items: order.items?.map((i: any) => ({
+        product_id: i.product_id,
+        qty: i.qty,
+        price: i.price,
+        details: i.details,
+      })) || [],
+      courier_name: form.courier_name || undefined,
+      shipping_cost: Number(form.shipping_cost) || 0,
+      shipping_address: form.shipping_address || undefined,
+      notes: form.notes || undefined,
+      terms_conditions: isQuotation ? (form.terms_conditions || undefined) : undefined,
+    });
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => (v ? null : onClose())}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Edit Logistics & Notes</DialogTitle>
+        </DialogHeader>
+        <form id="shipping-form" onSubmit={handleSubmit} className="space-y-4 py-2">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label>Courier</Label>
+              <Input
+                value={form.courier_name}
+                onChange={(e) => setForm({ ...form, courier_name: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Shipping Cost</Label>
+              <Input
+                type="number"
+                min={0}
+                value={form.shipping_cost}
+                onChange={(e) => setForm({ ...form, shipping_cost: Number(e.target.value) })}
+              />
+            </div>
+            <div className="space-y-2 sm:col-span-2">
+              <Label>Address</Label>
+              <Textarea
+                rows={2}
+                value={form.shipping_address}
+                onChange={(e) => setForm({ ...form, shipping_address: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2 sm:col-span-2">
+              <Label>Order Note</Label>
+              <Textarea
+                rows={2}
+                value={form.notes}
+                onChange={(e) => setForm({ ...form, notes: e.target.value })}
+              />
+            </div>
+            {isQuotation && (
+              <div className="space-y-2 sm:col-span-2">
+                <Label>Terms &amp; Conditions</Label>
+                <Textarea
+                  rows={3}
+                  value={form.terms_conditions}
+                  onChange={(e) => setForm({ ...form, terms_conditions: e.target.value })}
+                />
+              </div>
+            )}
+          </div>
+        </form>
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="submit" form="shipping-form" disabled={updateMut.isPending}>
+            {updateMut.isPending ? "Saving..." : "Save Changes"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function KwitansiPdfDialog({
+  payment,
+  order,
+  customer,
+  open,
+  onClose,
+}: {
+  payment: any;
+  order: any;
+  customer: any;
+  open: boolean;
+  onClose: () => void;
+}) {
+  const [withStamp, setWithStamp] = useState(false);
+  const [withSignature, setWithSignature] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open || !payment || !order) return;
+    let isActive = true;
+    let currentUrl: string | null = null;
+
+    async function loadPdf() {
+      try {
+        const doc = await generateKwitansiPDF({
+          payment,
+          order,
+          customer,
+          options: { withStamp, withSignature },
+        });
+        if (isActive) {
+          const blob = doc.output("blob");
+          currentUrl = URL.createObjectURL(blob);
+          setPdfUrl(currentUrl);
+        }
+      } catch (err) {
+        if (isActive) toast.error("Failed to generate PDF preview");
+      }
+    }
+    loadPdf();
+
+    return () => {
+      isActive = false;
+      if (currentUrl) URL.revokeObjectURL(currentUrl);
+    };
+  }, [open, payment, order, customer, withStamp, withSignature]);
+
+  async function handleDownloadPdf() {
+    if (!payment || !order) return;
+    setGenerating(true);
+    try {
+      const doc = await generateKwitansiPDF({
+        payment,
+        order,
+        customer,
+        options: { withStamp, withSignature },
+      });
+      const custName = (customer?.name || "Unknown").replace(/\s+/g, "_");
+      const fileName = `Kwitansi-${custName}-${payment.payment_type}.pdf`;
+      doc.save(fileName);
+      onClose();
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setGenerating(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center justify-between gap-4">
+            <span>Preview Kwitansi PDF</span>
+            <Button onClick={handleDownloadPdf} disabled={generating || !pdfUrl} size="sm">
+              {generating ? "Generating..." : <><FileDown className="h-4 w-4 mr-1" /> Download Kwitansi</>}
+            </Button>
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="grid md:grid-cols-[300px_1fr] gap-6">
+          <div className="space-y-4">
+            <div className="text-sm font-medium">Pengaturan PDF</div>
+            <div className="space-y-3">
+              <label className="flex items-center gap-3 rounded-md border p-3 cursor-pointer hover:bg-muted/50">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4"
+                  checked={withStamp}
+                  onChange={(e) => setWithStamp(e.target.checked)}
+                />
+                <div>
+                  <div className="text-sm font-medium">Sertakan Stempel</div>
+                  <div className="text-xs text-muted-foreground">
+                    Tambahkan stempel perusahaan pada area tanda tangan.
+                  </div>
+                </div>
+              </label>
+              <label className="flex items-center gap-3 rounded-md border p-3 cursor-pointer hover:bg-muted/50">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4"
+                  checked={withSignature}
+                  onChange={(e) => setWithSignature(e.target.checked)}
+                />
+                <div>
+                  <div className="text-sm font-medium">Sertakan Tanda Tangan</div>
+                  <div className="text-xs text-muted-foreground">
+                    Tambahkan tanda tangan manager di atas nama.
+                  </div>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <div className="bg-muted/40 p-4 rounded-md flex justify-center min-h-[600px]">
+            {pdfUrl ? (
+              <iframe src={pdfUrl} className="w-full h-[50vh] rounded border bg-white shadow-sm" />
+            ) : (
+              <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
+                Generating preview...
+              </div>
+            )}
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function OrderItemDialog({
+  orderId,
+  isQuotation,
+  item,
+  open,
+  onClose,
+}: {
+  orderId: string;
+  isQuotation: boolean;
+  item?: any;
+  open: boolean;
+  onClose: () => void;
+}) {
+  const qc = useQueryClient();
+  const isEditing = !!item;
+
+  const [it, setIt] = useState<Item>({ product_id: "", qty: 1, price: 0 });
+
+  const productsQ = useQuery({
+    queryKey: ["products", "all"],
+    queryFn: () => productsService.list({ limit: 100 }),
+    enabled: open,
+  });
+
+  useEffect(() => {
+    if (open) {
+      if (item) {
+        const d = (item.details || {}) as Record<string, any>;
+        const b = d.Bahan && typeof d.Bahan === "object" ? d.Bahan : {};
+        setIt({
+          product_id: item.product_id || item.product?.id || "",
+          qty: item.qty || 1,
+          price: item.price || 0,
+          bahan_name: b.Name ?? (typeof d.Bahan === "string" ? d.Bahan : "") ?? "",
+          bahan_color: b.Color ?? d.Warna ?? "",
+          bahan_spec: b.Spec ?? d["Bahan Kemeja"] ?? "",
+          benang: d.Benang ?? "",
+          bordir: d.Bordir ?? "",
+          jahitan: d.Jahitan ?? "",
+        });
+      } else {
+        setIt({ product_id: "", qty: 1, price: 0 });
+      }
+    }
+  }, [open, item]);
+
+  const mut = useMutation({
+    mutationFn: async () => {
+      const details = buildItemDetails(it, isQuotation);
+      const body = {
+        product_id: it.product_id,
+        qty: Number(it.qty),
+        price: Number(it.price),
+        details: details || {},
+      };
+      if (isEditing) {
+        return ordersService.updateItem(orderId, item.id, body);
+      } else {
+        return ordersService.addItem(orderId, body);
+      }
+    },
+    onSuccess: () => {
+      toast.success(isEditing ? "Item updated" : "Item added");
+      qc.invalidateQueries({ queryKey: ["order", orderId] });
+      onClose();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!it.product_id) return toast.error("Select a product");
+    if (!it.qty || Number(it.qty) <= 0) return toast.error("Enter a valid quantity");
+    if (it.price === undefined || it.price === null || Number(it.price) < 0) return toast.error("Enter a valid price");
+    mut.mutate();
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => (v ? null : onClose())}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>{isEditing ? "Edit Item" : "Add Item"}</DialogTitle>
+        </DialogHeader>
+        <form id="item-form" onSubmit={handleSubmit} className="space-y-4 py-2">
+          <div className="space-y-2">
+            <Label>Product</Label>
+            <Select value={it.product_id} onValueChange={(val) => {
+               const p = productsQ.data?.data?.find((x: any) => x.id === val);
+               setIt(prev => ({ ...prev, product_id: val, price: p && !isEditing ? (p.base_price ?? p.price) : prev.price }));
+            }} disabled={productsQ.isLoading}>
+              <SelectTrigger><SelectValue placeholder="Select a product" /></SelectTrigger>
+              <SelectContent>
+                {productsQ.data?.data?.map((p: any) => (
+                  <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Quantity</Label>
+              <Input type="number" min={1} value={it.qty} onChange={(e) => setIt(prev => ({...prev, qty: Number(e.target.value)}))} />
+            </div>
+            <div className="space-y-2">
+              <Label>Price</Label>
+              <Input type="number" min={0} value={it.price} onChange={(e) => setIt(prev => ({...prev, price: Number(e.target.value)}))} />
+            </div>
+          </div>
+          <ItemDetailsFields
+            item={it}
+            isQuotation={isQuotation}
+            onChange={(patch) => setIt(prev => ({...prev, ...patch}))}
+          />
+          <div className="flex items-center justify-between rounded-md border bg-muted/30 p-3 mt-4 text-sm">
+            <span className="font-semibold text-muted-foreground">Item Subtotal</span>
+            <span className="font-semibold text-primary">{formatIDR((Number(it.qty) || 0) * (Number(it.price) || 0))}</span>
+          </div>
+        </form>
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+          <Button type="submit" form="item-form" disabled={mut.isPending}>
+            {mut.isPending ? "Saving..." : "Save"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function OrderDetailPage() {
   const { orderId } = Route.useParams();
   const qc = useQueryClient();
 
-  const [editOpen, setEditOpen] = useState(false);
+  const [shippingOpen, setShippingOpen] = useState(false);
   const [payOpen, setPayOpen] = useState(false);
   const [pdfOpen, setPdfOpen] = useState(false);
   const [quotationOpen, setQuotationOpen] = useState(false);
+  const [itemOpen, setItemOpen] = useState(false);
+  const [editItem, setEditItem] = useState<any>(null);
+  const [kwitansiOpen, setKwitansiOpen] = useState(false);
+  const [selectedPayment, setSelectedPayment] = useState<any>(null);
   const [withStamp, setWithStamp] = useState(false);
   const [withSignature, setWithSignature] = useState(false);
   const [pdfNote, setPdfNote] = useState("");
@@ -307,13 +700,22 @@ function OrderDetailPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const deleteItemMut = useMutation({
+    mutationFn: (itemId: string) => ordersService.deleteItem(orderId, itemId),
+    onSuccess: () => {
+      toast.success("Item deleted");
+      qc.invalidateQueries({ queryKey: ["order", orderId] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const items = order?.items ?? [];
   const subtotal = items.reduce(
     (s, i) => s + (i.qty * i.price),
     0,
   );
   const shipping = order?.shipping_cost ?? 0;
-  const total = order?.total_amount ?? subtotal + shipping;
+  const total = subtotal + shipping;
   const paid = payments.reduce((s, p) => s + (p.amount || 0), 0);
   const remaining = Math.max(0, total - paid);
 
@@ -427,9 +829,6 @@ function OrderDetailPage() {
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={() => setEditOpen(true)}>
-            <Pencil className="h-4 w-4 mr-1" /> Edit
-          </Button>
           <Button
             variant="outline"
             onClick={() => setQuotationOpen(true)}
@@ -463,8 +862,11 @@ function OrderDetailPage() {
         </Card>
 
         <Card>
-          <CardHeader className="pb-3">
+          <CardHeader className="pb-3 flex flex-row items-center justify-between">
             <CardTitle className="text-base">Sales & Shipping</CardTitle>
+            <Button size="sm" variant="ghost" onClick={() => setShippingOpen(true)}>
+              <Pencil className="h-4 w-4" />
+            </Button>
           </CardHeader>
           <CardContent className="space-y-1 text-sm">
             <p>
@@ -518,8 +920,14 @@ function OrderDetailPage() {
 
       {/* Items */}
       <Card>
-        <CardHeader className="pb-3">
+        <CardHeader className="pb-3 flex flex-row items-center justify-between">
           <CardTitle className="text-base">Line Items</CardTitle>
+          <Button size="sm" variant="outline" onClick={() => {
+            setEditItem(null);
+            setItemOpen(true);
+          }}>
+            <Plus className="h-4 w-4 mr-1" /> Add Item
+          </Button>
         </CardHeader>
         <CardContent className="p-0">
           <Table>
@@ -529,12 +937,13 @@ function OrderDetailPage() {
                 <TableHead className="text-center">Qty</TableHead>
                 <TableHead className="text-right">Price</TableHead>
                 <TableHead className="text-right">Subtotal</TableHead>
+                <TableHead className="w-[1%]" />
               </TableRow>
             </TableHeader>
             <TableBody>
               {items.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center text-muted-foreground py-6">
+                  <TableCell colSpan={5} className="text-center text-muted-foreground py-6">
                     No items.
                   </TableCell>
                 </TableRow>
@@ -572,6 +981,33 @@ function OrderDetailPage() {
                       <TableCell className="text-right">{formatIDR(it.price)}</TableCell>
                       <TableCell className="text-right font-medium">
                         {formatIDR(it.qty * it.price)}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-1 justify-end">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                            onClick={() => {
+                              setEditItem(it);
+                              setItemOpen(true);
+                            }}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                            onClick={() => {
+                              if (confirm("Delete this item?")) {
+                                deleteItemMut.mutate(it.id);
+                              }
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   );
@@ -662,16 +1098,29 @@ function OrderDetailPage() {
                       {formatIDR(p.amount)}
                     </TableCell>
                     <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                        onClick={() => {
-                          if (confirm("Delete this payment?")) deletePayment.mutate(p.id);
-                        }}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      <div className="flex justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                          onClick={() => {
+                            setSelectedPayment(p);
+                            setKwitansiOpen(true);
+                          }}
+                        >
+                          <Printer className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                          onClick={() => {
+                            if (confirm("Delete this payment?")) deletePayment.mutate(p.id);
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))
@@ -681,10 +1130,10 @@ function OrderDetailPage() {
         </CardContent>
       </Card>
 
-      <UpdateOrderDialog
-        orderId={editOpen ? orderId : null}
-        open={editOpen}
-        onClose={() => setEditOpen(false)}
+      <UpdateShippingDialog
+        order={order}
+        open={shippingOpen}
+        onClose={() => setShippingOpen(false)}
       />
 
       <AddPaymentDialog
@@ -771,6 +1220,21 @@ function OrderDetailPage() {
         customer={order.customer ?? null}
       />
 
+      <OrderItemDialog
+        orderId={orderId}
+        isQuotation={(order?.order_status || "").toLowerCase() === "quotation"}
+        item={editItem}
+        open={itemOpen}
+        onClose={() => setItemOpen(false)}
+      />
+
+      <KwitansiPdfDialog
+        open={kwitansiOpen}
+        onClose={() => setKwitansiOpen(false)}
+        payment={selectedPayment}
+        order={order}
+        customer={order.customer ?? null}
+      />
 
     </div>
   );

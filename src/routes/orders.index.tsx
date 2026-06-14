@@ -85,7 +85,7 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-interface Item {
+export interface Item {
   product_id: string;
   qty: number;
   price: number;
@@ -102,7 +102,7 @@ interface Item {
 export const BORDIR_AUTOFILL = "Bordir Menggunakan Sistem Komputerisasi";
 export const BENANG_AUTOFILL = "Benang Bordir Menggunakan Benang Polyster";
 
-function buildItemDetails(
+export function buildItemDetails(
   it: Item,
   isQuotation: boolean,
 ): Record<string, any> | undefined {
@@ -121,7 +121,7 @@ function buildItemDetails(
 }
 
 
-function ItemDetailsFields({
+export function ItemDetailsFields({
   item,
   isQuotation,
   onChange,
@@ -1118,6 +1118,7 @@ function OrdersPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Invoice</TableHead>
+                <TableHead>Sales</TableHead>
                 <TableHead>Customer</TableHead>
                 <TableHead>Created</TableHead>
                 <TableHead>Status</TableHead>
@@ -1162,6 +1163,9 @@ function OrdersPage() {
                 <TableRow key={o.id} className={isFetching ? "opacity-70" : ""}>
                   <TableCell className="font-mono text-xs">
                     {o.order_number ?? o.id.slice(0, 8)}
+                  </TableCell>
+                  <TableCell className="font-medium">
+                    {o.sales?.name ?? "—"}
                   </TableCell>
                   <TableCell className="font-medium">
                     {o.customer?.name ?? "—"}
