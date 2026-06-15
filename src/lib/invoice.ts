@@ -106,17 +106,18 @@ function formatOrderDetails(details: unknown): string {
   if (!details || typeof details !== "object") return "";
   const d = details as Record<string, any>;
   const parts: string[] = [];
-  const bahan = d.Bahan;
+  const bahan = d.Bahan ?? d.bahan;
   if (bahan && typeof bahan === "object") {
     const b = bahan as Record<string, any>;
     const inner: string[] = [];
-    if (b.Name) inner.push(String(b.Name));
-    if (b.Color) inner.push(String(b.Color));
+    if (b.Name ?? b.name) inner.push(String(b.Name ?? b.name));
+    if (b.Color ?? b.color) inner.push(String(b.Color ?? b.color));
     if (inner.length) parts.push(`Bahan: ${inner.join(" - ")}`);
   } else if (typeof bahan === "string" && bahan.trim()) {
     parts.push(`Bahan: ${bahan}`);
   }
-  if (d.Warna) parts.push(`Warna: ${d.Warna}`);
+  const warna = d.Warna ?? d.warna;
+  if (warna) parts.push(`Warna: ${warna}`);
   return parts.join(", ");
 }
 
