@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, ChevronLeft, ChevronRight, Trash2, Eye, Pencil, Search, Filter, X, CalendarIcon } from "lucide-react";
+import { Plus, ChevronLeft, ChevronRight, Trash2, Eye, Pencil, Search, Filter, X, CalendarIcon, FileText } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -39,7 +39,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 // ScrollArea import removed
 
-import { ordersService, customersService, productsService, usersService } from "@/lib/services";
+import { ordersService, customersService, productsService, usersService, specTemplatesService } from "@/lib/services";
 import { formatIDR, formatDate } from "@/lib/format";
 import type { OrderStatus } from "@/lib/types";
 import { QuickCreateCustomerDialog } from "@/components/QuickCreateCustomerDialog";
@@ -130,8 +130,36 @@ export function ItemDetailsFields({
   isQuotation: boolean;
   onChange: (patch: Partial<Item>) => void;
 }) {
+  const specs = useQuery({
+    queryKey: ["spec-templates", { limit: 100 }],
+    queryFn: () => specTemplatesService.list({ page: 1, limit: 100 }),
+  });
+
   return (
     <div className="grid gap-3 pt-2 border-t">
+      <div className="space-y-1">
+        <Label className="text-xs text-muted-foreground">Load Material Template (Auto-fill)</Label>
+        <Select
+          onValueChange={(v) => {
+            const t = specs.data?.data?.find(x => x.id === v);
+            if (t) {
+              onChange({ bahan_name: t.name, bahan_spec: t.spec });
+            }
+          }}
+        >
+          <SelectTrigger className="h-8 text-xs">
+            <SelectValue placeholder="Select a template to auto-fill bahan name & spec..." />
+          </SelectTrigger>
+          <SelectContent>
+            {specs.data?.data?.map(t => (
+              <SelectItem key={t.id} value={t.id}>
+                <span className="font-medium">{t.name}</span>
+                <span className="ml-1 text-xs text-muted-foreground">— {t.spec.length > 40 ? t.spec.slice(0, 40) + "…" : t.spec}</span>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1">
           <Label className="text-xs">Bahan — Name</Label>
@@ -529,10 +557,12 @@ export function UpdateOrderDialog({
   orderId,
   open,
   onClose,
+  type,
 }: {
   orderId: string | null;
   open: boolean;
   onClose: () => void;
+  type: "order" | "quotation";
 }) {
   const qc = useQueryClient();
   const { data, isLoading } = useQuery({
@@ -547,7 +577,7 @@ export function UpdateOrderDialog({
   });
 
   const order = data?.data;
-  const isQuotation = (order?.order_status || "").toLowerCase() === "quotation";
+  const isQuotation = type === "quotation";
 
   const [form, setForm] = useState({
     courier_name: "",
@@ -810,7 +840,7 @@ function OrdersPage() {
   const limit = 10;
   const qc = useQueryClient();
 
-  const [editOrderId, setEditOrderId] = useState<string | null>(null);
+  const [editOrder, setEditOrder] = useState<{ id: string; type: "order" | "quotation" } | null>(null);
   const [createMode, setCreateMode] = useState<"quotation" | "order" | null>(null);
 
   // Local input state for debounced search box
@@ -931,9 +961,6 @@ function OrdersPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setCreateMode("quotation")}>
-            <Plus className="mr-1 h-4 w-4" /> New Quotation
-          </Button>
           <Button onClick={() => setCreateMode("order")}>
             <Plus className="mr-1 h-4 w-4" /> New Order
           </Button>
@@ -1203,7 +1230,7 @@ function OrdersPage() {
                   </TableCell>
                   <TableCell>
                     <div className="flex justify-end gap-1">
-                      <Button asChild variant="ghost" size="icon" className="h-8 w-8">
+                      <Button asChild variant="ghost" size="icon" className="h-8 w-8" title="View">
                         <Link to="/orders/$orderId" params={{ orderId: o.id }}>
                           <Eye className="h-4 w-4" />
                         </Link>
@@ -1212,9 +1239,19 @@ function OrdersPage() {
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8"
-                        onClick={() => setEditOrderId(o.id)}
+                        title="Edit Order"
+                        onClick={() => setEditOrder({ id: o.id, type: "order" })}
                       >
                         <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-violet-600 hover:text-violet-700"
+                        title="Edit Quotation"
+                        onClick={() => setEditOrder({ id: o.id, type: "quotation" })}
+                      >
+                        <FileText className="h-4 w-4" />
                       </Button>
                       <Button
                         variant="ghost"
@@ -1262,9 +1299,10 @@ function OrdersPage() {
 
 
       <UpdateOrderDialog
-        orderId={editOrderId}
-        open={!!editOrderId}
-        onClose={() => setEditOrderId(null)}
+        orderId={editOrder?.id ?? null}
+        open={!!editOrder}
+        onClose={() => setEditOrder(null)}
+        type={editOrder?.type ?? "order"}
       />
 
 
