@@ -8,6 +8,7 @@ import {
   Package,
   Tags,
   Landmark,
+  BookOpen,
 } from "lucide-react";
 
 import {
@@ -39,6 +40,7 @@ const people = [
 const master = [
   { title: "Products", url: "/products", icon: Package },
   { title: "Categories", url: "/categories", icon: Tags },
+  { title: "Material Catalogs", url: "/material-catalogs", icon: BookOpen },
   { title: "Bank Accounts", url: "/bank-accounts", icon: Landmark },
 ];
 
