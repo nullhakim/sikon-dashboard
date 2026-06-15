@@ -108,10 +108,10 @@ export function buildItemDetails(
 ): Record<string, any> | undefined {
   const details: Record<string, any> = {};
   const bahan: Record<string, string> = {};
-  if (it.bahan_name?.trim()) bahan.Name = it.bahan_name.trim();
-  if (it.bahan_color?.trim()) bahan.Color = it.bahan_color.trim();
-  if (isQuotation && it.bahan_spec?.trim()) bahan.Spec = it.bahan_spec.trim();
-  if (Object.keys(bahan).length) details.Bahan = bahan;
+  if (it.bahan_name?.trim()) bahan.name = it.bahan_name.trim();
+  if (it.bahan_color?.trim()) bahan.color = it.bahan_color.trim();
+  if (it.bahan_spec?.trim()) bahan.spec = it.bahan_spec.trim();
+  if (Object.keys(bahan).length) details.bahan = bahan;
   if (isQuotation) {
     if (it.benang?.trim()) details.Benang = it.benang.trim();
     if (it.bordir?.trim()) details.Bordir = it.bordir.trim();
@@ -125,10 +125,12 @@ export function ItemDetailsFields({
   item,
   isQuotation,
   onChange,
+  hideSpec = false,
 }: {
   item: Item;
   isQuotation: boolean;
   onChange: (patch: Partial<Item>) => void;
+  hideSpec?: boolean;
 }) {
   const specs = useQuery({
     queryKey: ["spec-templates", { limit: 100 }],
@@ -160,6 +162,7 @@ export function ItemDetailsFields({
           </SelectContent>
         </Select>
       </div>
+
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1">
           <Label className="text-xs">Bahan — Name</Label>
@@ -179,20 +182,18 @@ export function ItemDetailsFields({
         </div>
       </div>
 
+      <div className={hideSpec ? "hidden" : "space-y-1"}>
+        <Label className="text-xs">Bahan — Spec</Label>
+        <Textarea
+          rows={2}
+          placeholder="Karakteristik tekstur permukaan kain..."
+          value={item.bahan_spec ?? ""}
+          onChange={(e) => onChange({ bahan_spec: e.target.value })}
+        />
+      </div>
+
       {isQuotation && (
         <>
-          <div className="space-y-1">
-            <div className="flex items-center justify-between">
-              <Label className="text-xs">Bahan — Spec (PDF Quotation only)</Label>
-            </div>
-            <Textarea
-              rows={2}
-              placeholder="Karakteristik tekstur permukaan kain..."
-              value={item.bahan_spec ?? ""}
-              onChange={(e) => onChange({ bahan_spec: e.target.value })}
-            />
-          </div>
-
           <div className="space-y-1">
             <div className="flex items-center justify-between">
               <Label className="text-xs">Bordir</Label>
@@ -510,6 +511,7 @@ function CreateOrderDialog({ open, onClose, mode }: { open: boolean; onClose: ()
                     <ItemDetailsFields
                       item={it}
                       isQuotation={isQuotation}
+                      hideSpec={true}
                       onChange={(patch) => updateItem(idx, patch)}
                     />
                   </div>
@@ -601,19 +603,17 @@ export function UpdateOrderDialog({
         setItems(
           order.items.map((i: any) => {
             const d = (i.details || {}) as Record<string, any>;
-            const b =
-              d.Bahan && typeof d.Bahan === "object" ? d.Bahan : {};
+            const b = (d.bahan && typeof d.bahan === "object") ? d.bahan : (d.Bahan && typeof d.Bahan === "object" ? d.Bahan : {});
             return {
               product_id: i.product_id,
               qty: i.qty,
               price: i.price,
-              bahan_name:
-                b.Name ?? (typeof d.Bahan === "string" ? d.Bahan : "") ?? "",
-              bahan_color: b.Color ?? d.Warna ?? "",
-              bahan_spec: b.Spec ?? d["Bahan Kemeja"] ?? "",
-              benang: d.Benang ?? "",
-              bordir: d.Bordir ?? "",
-              jahitan: d.Jahitan ?? "",
+              bahan_name: b.name ?? b.Name ?? (typeof d.bahan === "string" ? d.bahan : (typeof d.Bahan === "string" ? d.Bahan : "")) ?? "",
+              bahan_color: b.color ?? b.Color ?? d.warna ?? d.Warna ?? "",
+              bahan_spec: b.spec ?? b.Spec ?? d["Bahan Kemeja"] ?? "",
+              benang: d.benang ?? d.Benang ?? "",
+              bordir: d.bordir ?? d.Bordir ?? "",
+              jahitan: d.jahitan ?? d.Jahitan ?? "",
             };
           }),
         );
@@ -1234,24 +1234,6 @@ function OrdersPage() {
                         <Link to="/orders/$orderId" params={{ orderId: o.id }}>
                           <Eye className="h-4 w-4" />
                         </Link>
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        title="Edit Order"
-                        onClick={() => setEditOrder({ id: o.id, type: "order" })}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-violet-600 hover:text-violet-700"
-                        title="Edit Quotation"
-                        onClick={() => setEditOrder({ id: o.id, type: "quotation" })}
-                      >
-                        <FileText className="h-4 w-4" />
                       </Button>
                       <Button
                         variant="ghost"
