@@ -10,6 +10,14 @@ export interface Category {
   updated_at?: string;
 }
 
+export interface SpecTemplate {
+  id: string;
+  name: string;
+  spec: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface Product {
   id: string;
   name: string;

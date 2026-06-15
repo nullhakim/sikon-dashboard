@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as UsersRouteImport } from './routes/users'
 import { Route as ProductsRouteImport } from './routes/products'
 import { Route as PaymentsRouteImport } from './routes/payments'
+import { Route as MaterialCatalogsRouteImport } from './routes/material-catalogs'
 import { Route as CustomersRouteImport } from './routes/customers'
 import { Route as CategoriesRouteImport } from './routes/categories'
 import { Route as BankAccountsRouteImport } from './routes/bank-accounts'
@@ -32,6 +33,11 @@ const ProductsRoute = ProductsRouteImport.update({
 const PaymentsRoute = PaymentsRouteImport.update({
   id: '/payments',
   path: '/payments',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MaterialCatalogsRoute = MaterialCatalogsRouteImport.update({
+  id: '/material-catalogs',
+  path: '/material-catalogs',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CustomersRoute = CustomersRouteImport.update({
@@ -70,6 +76,7 @@ export interface FileRoutesByFullPath {
   '/bank-accounts': typeof BankAccountsRoute
   '/categories': typeof CategoriesRoute
   '/customers': typeof CustomersRoute
+  '/material-catalogs': typeof MaterialCatalogsRoute
   '/payments': typeof PaymentsRoute
   '/products': typeof ProductsRoute
   '/users': typeof UsersRoute
@@ -81,6 +88,7 @@ export interface FileRoutesByTo {
   '/bank-accounts': typeof BankAccountsRoute
   '/categories': typeof CategoriesRoute
   '/customers': typeof CustomersRoute
+  '/material-catalogs': typeof MaterialCatalogsRoute
   '/payments': typeof PaymentsRoute
   '/products': typeof ProductsRoute
   '/users': typeof UsersRoute
@@ -93,6 +101,7 @@ export interface FileRoutesById {
   '/bank-accounts': typeof BankAccountsRoute
   '/categories': typeof CategoriesRoute
   '/customers': typeof CustomersRoute
+  '/material-catalogs': typeof MaterialCatalogsRoute
   '/payments': typeof PaymentsRoute
   '/products': typeof ProductsRoute
   '/users': typeof UsersRoute
@@ -106,6 +115,7 @@ export interface FileRouteTypes {
     | '/bank-accounts'
     | '/categories'
     | '/customers'
+    | '/material-catalogs'
     | '/payments'
     | '/products'
     | '/users'
@@ -117,6 +127,7 @@ export interface FileRouteTypes {
     | '/bank-accounts'
     | '/categories'
     | '/customers'
+    | '/material-catalogs'
     | '/payments'
     | '/products'
     | '/users'
@@ -128,6 +139,7 @@ export interface FileRouteTypes {
     | '/bank-accounts'
     | '/categories'
     | '/customers'
+    | '/material-catalogs'
     | '/payments'
     | '/products'
     | '/users'
@@ -140,6 +152,7 @@ export interface RootRouteChildren {
   BankAccountsRoute: typeof BankAccountsRoute
   CategoriesRoute: typeof CategoriesRoute
   CustomersRoute: typeof CustomersRoute
+  MaterialCatalogsRoute: typeof MaterialCatalogsRoute
   PaymentsRoute: typeof PaymentsRoute
   ProductsRoute: typeof ProductsRoute
   UsersRoute: typeof UsersRoute
@@ -168,6 +181,13 @@ declare module '@tanstack/react-router' {
       path: '/payments'
       fullPath: '/payments'
       preLoaderRoute: typeof PaymentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/material-catalogs': {
+      id: '/material-catalogs'
+      path: '/material-catalogs'
+      fullPath: '/material-catalogs'
+      preLoaderRoute: typeof MaterialCatalogsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/customers': {
@@ -220,6 +240,7 @@ const rootRouteChildren: RootRouteChildren = {
   BankAccountsRoute: BankAccountsRoute,
   CategoriesRoute: CategoriesRoute,
   CustomersRoute: CustomersRoute,
+  MaterialCatalogsRoute: MaterialCatalogsRoute,
   PaymentsRoute: PaymentsRoute,
   ProductsRoute: ProductsRoute,
   UsersRoute: UsersRoute,
