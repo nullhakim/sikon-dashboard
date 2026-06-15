@@ -8,6 +8,7 @@ import type {
   OrderStatus,
   Payment,
   Product,
+  SpecTemplate,
   User,
 } from "./types";
 
@@ -15,6 +16,17 @@ export interface PageParams {
   page?: number;
   limit?: number;
 }
+
+// Spec Templates
+export const specTemplatesService = {
+  list: (p: PageParams = {}) =>
+    api.get<ApiPaginated<SpecTemplate>>("/spec-templates", { page: p.page ?? 1, limit: p.limit ?? 10 }),
+  get: (id: string) => api.get<ApiSuccess<SpecTemplate>>(`/spec-templates/${id}`),
+  create: (body: { name: string; spec: string }) => api.post<ApiSuccess<SpecTemplate>>("/spec-templates", body),
+  update: (id: string, body: { name: string; spec: string }) =>
+    api.put<ApiSuccess<unknown>>(`/spec-templates/${id}`, body),
+  delete: (id: string) => api.delete<ApiSuccess<unknown>>(`/spec-templates/${id}`),
+};
 
 // Categories
 export const categoriesService = {
