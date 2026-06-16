@@ -318,34 +318,40 @@ function buildQuotationSpecLines(
   details: Record<string, unknown>,
 ): { label: string; value: string }[] {
   const lines: { label: string; value: string }[] = [];
-  const bahan = details.Bahan;
+  const bahan = details.Bahan ?? details.bahan;
   if (bahan && typeof bahan === "object") {
     const b = bahan as Record<string, unknown>;
     const parts: string[] = [];
-    if (b.Name) parts.push(String(b.Name));
-    if (b.Color) parts.push(String(b.Color));
+    const bName = b.Name ?? b.name;
+    const bColor = b.Color ?? b.color;
+    if (bName) parts.push(String(bName));
+    if (bColor) parts.push(String(bColor));
     const head = parts.join(" — ");
-    const spec = b.Spec ? String(b.Spec) : "";
+    const bSpec = b.Spec ?? b.spec;
+    const spec = bSpec ? String(bSpec) : "";
     const value = [head, spec].filter(Boolean).join(". ");
     if (value) lines.push({ label: "Bahan", value });
   } else if (typeof bahan === "string" && bahan.trim()) {
     lines.push({ label: "Bahan", value: bahan });
   }
 
-  if (details.Bordir) {
+  const bordir = details.Bordir ?? details.bordir;
+  if (bordir) {
     lines.push({
       label: "Bordir",
-      value: expandWithSuffix(String(details.Bordir), "Sehingga Hasil Cetakan", BORDIR_SUFFIX),
+      value: expandWithSuffix(String(bordir), "Sehingga Hasil Cetakan", BORDIR_SUFFIX),
     });
   }
-  if (details.Benang) {
+  const benang = details.Benang ?? details.benang;
+  if (benang) {
     lines.push({
       label: "Benang",
-      value: expandWithSuffix(String(details.Benang), "Sehingga Warna Bordir", BENANG_SUFFIX),
+      value: expandWithSuffix(String(benang), "Sehingga Warna Bordir", BENANG_SUFFIX),
     });
   }
-  if (details.Jahitan) {
-    lines.push({ label: "Jahitan", value: String(details.Jahitan) });
+  const jahitan = details.Jahitan ?? details.jahitan;
+  if (jahitan) {
+    lines.push({ label: "Jahitan", value: String(jahitan) });
   }
   return lines;
 }
