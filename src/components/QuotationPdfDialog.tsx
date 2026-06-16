@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { Download, Loader2 } from "lucide-react";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
@@ -11,7 +11,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import type { Order, OrderItem, Customer } from "@/lib/types";
+import type { Order, OrderItem, Customer, BankAccount } from "@/lib/types";
+import { bankAccountsService } from "@/lib/services";
 
 const fmtIDR = (n: number) =>
   "Rp " + Math.round(n || 0).toLocaleString("id-ID");
@@ -38,6 +39,7 @@ interface Props {
 export function QuotationPdfDialog({ open, onClose, order, items, customer }: Props) {
   const sheetRef = useRef<HTMLDivElement>(null);
   const [generating, setGenerating] = useState(false);
+  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
 
   const subtotal = items.reduce((s, i) => s + i.qty * i.price, 0);
   const shipping = order.shipping_cost || 0;
@@ -87,6 +89,32 @@ export function QuotationPdfDialog({ open, onClose, order, items, customer }: Pr
     }
   }
 
+  useEffect(() => {
+    let mounted = true;
+    async function loadBanks() {
+      try {
+        if (order?.sales_id) {
+          const res = await bankAccountsService.byUser(order.sales_id);
+          if (mounted) setBankAccounts(res.data ?? []);
+        } else {
+          const res = await bankAccountsService.global();
+          if (mounted) setBankAccounts(res.data ?? []);
+        }
+      } catch {
+        try {
+          const res = await bankAccountsService.global();
+          if (mounted) setBankAccounts(res.data ?? []);
+        } catch {
+          if (mounted) setBankAccounts([]);
+        }
+      }
+    }
+    loadBanks();
+    return () => {
+      mounted = false;
+    };
+  }, [order?.sales_id]);
+
   return (
     <Dialog open={open} onOpenChange={(v) => (v ? null : onClose())}>
       <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
@@ -123,14 +151,15 @@ export function QuotationPdfDialog({ open, onClose, order, items, customer }: Pr
             }}
           >
             {/* 1. Letterhead */}
-            <div className="text-center pb-3 border-b-4 border-black">
-              <h1 className="text-2xl font-bold tracking-wide uppercase m-0">
-                CV. WIJAYA FAMILY TASIKMALAYA
-              </h1>
-              <p className="m-0 mt-1 text-sm">
-                Kp. Kebon Kalapa, Desa Cibalanarik, Kec. Tanjungjaya, Kab. Tasikmalaya (0265-7543224)
-              </p>
-              <p className="m-0 text-sm">AHU-0024761-AH.01.16 Tahun 2024</p>
+            <div className="flex items-center justify-between pb-3 border-b-4 border-black">
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <img src="/assets/logo.png" alt="logo" style={{ height: 64 }} />
+                <div className="text-left">
+                  <h1 className="text-2xl font-bold tracking-wide uppercase m-0">CV. WIJAYA FAMILY TASIKMALAYA</h1>
+                  <p className="m-0 mt-1 text-sm">Kp. Kebon Kalapa, Desa Cibalanarik, Kec. Tanjungjaya, Kab. Tasikmalaya (0265-7543224)</p>
+                  <p className="m-0 text-sm">AHU-0024761-AH.01.16 Tahun 2024</p>
+                </div>
+              </div>
             </div>
 
             {/* 2. Document Title */}
@@ -271,14 +300,28 @@ export function QuotationPdfDialog({ open, onClose, order, items, customer }: Pr
               </div>
             )}
 
+            {/* 9. Payment Info (sales / global) */}
+            <div className="mb-6 text-sm">
+              <p className="m-0 font-semibold">Informasi Pembayaran</p>
+              <div className="mt-2">
+                {bankAccounts && bankAccounts.length > 0 ? (
+                  bankAccounts.map((b) => (
+                    <div key={b.id} className="m-0 text-sm">
+                      {b.bank_name}: {b.account_number} a/n {b.account_name}
+                    </div>
+                  ))
+                ) : (
+                  <div className="m-0 text-sm">(Belum ada rekening sales yang terdaftar)</div>
+                )}
+              </div>
+            </div>
+
             {/* 8. Closing & Signature */}
             <div className="flex justify-end mt-12 text-sm">
               <div className="text-left">
                 <p className="m-0">Hormat kami,</p>
                 <div style={{ height: "90px" }} />
-                <p className="m-0 font-semibold underline">
-                  {order.sales?.name || "—"}
-                </p>
+                <p className="m-0 font-semibold underline">Yusri Siti Aisyah., S.Ak</p>
               </div>
             </div>
           </div>

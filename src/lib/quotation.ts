@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import type { Order, OrderItem, Customer } from "./types";
+import type { Order, OrderItem, Customer, BankAccount } from "./types";
 
 const COMPANY = {
   name: "WIFT INDONESIA",
@@ -11,8 +11,7 @@ const COMPANY = {
   website: "wiftindonesia.com",
 };
 
-const fmtIDR = (n: number) =>
-  "Rp " + Math.round(n || 0).toLocaleString("id-ID");
+const fmtIDR = (n: number) => "Rp " + Math.round(n || 0).toLocaleString("id-ID");
 
 const fmtDate = (s?: string | null) => {
   if (!s) return "—";
@@ -37,10 +36,12 @@ export function printQuotation({
   order,
   items,
   customer,
+  bankAccounts,
 }: {
   order: Order;
   items: OrderItem[];
   customer: Customer | null;
+  bankAccounts?: BankAccount[];
 }) {
   const subtotal = items.reduce((s, i) => s + i.qty * i.price, 0);
   const shipping = order.shipping_cost || 0;
@@ -49,9 +50,7 @@ export function printQuotation({
   const rowsHtml = items
     .map((it, idx) => {
       const name = escapeHtml(it.product_name || it.product?.name || "—");
-      const detailEntries = it.details
-        ? Object.entries(it.details as Record<string, any>)
-        : [];
+      const detailEntries = it.details ? Object.entries(it.details as Record<string, any>) : [];
       const specs =
         detailEntries.length > 0
           ? `<div class="specs">${detailEntries
@@ -77,6 +76,22 @@ export function printQuotation({
       `;
     })
     .join("");
+
+  const salesBanks = (bankAccounts || []).filter(
+    (b) => !!b.user_id && !!order.sales && b.user_id === order.sales.id,
+  );
+  const globalBanks = (bankAccounts || []).filter((b) => b.is_global);
+  const banksToShow = salesBanks.length ? salesBanks : globalBanks;
+  const bankHtml = banksToShow.length
+    ? `<div class="payment"><h3>Informasi Pembayaran</h3><div class="body">${banksToShow
+        .map(
+          (b) =>
+            `${escapeHtml(b.bank_name)}: ${escapeHtml(b.account_number)} a/n ${escapeHtml(
+              b.account_name,
+            )}`,
+        )
+        .join("<br />")}</div></div>`
+    : "";
 
   const html = `<!doctype html>
 <html lang="id">
@@ -104,6 +119,7 @@ export function printQuotation({
   .company .name { font-size: 18pt; font-weight: 800; letter-spacing: 0.5px; color: #1e293b; }
   .company .tag { color: #64748b; font-size: 9.5pt; margin-top: 2px; }
   .company .meta { font-size: 9pt; color: #475569; margin-top: 6px; max-width: 320px; }
+  .company img { height: 48px; margin-right: 12px; vertical-align: middle; }
   .doc-title {
     text-align: right;
   }
@@ -122,6 +138,8 @@ export function printQuotation({
     gap: 24px;
     margin-bottom: 18px;
   }
+  .payment { margin-top: 12px; }
+  .signature { margin-top: 26px; text-align: right; }
   .info h3 {
     margin: 0 0 6px 0;
     font-size: 9pt;
@@ -234,12 +252,15 @@ export function printQuotation({
 
   <div class="header">
     <div class="company">
-      <div class="name">${escapeHtml(COMPANY.name)}</div>
-      <div class="tag">${escapeHtml(COMPANY.tagline)}</div>
-      <div class="meta">
-        ${escapeHtml(COMPANY.address)}<br />
-        Telp: ${escapeHtml(COMPANY.phone)} · ${escapeHtml(COMPANY.email)}<br />
-        ${escapeHtml(COMPANY.website)}
+      <img src="/assets/logo.png" alt="logo" />
+      <div style="display:inline-block;vertical-align:middle">
+        <div class="name">${escapeHtml(COMPANY.name)}</div>
+        <div class="tag">${escapeHtml(COMPANY.tagline)}</div>
+        <div class="meta">
+          ${escapeHtml(COMPANY.address)}<br />
+          Telp: ${escapeHtml(COMPANY.phone)} · ${escapeHtml(COMPANY.email)}<br />
+          ${escapeHtml(COMPANY.website)}
+        </div>
       </div>
     </div>
     <div class="doc-title">
@@ -276,6 +297,8 @@ export function printQuotation({
         </div>`
       : ""
   }
+
+  ${bankHtml}
 
   <table class="items">
     <thead>
@@ -318,6 +341,12 @@ export function printQuotation({
 
   <div class="footer">
     Terima kasih atas kepercayaan Anda kepada ${escapeHtml(COMPANY.name)}.
+  </div>
+
+  <div class="signature">
+    <div>Hormat Kami,</div>
+    <div>Manager WIFT Indonesia</div>
+    <div style="margin-top:34px;font-weight:700">( Yusri Siti Aisyah., S.Ak )</div>
   </div>
 
   <script>
