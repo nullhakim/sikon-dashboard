@@ -395,6 +395,179 @@ function UpdateShippingDialog({
   );
 }
 
+function UpdateQuotationDialog({
+  order,
+  open,
+  onClose,
+}: {
+  order: any;
+  open: boolean;
+  onClose: () => void;
+}) {
+  const qc = useQueryClient();
+  const [form, setForm] = useState({
+    terms_conditions: "",
+    valid_until: "",
+  });
+  const [items, setItems] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (order && open) {
+      setForm({
+        terms_conditions: order.terms_conditions || "",
+        valid_until: order.valid_until ? order.valid_until.slice(0, 10) : "",
+      });
+      if (order.items) {
+        setItems(
+          order.items.map((i: any) => {
+            const d = (i.details || {}) as Record<string, any>;
+            const b = (d.bahan && typeof d.bahan === "object") ? d.bahan : (d.Bahan && typeof d.Bahan === "object" ? d.Bahan : {});
+            return {
+              id: i.id,
+              product_id: i.product_id,
+              product_name: i.product_name || i.product?.name || "—",
+              qty: i.qty,
+              price: i.price,
+              bahan_name: b.name ?? b.Name ?? (typeof d.bahan === "string" ? d.bahan : (typeof d.Bahan === "string" ? d.Bahan : "")) ?? "",
+              bahan_color: b.color ?? b.Color ?? d.warna ?? d.Warna ?? "",
+              bahan_spec: b.spec ?? b.Spec ?? d["Bahan Kemeja"] ?? "",
+              benang: d.benang ?? d.Benang ?? "",
+              bordir: d.bordir ?? d.Bordir ?? "",
+              jahitan: d.jahitan ?? d.Jahitan ?? "",
+            };
+          }),
+        );
+      }
+    } else if (!open) {
+      setItems([]);
+    }
+  }, [order, open]);
+
+  const updateItem = (idx: number, patch: any) =>
+    setItems((arr) => arr.map((it, i) => (i === idx ? { ...it, ...patch } : it)));
+
+  const updateOrderMut = useMutation({
+    mutationFn: async () => {
+      // 1. Update all items
+      await Promise.all(
+        items.map((it) =>
+          ordersService.updateItem(order.id, it.id, {
+            product_id: it.product_id,
+            qty: it.qty,
+            price: it.price,
+            details: buildItemDetails(it, true),
+          })
+        )
+      );
+
+      // 2. Update order terms & valid_until
+      await ordersService.update(order.id, {
+        customer_id: order.customer_id,
+        sales_id: order.sales_id || "",
+        courier_name: order.courier_name || undefined,
+        shipping_cost: order.shipping_cost || 0,
+        shipping_address: order.shipping_address || undefined,
+        notes: order.notes || undefined,
+        terms_conditions: form.terms_conditions || undefined,
+        valid_until: form.valid_until || undefined,
+        items: order.items.map((i: any) => ({
+          product_id: i.product_id,
+          qty: i.qty,
+          price: i.price,
+          details: i.details,
+        })),
+      });
+    },
+    onSuccess: () => {
+      toast.success("Quotation updated");
+      qc.invalidateQueries({ queryKey: ["order", order.id] });
+      qc.invalidateQueries({ queryKey: ["orders"] });
+      onClose();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!order) return;
+    updateOrderMut.mutate();
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => (v ? null : onClose())}>
+      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-0">
+        <DialogHeader className="px-6 pt-6 pb-2 border-b">
+          <DialogTitle>Edit Quotation</DialogTitle>
+          <DialogDescription>
+            {order?.order_number ? `Editing: ${order.order_number}` : ""}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="flex-1 overflow-y-auto px-6 py-4">
+          <form id="update-quotation-form" onSubmit={handleSubmit} className="space-y-6">
+            <div className="space-y-4">
+              <h3 className="font-semibold">Items (Details Only)</h3>
+              {items.map((it, idx) => (
+                <div key={it.id || idx} className="space-y-3 rounded-md border p-3 bg-muted/10">
+                  <div className="grid gap-3 sm:grid-cols-[1fr_80px_120px] items-end opacity-70">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Product (Disabled)</Label>
+                      <Input value={it.product_name} disabled />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Qty (Disabled)</Label>
+                      <Input value={it.qty} disabled />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Price (Disabled)</Label>
+                      <Input value={formatIDR(it.price)} disabled />
+                    </div>
+                  </div>
+                  <ItemDetailsFields
+                    item={it}
+                    isQuotation={true}
+                    onChange={(patch) => updateItem(idx, patch)}
+                  />
+                </div>
+              ))}
+            </div>
+
+            <div className="space-y-4 pt-4 border-t">
+              <h3 className="font-semibold">Order Details</h3>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>Valid Until</Label>
+                  <Input
+                    type="date"
+                    value={form.valid_until}
+                    onChange={(e) => setForm({ ...form, valid_until: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2 sm:col-span-2">
+                  <Label>Terms & Conditions</Label>
+                  <Textarea
+                    rows={4}
+                    value={form.terms_conditions}
+                    onChange={(e) => setForm({ ...form, terms_conditions: e.target.value })}
+                  />
+                </div>
+              </div>
+            </div>
+          </form>
+        </div>
+        <DialogFooter className="px-6 py-4 border-t bg-background">
+          <Button type="button" variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="submit" form="update-quotation-form" disabled={updateOrderMut.isPending}>
+            {updateOrderMut.isPending ? "Saving..." : "Save Changes"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function KwitansiPdfDialog({
   payment,
   order,
@@ -554,17 +727,17 @@ function OrderItemDialog({
     if (open) {
       if (item) {
         const d = (item.details || {}) as Record<string, any>;
-        const b = d.Bahan && typeof d.Bahan === "object" ? d.Bahan : {};
+        const b = d.Bahan && typeof d.Bahan === "object" ? d.Bahan : (d.bahan && typeof d.bahan === "object" ? d.bahan : {});
         setIt({
           product_id: item.product_id || item.product?.id || "",
           qty: item.qty || 1,
           price: item.price || 0,
-          bahan_name: b.Name ?? (typeof d.Bahan === "string" ? d.Bahan : "") ?? "",
-          bahan_color: b.Color ?? d.Warna ?? "",
-          bahan_spec: b.Spec ?? d["Bahan Kemeja"] ?? "",
-          benang: d.Benang ?? "",
-          bordir: d.Bordir ?? "",
-          jahitan: d.Jahitan ?? "",
+          bahan_name: b.Name ?? b.name ?? (typeof d.Bahan === "string" ? d.Bahan : (typeof d.bahan === "string" ? d.bahan : "")) ?? "",
+          bahan_color: b.Color ?? b.color ?? d.Warna ?? d.warna ?? "",
+          bahan_spec: b.Spec ?? b.spec ?? d["Bahan Kemeja"] ?? "",
+          benang: d.Benang ?? d.benang ?? "",
+          bordir: d.Bordir ?? d.bordir ?? "",
+          jahitan: d.Jahitan ?? d.jahitan ?? "",
         });
       } else {
         setIt({ product_id: "", qty: 1, price: 0 });
@@ -665,6 +838,7 @@ function OrderDetailPage() {
   const [quotationOpen, setQuotationOpen] = useState(false);
   const [itemOpen, setItemOpen] = useState(false);
   const [editItem, setEditItem] = useState<any>(null);
+  const [updateQuotationOpen, setUpdateQuotationOpen] = useState(false);
   const [kwitansiOpen, setKwitansiOpen] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState<any>(null);
   const [withStamp, setWithStamp] = useState(false);
@@ -831,6 +1005,12 @@ function OrderDetailPage() {
         <div className="flex flex-wrap gap-2">
           <Button
             variant="outline"
+            onClick={() => setUpdateQuotationOpen(true)}
+          >
+            <Pencil className="h-4 w-4 mr-1" /> Edit Quotation
+          </Button>
+          <Button
+            variant="outline"
             onClick={() => setQuotationOpen(true)}
           >
             <Printer className="h-4 w-4 mr-1" /> Surat Penawaran
@@ -950,7 +1130,7 @@ function OrderDetailPage() {
               ) : (
                 items.map((it, idx) => {
                   const bahan = (it.details?.Bahan ?? it.details?.bahan) as
-                    | { Name?: string; Color?: string }
+                    | { Name?: string; Color?: string; name?: string; color?: string }
                     | string
                     | undefined;
                   let bahanName = "";
@@ -959,8 +1139,8 @@ function OrderDetailPage() {
                     bahanName = bahan;
                     warna = (it.details?.Warna ?? it.details?.warna ?? "") as string;
                   } else if (bahan && typeof bahan === "object") {
-                    bahanName = bahan.Name ?? "";
-                    warna = bahan.Color ?? "";
+                    bahanName = bahan.Name ?? bahan.name ?? "";
+                    warna = bahan.Color ?? bahan.color ?? "";
                   }
                   const parts: string[] = [];
                   if (bahanName) parts.push(`Bahan: ${bahanName}`);
@@ -1134,6 +1314,12 @@ function OrderDetailPage() {
         order={order}
         open={shippingOpen}
         onClose={() => setShippingOpen(false)}
+      />
+
+      <UpdateQuotationDialog
+        order={order}
+        open={updateQuotationOpen}
+        onClose={() => setUpdateQuotationOpen(false)}
       />
 
       <AddPaymentDialog
