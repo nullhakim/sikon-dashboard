@@ -319,7 +319,7 @@ function CreateOrderDialog({ open, onClose, mode }: { open: boolean; onClose: ()
       qc.invalidateQueries({ queryKey: ["orders"] });
       onClose();
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: any) => toast.error(e?.payload?.error || e.message),
   });
 
   const updateItem = (idx: number, patch: Partial<Item>) =>
@@ -636,7 +636,7 @@ export function UpdateOrderDialog({
       qc.invalidateQueries({ queryKey: ["order", orderId] });
       qc.invalidateQueries({ queryKey: ["orders"] });
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: any) => toast.error(e?.payload?.error || e.message),
   });
 
   function handleSubmit(e: React.FormEvent) {
@@ -904,7 +904,7 @@ function OrdersPage() {
       toast.success("Status updated");
       qc.invalidateQueries({ queryKey: ["orders"] });
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: any) => toast.error(e?.payload?.error || e.message),
   });
 
   const deleteMut = useMutation({
@@ -913,7 +913,7 @@ function OrdersPage() {
       toast.success("Order deleted");
       qc.invalidateQueries({ queryKey: ["orders"] });
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: any) => toast.error(e?.payload?.error || e.message),
   });
 
   const orders = data?.data ?? [];
