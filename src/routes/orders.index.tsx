@@ -37,9 +37,15 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 // ScrollArea import removed
 
-import { ordersService, customersService, productsService, usersService, specTemplatesService } from "@/lib/services";
+import { ordersService, customersService, productsService, usersService, specTemplatesService, bankAccountsService, paymentsService } from "@/lib/services";
 import { formatIDR, formatDate } from "@/lib/format";
 import type { OrderStatus } from "@/lib/types";
 import { QuickCreateCustomerDialog } from "@/components/QuickCreateCustomerDialog";
@@ -273,10 +279,20 @@ function CreateOrderDialog({ open, onClose, mode }: { open: boolean; onClose: ()
 
   const [courier, setCourier] = useState("");
   const [shippingCost, setShippingCost] = useState<number | "">("");
-  const [address, setAddress] = useState("");
   const [note, setNote] = useState("");
   const [termsConditions, setTermsConditions] = useState("");
   const [items, setItems] = useState<Item[]>([{ product_id: "", qty: 1, price: 0 }]);
+
+  const [paymentAmount, setPaymentAmount] = useState<number | "">("");
+  const [paymentType, setPaymentType] = useState("dp");
+  const [paymentBankId, setPaymentBankId] = useState("");
+  const [paymentReference, setPaymentReference] = useState("");
+
+  const bankAccounts = useQuery({
+    queryKey: ["bank-accounts", "user", salesId],
+    queryFn: () => bankAccountsService.byUser(salesId!),
+    enabled: open && !!salesId && !isQuotation,
+  });
 
   useEffect(() => {
     if (!open) {
@@ -284,10 +300,13 @@ function CreateOrderDialog({ open, onClose, mode }: { open: boolean; onClose: ()
       setSalesId("");
       setCourier("");
       setShippingCost("");
-      setAddress("");
       setNote("");
       setTermsConditions("");
       setItems([{ product_id: "", qty: 1, price: 0 }]);
+      setPaymentAmount("");
+      setPaymentType("dp");
+      setPaymentBankId("");
+      setPaymentReference("");
     }
   }, [open]);
 
@@ -301,7 +320,6 @@ function CreateOrderDialog({ open, onClose, mode }: { open: boolean; onClose: ()
         sales_id: salesId,
         courier_name: courier || undefined,
         shipping_cost: Number(shippingCost) || 0,
-        shipping_address: address || undefined,
         notes: note || undefined,
         terms_conditions: isQuotation ? (termsConditions || undefined) : undefined,
         ...(isQuotation ? { order_status: "quotation" } : {}),
@@ -314,9 +332,27 @@ function CreateOrderDialog({ open, onClose, mode }: { open: boolean; onClose: ()
             details: buildItemDetails(i, isQuotation),
           })),
       }),
-    onSuccess: () => {
+    onSuccess: async (res: any) => {
       toast.success(isQuotation ? "Quotation created" : "Order created");
       qc.invalidateQueries({ queryKey: ["orders"] });
+      
+      const orderId = res?.data?.id || res?.id;
+      if (!isQuotation && orderId && Number(paymentAmount) > 0) {
+        try {
+          await paymentsService.create({
+            order_id: orderId,
+            amount: Number(paymentAmount),
+            payment_type: paymentType,
+            bank_account_id: paymentBankId,
+            reference_number: paymentReference || "DIRECT-PAYMENT",
+            payment_date: new Date().toISOString()
+          });
+          toast.success("Initial payment recorded");
+        } catch (e: any) {
+          toast.error("Failed to record initial payment: " + (e?.payload?.error || e.message));
+        }
+      }
+      
       onClose();
     },
     onError: (e: any) => toast.error(e?.payload?.error || e.message),
@@ -331,6 +367,10 @@ function CreateOrderDialog({ open, onClose, mode }: { open: boolean; onClose: ()
     if (!salesId) return toast.error("Choose a sales person");
     if (!items.some((i) => i.product_id && i.qty > 0))
       return toast.error("Add at least one item");
+    if (!isQuotation && Number(paymentAmount) > 0) {
+      if (!paymentBankId) return toast.error("Select bank account for payment");
+      if (!paymentType) return toast.error("Select payment type");
+    }
     create.mutate();
   };
 
@@ -420,10 +460,6 @@ function CreateOrderDialog({ open, onClose, mode }: { open: boolean; onClose: ()
                   />
                 </div>
                 <div className="space-y-2 sm:col-span-2">
-                  <Label>Address</Label>
-                  <Textarea rows={2} value={address} onChange={(e) => setAddress(e.target.value)} />
-                </div>
-                <div className="space-y-2 sm:col-span-2">
                   <Label>Notes</Label>
                   <Textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} />
                 </div>
@@ -440,6 +476,7 @@ function CreateOrderDialog({ open, onClose, mode }: { open: boolean; onClose: ()
                 )}
               </CardContent>
             </Card>
+
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
@@ -533,6 +570,99 @@ function CreateOrderDialog({ open, onClose, mode }: { open: boolean; onClose: ()
                 </div>
               </CardContent>
             </Card>
+
+            {!isQuotation && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Direct Payment (Optional)</CardTitle>
+                </CardHeader>
+                <CardContent className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2 sm:col-span-2">
+                    <div className="grid grid-cols-3 gap-2 bg-muted/50 p-3 rounded-md text-sm">
+                      <div>
+                        <div className="text-muted-foreground">Total Order</div>
+                        <div className="font-semibold">{formatIDR(total)}</div>
+                      </div>
+                      <div>
+                        <div className="text-muted-foreground">Payment</div>
+                        <div className="font-semibold text-emerald-600">
+                          {formatIDR(Number(paymentAmount) || 0)}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-muted-foreground">Remaining</div>
+                        <div className={`font-semibold ${total - (Number(paymentAmount) || 0) > 0 ? "text-amber-600" : "text-emerald-600"}`}>
+                          {formatIDR(total - (Number(paymentAmount) || 0))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label>Bank Account (Sales)</Label>
+                    <Select
+                      value={paymentBankId}
+                      onValueChange={setPaymentBankId}
+                      disabled={!salesId || bankAccounts.isLoading}
+                    >
+                      <SelectTrigger>
+                        <SelectValue
+                          placeholder={
+                            !salesId
+                              ? "Select sales first"
+                              : bankAccounts.isLoading
+                                ? "Loading…"
+                                : "Select bank account"
+                          }
+                        />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {bankAccounts.data?.data?.map((ba) => (
+                          <SelectItem key={ba.id} value={ba.id}>
+                            {ba.bank_name} — {ba.account_number} ({ba.account_name})
+                          </SelectItem>
+                        ))}
+                        {bankAccounts.data?.data?.length === 0 && (
+                          <div className="px-3 py-2 text-xs text-muted-foreground">
+                            No bank accounts for this sales user.
+                          </div>
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Amount</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      placeholder="0"
+                      value={paymentAmount}
+                      onChange={(e) => setPaymentAmount(e.target.value ? Number(e.target.value) : "")}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Payment Type</Label>
+                    <Select value={paymentType} onValueChange={setPaymentType}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="dp">DP</SelectItem>
+                        <SelectItem value="settlement">SETTLEMENT</SelectItem>
+                        <SelectItem value="installment">INSTALLMENT</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label>Reference Number (Optional)</Label>
+                    <Input
+                      placeholder="TRX-12345"
+                      value={paymentReference}
+                      onChange={(e) => setPaymentReference(e.target.value)}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </form>
         </div>
 
@@ -589,9 +719,19 @@ export function UpdateOrderDialog({
     terms_conditions: "",
   });
   const [items, setItems] = useState<Item[]>([]);
+  const [paymentAmount, setPaymentAmount] = useState<number | "">("");
+  const [paymentType, setPaymentType] = useState("dp");
+  const [paymentBankId, setPaymentBankId] = useState("");
+  const [paymentReference, setPaymentReference] = useState("");
+
+  const bankAccounts = useQuery({
+    queryKey: ["bank-accounts", "user", order?.sales_id],
+    queryFn: () => bankAccountsService.byUser(order!.sales_id!),
+    enabled: open && !!order?.sales_id && !isQuotation,
+  });
 
   useEffect(() => {
-    if (order) {
+    if (order && open) {
       setForm({
         courier_name: order.courier_name || "",
         shipping_cost: order.shipping_cost || 0,
@@ -599,6 +739,10 @@ export function UpdateOrderDialog({
         notes: order.notes || "",
         terms_conditions: order.terms_conditions || "",
       });
+      setPaymentAmount("");
+      setPaymentType("dp");
+      setPaymentBankId("");
+      setPaymentReference("");
       if (order.items) {
         setItems(
           order.items.map((i: any) => {
@@ -630,11 +774,24 @@ export function UpdateOrderDialog({
   const total = subtotal + Number(form.shipping_cost || 0);
 
   const updateMut = useMutation({
-    mutationFn: (body: any) => ordersService.update(orderId!, body),
+    mutationFn: async (body: any) => {
+      await ordersService.update(orderId!, body);
+      if (!isQuotation && Number(paymentAmount) > 0) {
+        await paymentsService.create({
+          order_id: orderId!,
+          amount: Number(paymentAmount),
+          payment_type: paymentType,
+          bank_account_id: paymentBankId,
+          reference_number: paymentReference || "",
+          payment_date: new Date().toISOString()
+        });
+      }
+    },
     onSuccess: () => {
-      toast.success("Order updated");
+      toast.success(isQuotation ? "Quotation updated" : "Order & Payment updated");
       qc.invalidateQueries({ queryKey: ["order", orderId] });
       qc.invalidateQueries({ queryKey: ["orders"] });
+      onClose();
     },
     onError: (e: any) => toast.error(e?.payload?.error || e.message),
   });
@@ -679,7 +836,7 @@ export function UpdateOrderDialog({
             <div className="space-y-6">
               <div>
                 <div className="flex flex-row items-center justify-between mb-3">
-                  <h3 className="font-semibold">Line Items</h3>
+                  <h3 className="font-semibold text-sm">Items (Click to edit details)</h3>
                   <Button
                     type="button"
                     variant="outline"
@@ -689,133 +846,165 @@ export function UpdateOrderDialog({
                     <Plus className="h-4 w-4 mr-1" /> Add item
                   </Button>
                 </div>
-                <div className="space-y-3">
+                <Accordion type="multiple" className="w-full space-y-3">
                   {items.map((it, idx) => (
-                    <div key={idx} className="space-y-3 rounded-md border p-3">
-                      <div className="grid gap-3 sm:grid-cols-[1fr_80px_120px_auto] items-end">
-                        <div className="space-y-1">
-                          <Label className="text-xs">Product</Label>
-                          <Select
-                            value={it.product_id}
-                            onValueChange={(v) => {
-                              const p = products.data?.data?.find((x) => x.id === v);
-                              updateItem(idx, { product_id: v, price: p?.base_price ?? it.price });
-                            }}
+                    <AccordionItem value={`item-${idx}`} key={idx} className="border rounded-md px-4 bg-muted/10">
+                      <AccordionTrigger className="hover:no-underline py-3">
+                        <div className="flex flex-col items-start text-left w-full gap-1 pr-4">
+                          <div className="font-medium text-sm">
+                            {products.data?.data?.find(p => p.id === it.product_id)?.name || "Select Product"}
+                          </div>
+                          <div className="flex gap-4 text-xs text-muted-foreground font-normal">
+                            <span>Qty: {it.qty}</span>
+                            <span>Price: {formatIDR(it.price)}</span>
+                          </div>
+                        </div>
+                      </AccordionTrigger>
+                      <AccordionContent className="pt-2 pb-4 space-y-4">
+                        <div className="grid gap-3 sm:grid-cols-[1fr_80px_120px_auto] items-end">
+                          <div className="space-y-1">
+                            <Label className="text-xs">Product</Label>
+                            <Select
+                              value={it.product_id}
+                              onValueChange={(v) => {
+                                const p = products.data?.data?.find((x) => x.id === v);
+                                updateItem(idx, { product_id: v, price: p?.base_price ?? it.price });
+                              }}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select product" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {products.data?.data?.map((p) => (
+                                  <SelectItem key={p.id} value={p.id}>
+                                    {p.name} — {formatIDR(p.base_price)}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Qty</Label>
+                            <Input
+                              type="number"
+                              min={1}
+                              value={it.qty}
+                              onChange={(e) => updateItem(idx, { qty: Number(e.target.value) })}
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Price</Label>
+                            <Input
+                              type="number"
+                              min={0}
+                              value={it.price}
+                              onChange={(e) => updateItem(idx, { price: Number(e.target.value) })}
+                            />
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="text-muted-foreground hover:text-destructive"
+                            onClick={() => setItems((arr) => arr.filter((_, i) => i !== idx))}
+                            disabled={items.length === 1}
                           >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select product" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {products.data?.data?.map((p) => (
-                                <SelectItem key={p.id} value={p.id}>
-                                  {p.name} — {formatIDR(p.base_price)}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         </div>
-                        <div className="space-y-1">
-                          <Label className="text-xs">Qty</Label>
-                          <Input
-                            type="number"
-                            min={1}
-                            value={it.qty}
-                            onChange={(e) => updateItem(idx, { qty: Number(e.target.value) })}
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-xs">Price</Label>
-                          <Input
-                            type="number"
-                            min={0}
-                            value={it.price}
-                            onChange={(e) => updateItem(idx, { price: Number(e.target.value) })}
-                          />
-                        </div>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="text-muted-foreground hover:text-destructive"
-                          onClick={() => setItems((arr) => arr.filter((_, i) => i !== idx))}
-                          disabled={items.length === 1}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-
-                      <ItemDetailsFields
-                        item={it}
-                        isQuotation={isQuotation}
-                        onChange={(patch) => updateItem(idx, patch)}
-                      />
-                    </div>
+                        <ItemDetailsFields
+                          item={it}
+                          isQuotation={isQuotation}
+                          onChange={(patch) => updateItem(idx, patch)}
+                        />
+                      </AccordionContent>
+                    </AccordionItem>
                   ))}
-                </div>
+                </Accordion>
               </div>
 
-              <form id="shipping-form" onSubmit={handleSubmit} className="space-y-4">
-                <h3 className="font-semibold">Logistics & Notes</h3>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label>Courier</Label>
-                    <Input
-                      value={form.courier_name}
-                      onChange={(e) => setForm({ ...form, courier_name: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Shipping Cost</Label>
-                    <Input
-                      type="number"
-                      min={0}
-                      value={form.shipping_cost}
-                      onChange={(e) => setForm({ ...form, shipping_cost: Number(e.target.value) })}
-                    />
-                  </div>
-                  <div className="space-y-2 sm:col-span-2">
-                    <Label>Address</Label>
-                    <Textarea
-                      rows={2}
-                      value={form.shipping_address}
-                      onChange={(e) => setForm({ ...form, shipping_address: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-2 sm:col-span-2">
-                    <Label>Order Note</Label>
-                    <Textarea
-                      rows={2}
-                      value={form.notes}
-                      onChange={(e) => setForm({ ...form, notes: e.target.value })}
-                    />
-                  </div>
-                  {isQuotation && (
+              {!isQuotation && (
+                <div className="space-y-4 pt-4 border-t">
+                  <h3 className="font-semibold text-sm">Quick Add Payment (Optional)</h3>
+                  <div className="grid gap-4 sm:grid-cols-2">
                     <div className="space-y-2 sm:col-span-2">
-                      <Label>Terms &amp; Conditions</Label>
-                      <Textarea
-                        rows={3}
-                        value={form.terms_conditions}
-                        onChange={(e) => setForm({ ...form, terms_conditions: e.target.value })}
+                      <div className="grid grid-cols-3 gap-2 bg-muted/50 p-3 rounded-md text-sm">
+                        <div>
+                          <div className="text-muted-foreground">Total Order</div>
+                          <div className="font-semibold">{formatIDR(total)}</div>
+                        </div>
+                        <div>
+                          <div className="text-muted-foreground">Quick Payment</div>
+                          <div className="font-semibold text-emerald-600">
+                            {formatIDR(Number(paymentAmount) || 0)}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-muted-foreground">Remaining</div>
+                          <div className={`font-semibold ${total - (Number(paymentAmount) || 0) > 0 ? "text-amber-600" : "text-emerald-600"}`}>
+                            {formatIDR(total - (Number(paymentAmount) || 0))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="space-y-2 sm:col-span-2">
+                      <Label>Bank Account (Sales)</Label>
+                      <Select
+                        value={paymentBankId}
+                        onValueChange={setPaymentBankId}
+                        disabled={!order?.sales_id || bankAccounts.isLoading}
+                      >
+                        <SelectTrigger>
+                          <SelectValue
+                            placeholder={
+                              !order?.sales_id
+                                ? "Select sales first"
+                                : bankAccounts.isLoading
+                                  ? "Loading…"
+                                  : "Select bank account"
+                            }
+                          />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {bankAccounts.data?.data?.map((ba) => (
+                            <SelectItem key={ba.id} value={ba.id}>
+                              {ba.bank_name} — {ba.account_number} ({ba.account_name})
+                            </SelectItem>
+                          ))}
+                          {bankAccounts.data?.data?.length === 0 && (
+                            <div className="px-3 py-2 text-xs text-muted-foreground">
+                              No bank accounts for this sales user.
+                            </div>
+                          )}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Amount</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        placeholder="0"
+                        value={paymentAmount}
+                        onChange={(e) => setPaymentAmount(e.target.value ? Number(e.target.value) : "")}
                       />
                     </div>
-                  )}
+                    <div className="space-y-2">
+                      <Label>Payment Type</Label>
+                      <Select value={paymentType} onValueChange={setPaymentType}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="dp">DP</SelectItem>
+                          <SelectItem value="settlement">SETTLEMENT</SelectItem>
+                          <SelectItem value="installment">INSTALLMENT</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
                 </div>
-              </form>
-
-              <div className="rounded-lg border bg-muted/30 p-4 space-y-2 text-sm">
-                <div className="flex items-center justify-between text-muted-foreground">
-                  <span>Subtotal</span>
-                  <span className="font-medium text-foreground">{formatIDR(subtotal)}</span>
-                </div>
-                <div className="flex items-center justify-between text-muted-foreground">
-                  <span>Shipping</span>
-                  <span className="font-medium text-foreground">{formatIDR(form.shipping_cost || 0)}</span>
-                </div>
-                <div className="flex items-center justify-between border-t pt-2 text-base font-semibold">
-                  <span>Total</span>
-                  <span>{formatIDR(total)}</span>
-                </div>
-              </div>
+              )}
             </div>
           )}
         </div>
@@ -1230,6 +1419,15 @@ function OrdersPage() {
                   </TableCell>
                   <TableCell>
                     <div className="flex justify-end gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                        title="Quick Update"
+                        onClick={() => setEditOrder({ id: o.id, type: o.order_status === "quotation" ? "quotation" : "order" })}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
                       <Button asChild variant="ghost" size="icon" className="h-8 w-8" title="View">
                         <Link to="/orders/$orderId" params={{ orderId: o.id }}>
                           <Eye className="h-4 w-4" />

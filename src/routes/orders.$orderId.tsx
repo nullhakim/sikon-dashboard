@@ -39,6 +39,12 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 
 import {
   ordersService,
@@ -506,30 +512,29 @@ function UpdateQuotationDialog({
         <div className="flex-1 overflow-y-auto px-6 py-4">
           <form id="update-quotation-form" onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-4">
-              <h3 className="font-semibold">Items (Details Only)</h3>
-              {items.map((it, idx) => (
-                <div key={it.id || idx} className="space-y-3 rounded-md border p-3 bg-muted/10">
-                  <div className="grid gap-3 sm:grid-cols-[1fr_80px_120px] items-end opacity-70">
-                    <div className="space-y-1">
-                      <Label className="text-xs">Product (Disabled)</Label>
-                      <Input value={it.product_name} disabled />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs">Qty (Disabled)</Label>
-                      <Input value={it.qty} disabled />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs">Price (Disabled)</Label>
-                      <Input value={formatIDR(it.price)} disabled />
-                    </div>
-                  </div>
-                  <ItemDetailsFields
-                    item={it}
-                    isQuotation={true}
-                    onChange={(patch) => updateItem(idx, patch)}
-                  />
-                </div>
-              ))}
+              <h3 className="font-semibold text-sm">Items (Click to edit details)</h3>
+              <Accordion type="multiple" className="w-full space-y-3">
+                {items.map((it, idx) => (
+                  <AccordionItem value={`item-${idx}`} key={it.id || idx} className="border rounded-md px-4 bg-muted/10">
+                    <AccordionTrigger className="hover:no-underline py-3">
+                      <div className="flex flex-col items-start text-left w-full gap-1 pr-4">
+                        <div className="font-medium text-sm">{it.product_name}</div>
+                        <div className="flex gap-4 text-xs text-muted-foreground font-normal">
+                          <span>Qty: {it.qty}</span>
+                          <span>Price: {formatIDR(it.price)}</span>
+                        </div>
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="pt-2 pb-4">
+                      <ItemDetailsFields
+                        item={it}
+                        isQuotation={true}
+                        onChange={(patch) => updateItem(idx, patch)}
+                      />
+                    </AccordionContent>
+                  </AccordionItem>
+                ))}
+              </Accordion>
             </div>
 
             <div className="space-y-4 pt-4 border-t">
