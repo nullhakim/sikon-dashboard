@@ -191,6 +191,9 @@ function CustomersPage() {
 
   const rows = data?.data ?? [];
   const totalPage = data?.paging?.total_page ?? 1;
+  const hasNextPage = data?.paging?.total_page
+    ? searchParams.page < data.paging.total_page
+    : rows.length === searchParams.limit;
   const saving = createMut.isPending || updateMut.isPending;
 
   return (
@@ -335,7 +338,7 @@ function CustomersPage() {
           <Button
             variant="outline"
             size="sm"
-            disabled={searchParams.page >= totalPage}
+            disabled={!hasNextPage}
             onClick={() => navigate({ search: (prev) => ({ ...prev, page: prev.page + 1 }) })}
           >
             Next <ChevronRight className="h-4 w-4" />
