@@ -9,6 +9,7 @@ import {
   Tags,
   Landmark,
   BookOpen,
+  PieChart,
 } from "lucide-react";
 
 import {
@@ -25,6 +26,7 @@ import {
 
 const main = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
+  { title: "Reports", url: "/reports", icon: PieChart },
 ];
 
 const transactions = [

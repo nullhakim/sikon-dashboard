@@ -158,6 +158,9 @@ function UsersPage() {
 
   const rows = data?.data ?? [];
   const totalPage = data?.paging?.total_page ?? 1;
+  const hasNextPage = data?.paging?.total_page
+    ? page < data.paging.total_page
+    : rows.length === limit;
   const saving = createMut.isPending || updateMut.isPending;
 
   return (
@@ -270,7 +273,7 @@ function UsersPage() {
           <Button
             variant="outline"
             size="sm"
-            disabled={page >= totalPage}
+            disabled={!hasNextPage}
             onClick={() => setPage((p) => p + 1)}
           >
             Next <ChevronRight className="h-4 w-4" />

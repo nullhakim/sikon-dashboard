@@ -1061,19 +1061,16 @@ function OrdersPage() {
   const setPage = (p: number) =>
     navigate({ search: (prev: typeof search) => ({ ...prev, page: p }), replace: true });
 
-  const queryParams = useMemo(
-    () => ({
-      page: search.page,
-      limit,
-      search: search.search || undefined,
-      order_status: search.order_status || undefined,
-      payment_status: search.payment_status || undefined,
-      start_date: search.start_date || undefined,
-      end_date: search.end_date || undefined,
-      sales_id: search.sales_id || undefined,
-    }),
-    [search],
-  );
+  const queryParams = {
+    page: search.page,
+    limit,
+    search: search.search || undefined,
+    order_status: search.order_status || undefined,
+    payment_status: search.payment_status || undefined,
+    start_date: search.start_date || undefined,
+    end_date: search.end_date || undefined,
+    sales_id: search.sales_id || undefined,
+  };
 
   const { data, isLoading, isError, error, isFetching } = useQuery({
     queryKey: ["orders", queryParams],
@@ -1108,6 +1105,7 @@ function OrdersPage() {
   const orders = data?.data ?? [];
   const totalPage = data?.paging?.total_page ?? 1;
   const page = search.page;
+  const hasNextPage = data?.paging?.total_page ? page < data.paging.total_page : orders.length === limit;
 
   const startDate = search.start_date ? new Date(search.start_date) : undefined;
   const endDate = search.end_date ? new Date(search.end_date) : undefined;
@@ -1469,7 +1467,7 @@ function OrdersPage() {
           <Button
             variant="outline"
             size="sm"
-            disabled={page >= totalPage}
+            disabled={!hasNextPage}
             onClick={() => setPage(page + 1)}
           >
             Next <ChevronRight className="h-4 w-4" />

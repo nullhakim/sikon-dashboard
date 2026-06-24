@@ -223,3 +223,12 @@ export const paymentsService = {
   ) => api.put<ApiSuccess<unknown>>(`/payments/${id}`, body),
   delete: (id: string) => api.delete<ApiSuccess<unknown>>(`/payments/${id}`),
 };
+
+// Dashboard / Reports
+export const dashboardService = {
+  receivablesReport: () => api.get<ApiSuccess<any>>("/dashboard/receivables-report"),
+  salesReport: (p: { start_date?: string; end_date?: string } = {}) => 
+    api.get<ApiSuccess<any>>("/dashboard/sales-report", p as any),
+  summary: (p: { start_date?: string; end_date?: string } = {}) => 
+    api.get<ApiSuccess<any>>("/dashboard/summary", p as any),
+};

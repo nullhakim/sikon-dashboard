@@ -19,7 +19,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ordersService, paymentsService, customersService } from "@/lib/services";
+import { ordersService, paymentsService, dashboardService } from "@/lib/services";
 import { formatIDR, formatDate } from "@/lib/format";
 
 export const Route = createFileRoute("/")({
@@ -59,43 +59,40 @@ function Dashboard() {
     queryKey: ["payments", { page: 1, limit: 5 }],
     queryFn: () => paymentsService.list({ page: 1, limit: 5 }),
   });
-  const customers = useQuery({
-    queryKey: ["customers", { page: 1, limit: 1 }],
-    queryFn: () => customersService.list({ page: 1, limit: 1 }),
+  const summary = useQuery({
+    queryKey: ["dashboard-summary"],
+    queryFn: () => dashboardService.summary(),
   });
 
-  const totalOrders = orders.data?.paging?.total_item ?? orders.data?.data?.length ?? 0;
-  const totalPayments =
-    payments.data?.paging?.total_item ?? payments.data?.data?.length ?? 0;
-  const totalCustomers =
-    customers.data?.paging?.total_item ?? customers.data?.data?.length ?? 0;
-  const revenue =
-    payments.data?.data?.reduce((sum, p) => sum + (p.amount ?? 0), 0) ?? 0;
+  const totalOrders = summary.data?.data?.total_active_orders ?? 0;
+  const totalRevenue = summary.data?.data?.total_revenue ?? 0;
+  const totalReceivable = summary.data?.data?.total_receivable ?? 0;
+  const totalCompleted = summary.data?.data?.total_completed_orders ?? 0;
 
   const stats = [
     {
-      label: "Total Orders",
+      label: "Active Orders",
       value: totalOrders.toLocaleString("id-ID"),
       icon: ShoppingCart,
-      hint: "All time",
+      hint: "Currently in progress",
     },
     {
-      label: "Recent Revenue",
-      value: formatIDR(revenue),
+      label: "Total Revenue",
+      value: formatIDR(totalRevenue),
       icon: TrendingUp,
-      hint: "Last 5 payments",
+      hint: "Completed & paid orders",
     },
     {
-      label: "Payments",
-      value: totalPayments.toLocaleString("id-ID"),
+      label: "Total Receivables",
+      value: formatIDR(totalReceivable),
       icon: CreditCard,
-      hint: "All time",
+      hint: "Unpaid remaining balances",
     },
     {
-      label: "Customers",
-      value: totalCustomers.toLocaleString("id-ID"),
+      label: "Completed Orders",
+      value: totalCompleted.toLocaleString("id-ID"),
       icon: Users,
-      hint: "Registered",
+      hint: "Successfully delivered",
     },
   ];
 
