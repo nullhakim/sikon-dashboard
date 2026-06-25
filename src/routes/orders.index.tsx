@@ -45,10 +45,13 @@ import {
 } from "@/components/ui/accordion";
 // ScrollArea import removed
 
-import { ordersService, customersService, productsService, usersService, specTemplatesService, bankAccountsService, paymentsService } from "@/lib/services";
+import { ordersService, customersService, productsService, usersService, specTemplatesService, bankAccountsService, paymentsService, batchPosService } from "@/lib/services";
 import { formatIDR, formatDate } from "@/lib/format";
 import type { OrderStatus } from "@/lib/types";
 import { QuickCreateCustomerDialog } from "@/components/QuickCreateCustomerDialog";
+
+// TODO: Replace with real auth context when authentication is implemented.
+const currentUser = { role: "admin" };
 
 export const Route = createFileRoute("/orders/")({
   head: () => ({
@@ -65,6 +68,7 @@ export const Route = createFileRoute("/orders/")({
     start_date: typeof search.start_date === "string" ? search.start_date : "",
     end_date: typeof search.end_date === "string" ? search.end_date : "",
     sales_id: typeof search.sales_id === "string" ? search.sales_id : "",
+    batch_po_id: typeof search.batch_po_id === "string" ? search.batch_po_id : "",
   }),
   component: OrdersPage,
 });
@@ -260,6 +264,7 @@ function CreateOrderDialog({ open, onClose }: { open: boolean; onClose: () => vo
   const qc = useQueryClient();
   const [customerId, setCustomerId] = useState("");
   const [salesId, setSalesId] = useState("");
+  const [batchPoId, setBatchPoId] = useState("");
   const [newCustomerOpen, setNewCustomerOpen] = useState(false);
 
   const customers = useQuery({
@@ -277,6 +282,16 @@ function CreateOrderDialog({ open, onClose }: { open: boolean; onClose: () => vo
     queryFn: () => usersService.list({ role: "sales", limit: 100 }),
     enabled: open,
   });
+  const activeBatchPOs = useQuery({
+    queryKey: ["batch-pos", "active"],
+    queryFn: () => batchPosService.active(),
+    enabled: open,
+  });
+
+  // Derive the currently selected BatchPO object for guard checks
+  const selectedBatchPO = activeBatchPOs.data?.data?.find((b) => b.id === batchPoId);
+  const isBatchPOClosed = selectedBatchPO?.status === "closed";
+  const isFormLocked = isBatchPOClosed && currentUser.role !== "admin";
 
   const [courier, setCourier] = useState("");
   const [shippingCost, setShippingCost] = useState<number | "">("");
@@ -299,6 +314,7 @@ function CreateOrderDialog({ open, onClose }: { open: boolean; onClose: () => vo
     if (!open) {
       setCustomerId("");
       setSalesId("");
+      setBatchPoId("");
       setCourier("");
       setShippingCost("");
       setNote("");
@@ -317,6 +333,7 @@ function CreateOrderDialog({ open, onClose }: { open: boolean; onClose: () => vo
   const create = useMutation({
     mutationFn: () =>
       ordersService.create({
+        batch_po_id: batchPoId,
         customer_id: customerId,
         sales_id: salesId,
         courier_name: courier || undefined,
@@ -364,7 +381,14 @@ function CreateOrderDialog({ open, onClose }: { open: boolean; onClose: () => vo
       
       onClose();
     },
-    onError: (e: any) => toast.error(e?.payload?.error || e.message),
+    onError: (e: any) => {
+      const status = (e as any)?.status;
+      if (status === 403) {
+        toast.error("This Batch PO is closed. Only administrators can perform this action.");
+      } else {
+        toast.error(e?.payload?.error || e.message);
+      }
+    },
   });
 
   const updateItem = (idx: number, patch: Partial<Item>) =>
@@ -372,6 +396,7 @@ function CreateOrderDialog({ open, onClose }: { open: boolean; onClose: () => vo
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!batchPoId) return toast.error("Select a Batch PO");
     if (!customerId) return toast.error("Choose a customer");
     if (!salesId) return toast.error("Choose a sales person");
     if (!items.some((i) => i.product_id && i.qty > 0))
@@ -397,9 +422,49 @@ function CreateOrderDialog({ open, onClose }: { open: boolean; onClose: () => vo
           <form id="create-order-form" onSubmit={submit} className="space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">Customer & Shipping</CardTitle>
+                <CardTitle className="text-base">Batch PO & Customer & Shipping</CardTitle>
               </CardHeader>
               <CardContent className="grid gap-4 sm:grid-cols-2">
+                {/* Batch PO Selection — mandatory */}
+                <div className="space-y-2 sm:col-span-2">
+                  <Label>
+                    Batch PO <span className="text-destructive">*</span>
+                  </Label>
+                  <Select
+                    value={batchPoId}
+                    onValueChange={setBatchPoId}
+                    disabled={activeBatchPOs.isLoading}
+                  >
+                    <SelectTrigger className={!batchPoId ? "border-destructive/50" : ""}>
+                      <SelectValue
+                        placeholder={
+                          activeBatchPOs.isLoading ? "Loading batches…" : "Select an active Batch PO"
+                        }
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {activeBatchPOs.data?.data?.length === 0 && (
+                        <div className="px-2 py-3 text-xs text-muted-foreground">
+                          No active Batch POs available.
+                        </div>
+                      )}
+                      {activeBatchPOs.data?.data?.map((b) => (
+                        <SelectItem key={b.id} value={b.id}>
+                          <span className="font-medium">{b.name}</span>
+                          <span className="ml-1 text-xs text-muted-foreground capitalize">— {b.status}</span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {isBatchPOClosed && (
+                    <p className="text-xs text-destructive">
+                      {currentUser.role === "admin"
+                        ? "⚠ This Batch PO is closed. You have admin access to proceed."
+                        : "This Batch PO is closed. Only administrators can add orders."}
+                    </p>
+                  )}
+                </div>
+
                 <div className="space-y-2">
                   <Label>Sales Person</Label>
                   <Select
@@ -679,7 +744,11 @@ function CreateOrderDialog({ open, onClose }: { open: boolean; onClose: () => vo
           <Button type="button" variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button type="submit" form="create-order-form" disabled={create.isPending}>
+          <Button
+            type="submit"
+            form="create-order-form"
+            disabled={create.isPending || !batchPoId || isFormLocked}
+          >
             {create.isPending ? "Creating…" : "Buat Pesanan"}
           </Button>
         </DialogFooter>
@@ -1079,6 +1148,7 @@ function OrdersPage() {
     start_date: search.start_date || undefined,
     end_date: search.end_date || undefined,
     sales_id: search.sales_id || undefined,
+    batch_po_id: search.batch_po_id || undefined,
   };
 
   const { data, isLoading, isError, error, isFetching } = useQuery({
@@ -1091,6 +1161,12 @@ function OrdersPage() {
     queryFn: () => usersService.list({ role: "sales", limit: 100 }),
   });
   const salesUsers = usersData?.data ?? [];
+
+  const { data: allBatchPOsData } = useQuery({
+    queryKey: ["batch-pos", "list", { limit: 100 }],
+    queryFn: () => batchPosService.list({ limit: 100 }),
+  });
+  const allBatchPOs = allBatchPOsData?.data ?? [];
 
   const statusMut = useMutation({
     mutationFn: ({ id, status }: { id: string; status: OrderStatus }) =>
@@ -1123,6 +1199,7 @@ function OrdersPage() {
     (search.order_status ? 1 : 0) +
     (search.payment_status ? 1 : 0) +
     (search.sales_id ? 1 : 0) +
+    (search.batch_po_id ? 1 : 0) +
     (search.start_date || search.end_date ? 1 : 0);
 
   const hasAnyFilter =
@@ -1130,6 +1207,7 @@ function OrdersPage() {
     !!search.order_status ||
     !!search.payment_status ||
     !!search.sales_id ||
+    !!search.batch_po_id ||
     !!search.start_date ||
     !!search.end_date;
 
@@ -1143,6 +1221,7 @@ function OrdersPage() {
         start_date: "",
         end_date: "",
         sales_id: "",
+        batch_po_id: "",
       }),
       replace: true,
     });
@@ -1257,6 +1336,29 @@ function OrdersPage() {
                   </div>
 
                   <div className="space-y-2">
+                    <Label className="text-xs">Batch PO</Label>
+                    <Select
+                      value={search.batch_po_id || "all"}
+                      onValueChange={(v) =>
+                        setFilter({ batch_po_id: v === "all" ? "" : v })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Batches</SelectItem>
+                        {allBatchPOs.map((b) => (
+                          <SelectItem key={b.id} value={b.id}>
+                            <span>{b.name}</span>
+                            <span className="ml-1 text-xs text-muted-foreground capitalize">— {b.status}</span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
                     <Label className="text-xs">Date Range</Label>
                     <div className="grid grid-cols-2 gap-2">
                       <Popover>
@@ -1341,6 +1443,7 @@ function OrdersPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Invoice</TableHead>
+                <TableHead>Batch PO</TableHead>
                 <TableHead>Sales</TableHead>
                 <TableHead>Customer</TableHead>
                 <TableHead>Created</TableHead>
@@ -1354,7 +1457,7 @@ function OrdersPage() {
               {isLoading &&
                 Array.from({ length: 5 }).map((_, i) => (
                   <TableRow key={`sk-${i}`}>
-                    {Array.from({ length: 7 }).map((_, j) => (
+                    {Array.from({ length: 8 }).map((_, j) => (
                       <TableCell key={j}>
                         <Skeleton className="h-4 w-full" />
                       </TableCell>
@@ -1363,14 +1466,14 @@ function OrdersPage() {
                 ))}
               {isError && !isLoading && (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center text-destructive py-8">
+                  <TableCell colSpan={8} className="text-center text-destructive py-8">
                     {(error as Error)?.message ?? "Failed to load orders"}
                   </TableCell>
                 </TableRow>
               )}
               {!isLoading && !isError && orders.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center text-muted-foreground py-10">
+                  <TableCell colSpan={8} className="text-center text-muted-foreground py-10">
                     <div className="space-y-1">
                       <p className="font-medium">No orders found</p>
                       <p className="text-xs">
@@ -1386,6 +1489,15 @@ function OrdersPage() {
                 <TableRow key={o.id} className={isFetching ? "opacity-70" : ""}>
                   <TableCell className="font-mono text-xs">
                     {o.order_number ?? o.id.slice(0, 8)}
+                  </TableCell>
+                  <TableCell className="text-xs">
+                    {o.batch_po?.name ? (
+                      <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium bg-indigo-50 text-indigo-700 border-indigo-200">
+                        {o.batch_po.name}
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
                   </TableCell>
                   <TableCell className="font-medium">
                     {o.sales?.name ?? "—"}

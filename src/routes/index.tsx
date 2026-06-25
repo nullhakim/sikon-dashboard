@@ -106,7 +106,7 @@ function Dashboard() {
           </p>
         </div>
         <Button asChild>
-          <Link to="/orders">
+          <Link to="/orders" search={{ page: 1, search: "", order_status: "", payment_status: "", start_date: "", end_date: "", sales_id: "", batch_po_id: "" }}>
             View all orders <ArrowRight className="ml-1 h-4 w-4" />
           </Link>
         </Button>

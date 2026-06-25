@@ -16,6 +16,7 @@ import { Route as PaymentsRouteImport } from './routes/payments'
 import { Route as MaterialCatalogsRouteImport } from './routes/material-catalogs'
 import { Route as CustomersRouteImport } from './routes/customers'
 import { Route as CategoriesRouteImport } from './routes/categories'
+import { Route as BatchPosRouteImport } from './routes/batch-pos'
 import { Route as BankAccountsRouteImport } from './routes/bank-accounts'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as OrdersIndexRouteImport } from './routes/orders.index'
@@ -56,6 +57,11 @@ const CategoriesRoute = CategoriesRouteImport.update({
   path: '/categories',
   getParentRoute: () => rootRouteImport,
 } as any)
+const BatchPosRoute = BatchPosRouteImport.update({
+  id: '/batch-pos',
+  path: '/batch-pos',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const BankAccountsRoute = BankAccountsRouteImport.update({
   id: '/bank-accounts',
   path: '/bank-accounts',
@@ -80,6 +86,7 @@ const OrdersOrderIdRoute = OrdersOrderIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/bank-accounts': typeof BankAccountsRoute
+  '/batch-pos': typeof BatchPosRoute
   '/categories': typeof CategoriesRoute
   '/customers': typeof CustomersRoute
   '/material-catalogs': typeof MaterialCatalogsRoute
@@ -93,6 +100,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/bank-accounts': typeof BankAccountsRoute
+  '/batch-pos': typeof BatchPosRoute
   '/categories': typeof CategoriesRoute
   '/customers': typeof CustomersRoute
   '/material-catalogs': typeof MaterialCatalogsRoute
@@ -107,6 +115,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/bank-accounts': typeof BankAccountsRoute
+  '/batch-pos': typeof BatchPosRoute
   '/categories': typeof CategoriesRoute
   '/customers': typeof CustomersRoute
   '/material-catalogs': typeof MaterialCatalogsRoute
@@ -122,6 +131,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/bank-accounts'
+    | '/batch-pos'
     | '/categories'
     | '/customers'
     | '/material-catalogs'
@@ -135,6 +145,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/bank-accounts'
+    | '/batch-pos'
     | '/categories'
     | '/customers'
     | '/material-catalogs'
@@ -148,6 +159,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/bank-accounts'
+    | '/batch-pos'
     | '/categories'
     | '/customers'
     | '/material-catalogs'
@@ -162,6 +174,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   BankAccountsRoute: typeof BankAccountsRoute
+  BatchPosRoute: typeof BatchPosRoute
   CategoriesRoute: typeof CategoriesRoute
   CustomersRoute: typeof CustomersRoute
   MaterialCatalogsRoute: typeof MaterialCatalogsRoute
@@ -224,6 +237,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CategoriesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/batch-pos': {
+      id: '/batch-pos'
+      path: '/batch-pos'
+      fullPath: '/batch-pos'
+      preLoaderRoute: typeof BatchPosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/bank-accounts': {
       id: '/bank-accounts'
       path: '/bank-accounts'
@@ -258,6 +278,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   BankAccountsRoute: BankAccountsRoute,
+  BatchPosRoute: BatchPosRoute,
   CategoriesRoute: CategoriesRoute,
   CustomersRoute: CustomersRoute,
   MaterialCatalogsRoute: MaterialCatalogsRoute,

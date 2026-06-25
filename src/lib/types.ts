@@ -81,8 +81,21 @@ export interface Payment {
   order?: Order;
 }
 
+export interface BatchPO {
+  id: string;
+  name: string;
+  start_date: string;
+  end_date: string;
+  quota: number;
+  status: "draft" | "active" | "closed" | string;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface Order {
   id: string;
+  batch_po_id?: string;
+  batch_po?: BatchPO;
   order_number?: string;
   customer_id: string;
   customer?: Customer;
