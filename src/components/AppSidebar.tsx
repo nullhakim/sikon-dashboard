@@ -10,6 +10,7 @@ import {
   Landmark,
   BookOpen,
   PieChart,
+  Layers,
 } from "lucide-react";
 
 import {
@@ -31,6 +32,7 @@ const main = [
 
 const transactions = [
   { title: "Orders", url: "/orders", icon: ShoppingCart },
+  { title: "Batch PO", url: "/batch-pos", icon: Layers },
   { title: "Payments", url: "/payments", icon: CreditCard },
 ];
 

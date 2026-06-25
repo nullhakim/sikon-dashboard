@@ -804,7 +804,7 @@ function OrderItemDialog({
             <Label>Product</Label>
             <Select value={it.product_id} onValueChange={(val) => {
                const p = productsQ.data?.data?.find((x: any) => x.id === val);
-               setIt(prev => ({ ...prev, product_id: val, price: p && !isEditing ? (p.base_price ?? p.price) : prev.price }));
+               setIt(prev => ({ ...prev, product_id: val, price: p && !isEditing ? (p.base_price ?? 0) : prev.price }));
             }} disabled={productsQ.isLoading}>
               <SelectTrigger><SelectValue placeholder="Select a product" /></SelectTrigger>
               <SelectContent>
@@ -901,7 +901,7 @@ function OrderDetailPage() {
   });
 
   const statusMut = useMutation({
-    mutationFn: (status: string) => ordersService.updateStatus(orderId, status),
+    mutationFn: (status: string) => ordersService.updateStatus(orderId, status as import("@/lib/types").OrderStatus),
     onSuccess: () => {
       toast.success("Order status updated");
       qc.invalidateQueries({ queryKey: ["order", orderId] });
@@ -1025,7 +1025,7 @@ function OrderDetailPage() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
           <Button asChild variant="ghost" size="sm" className="-ml-2 h-8 px-2">
-            <Link to="/orders">
+            <Link to="/orders" search={{ page: 1, search: "", order_status: "", payment_status: "", start_date: "", end_date: "", sales_id: "", batch_po_id: "" }}>
               <ArrowLeft className="h-4 w-4 mr-1" /> All Orders
             </Link>
           </Button>
@@ -1239,7 +1239,7 @@ function OrderDetailPage() {
                             className="h-8 w-8 text-muted-foreground hover:text-destructive"
                             onClick={() => {
                               if (confirm("Delete this item?")) {
-                                deleteItemMut.mutate(it.id);
+                                deleteItemMut.mutate(it.id!);
                               }
                             }}
                           >
