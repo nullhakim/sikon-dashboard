@@ -69,13 +69,14 @@ export const Route = createFileRoute("/orders/")({
   component: OrdersPage,
 });
 
-const statusList: OrderStatus[] = ["quotation", "pending", "production", "completed", "canceled"];
+const statusList: OrderStatus[] = ["quotation", "pending", "production", "ready", "completed", "canceled"];
 const paymentStatusList = ["unpaid", "partial", "paid"];
 
 const statusVariant: Record<string, string> = {
   quotation: "bg-violet-100 text-violet-800 border-violet-200",
   pending: "bg-amber-100 text-amber-800 border-amber-200",
   production: "bg-blue-100 text-blue-800 border-blue-200",
+  ready: "bg-cyan-100 text-cyan-800 border-cyan-200",
   completed: "bg-emerald-100 text-emerald-800 border-emerald-200",
   canceled: "bg-rose-100 text-rose-800 border-rose-200",
 };
@@ -254,8 +255,8 @@ export function ItemDetailsFields({
   );
 }
 
-function CreateOrderDialog({ open, onClose, mode }: { open: boolean; onClose: () => void; mode: "quotation" | "order" }) {
-  const isQuotation = mode === "quotation";
+function CreateOrderDialog({ open, onClose }: { open: boolean; onClose: () => void; }) {
+  const isQuotation = true;
   const qc = useQueryClient();
   const [customerId, setCustomerId] = useState("");
   const [salesId, setSalesId] = useState("");
@@ -291,7 +292,7 @@ function CreateOrderDialog({ open, onClose, mode }: { open: boolean; onClose: ()
   const bankAccounts = useQuery({
     queryKey: ["bank-accounts", "user", salesId],
     queryFn: () => bankAccountsService.byUser(salesId!),
-    enabled: open && !!salesId && !isQuotation,
+    enabled: open && !!salesId,
   });
 
   useEffect(() => {
@@ -321,8 +322,8 @@ function CreateOrderDialog({ open, onClose, mode }: { open: boolean; onClose: ()
         courier_name: courier || undefined,
         shipping_cost: Number(shippingCost) || 0,
         notes: note || undefined,
-        terms_conditions: isQuotation ? (termsConditions || undefined) : undefined,
-        ...(isQuotation ? { order_status: "quotation" } : {}),
+        terms_conditions: termsConditions || undefined,
+        order_status: "quotation",
         items: items
           .filter((i) => i.product_id && i.qty > 0)
           .map((i) => ({
@@ -337,7 +338,7 @@ function CreateOrderDialog({ open, onClose, mode }: { open: boolean; onClose: ()
       qc.invalidateQueries({ queryKey: ["orders"] });
       
       const orderId = res?.data?.id || res?.id;
-      if (!isQuotation && orderId && Number(paymentAmount) > 0) {
+      if (orderId && Number(paymentAmount) > 0) {
         try {
           await paymentsService.create({
             order_id: orderId,
@@ -348,6 +349,14 @@ function CreateOrderDialog({ open, onClose, mode }: { open: boolean; onClose: ()
             payment_date: new Date().toISOString()
           });
           toast.success("Initial payment recorded");
+          if (paymentType === "dp" || paymentType === "settlement") {
+            try {
+              await ordersService.updateStatus(orderId, "pending");
+              toast.success("Order automatically moved to pending");
+            } catch (e) {
+              // ignore
+            }
+          }
         } catch (e: any) {
           toast.error("Failed to record initial payment: " + (e?.payload?.error || e.message));
         }
@@ -367,7 +376,7 @@ function CreateOrderDialog({ open, onClose, mode }: { open: boolean; onClose: ()
     if (!salesId) return toast.error("Choose a sales person");
     if (!items.some((i) => i.product_id && i.qty > 0))
       return toast.error("Add at least one item");
-    if (!isQuotation && Number(paymentAmount) > 0) {
+    if (Number(paymentAmount) > 0) {
       if (!paymentBankId) return toast.error("Select bank account for payment");
       if (!paymentType) return toast.error("Select payment type");
     }
@@ -378,9 +387,9 @@ function CreateOrderDialog({ open, onClose, mode }: { open: boolean; onClose: ()
     <Dialog open={open} onOpenChange={(v) => (v ? null : onClose())}>
       <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-0">
         <DialogHeader className="px-6 pt-6 pb-2 border-b">
-          <DialogTitle>{isQuotation ? "Buat Penawaran" : "Buat Pesanan"}</DialogTitle>
+          <DialogTitle>Buat Pesanan Baru</DialogTitle>
           <DialogDescription>
-            {isQuotation ? "Create a new quotation (Surat Penawaran)." : "Create a new direct order."}
+            Create a new order (initialized as quotation).
           </DialogDescription>
         </DialogHeader>
 
@@ -571,7 +580,7 @@ function CreateOrderDialog({ open, onClose, mode }: { open: boolean; onClose: ()
               </CardContent>
             </Card>
 
-            {!isQuotation && (
+            {true && (
               <Card>
                 <CardHeader>
                   <CardTitle className="text-base">Direct Payment (Optional)</CardTitle>
@@ -671,7 +680,7 @@ function CreateOrderDialog({ open, onClose, mode }: { open: boolean; onClose: ()
             Cancel
           </Button>
           <Button type="submit" form="create-order-form" disabled={create.isPending}>
-            {create.isPending ? "Creating…" : isQuotation ? "Buat Penawaran" : "Buat Pesanan"}
+            {create.isPending ? "Creating…" : "Buat Pesanan"}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -1030,7 +1039,7 @@ function OrdersPage() {
   const qc = useQueryClient();
 
   const [editOrder, setEditOrder] = useState<{ id: string; type: "order" | "quotation" } | null>(null);
-  const [createMode, setCreateMode] = useState<"quotation" | "order" | null>(null);
+  const [createModeOpen, setCreateModeOpen] = useState(false);
 
   // Local input state for debounced search box
   const [searchInput, setSearchInput] = useState(search.search);
@@ -1148,7 +1157,7 @@ function OrdersPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button onClick={() => setCreateMode("order")}>
+          <Button onClick={() => setCreateModeOpen(true)}>
             <Plus className="mr-1 h-4 w-4" /> New Order
           </Button>
         </div>
@@ -1388,26 +1397,7 @@ function OrdersPage() {
                     {formatDate(o.created_at)}
                   </TableCell>
                   <TableCell>
-                    <Select
-                      value={o.order_status}
-                      onValueChange={(v) =>
-                        statusMut.mutate({ id: o.id, status: v as OrderStatus })
-                      }
-                    >
-                      <SelectTrigger
-                        className={`h-7 w-[130px] text-xs font-medium capitalize border ${statusVariant[o.order_status?.toLowerCase()] ?? ""
-                          }`}
-                      >
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {statusList.map((s) => (
-                          <SelectItem key={s} value={s} className="capitalize">
-                            {s}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <StatusBadge status={o.order_status} />
                   </TableCell>
                   <TableCell className="text-right font-medium">
                     {formatIDR(o.total_amount)}
@@ -1485,9 +1475,8 @@ function OrdersPage() {
 
 
       <CreateOrderDialog
-        open={createMode !== null}
-        onClose={() => setCreateMode(null)}
-        mode={createMode ?? "order"}
+        open={createModeOpen}
+        onClose={() => setCreateModeOpen(false)}
       />
     </div>
   );

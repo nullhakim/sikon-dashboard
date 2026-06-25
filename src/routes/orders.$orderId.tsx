@@ -72,6 +72,7 @@ const statusVariant: Record<string, string> = {
   quotation: "bg-violet-100 text-violet-800 border-violet-200",
   pending: "bg-amber-100 text-amber-800 border-amber-200",
   production: "bg-blue-100 text-blue-800 border-blue-200",
+  ready: "bg-cyan-100 text-cyan-800 border-cyan-200",
   completed: "bg-emerald-100 text-emerald-800 border-emerald-200",
   canceled: "bg-rose-100 text-rose-800 border-rose-200",
 };
@@ -98,12 +99,14 @@ function AddPaymentDialog({
   orderId,
   salesId,
   remaining,
+  currentStatus,
   open,
   onClose,
 }: {
   orderId: string;
   salesId?: string | null;
   remaining: number;
+  currentStatus?: string;
   open: boolean;
   onClose: () => void;
 }) {
@@ -133,15 +136,24 @@ function AddPaymentDialog({
   }, [open]);
 
   const createMut = useMutation({
-    mutationFn: () =>
-      paymentsService.create({
+    mutationFn: async () => {
+      await paymentsService.create({
         order_id: orderId,
         bank_account_id: bankAccountId,
         amount: Number(amount),
         payment_type: paymentType,
         reference_number: referenceNumber,
         payment_date: datetimeLocalToISO(paymentDate),
-      }),
+      });
+      if (currentStatus === "quotation" && (paymentType === "dp" || paymentType === "settlement")) {
+        try {
+          await ordersService.updateStatus(orderId, "pending");
+          toast.success("Order automatically moved to pending");
+        } catch (e) {
+          // ignore
+        }
+      }
+    },
     onSuccess: () => {
       toast.success("Payment recorded");
       qc.invalidateQueries({ queryKey: ["order-payments", orderId] });
@@ -888,6 +900,27 @@ function OrderDetailPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const statusMut = useMutation({
+    mutationFn: (status: string) => ordersService.updateStatus(orderId, status),
+    onSuccess: () => {
+      toast.success("Order status updated");
+      qc.invalidateQueries({ queryKey: ["order", orderId] });
+      qc.invalidateQueries({ queryKey: ["orders"] });
+    },
+    onError: (e: any) => toast.error(e?.payload?.error || e.message),
+  });
+
+  const handleTransition = (targetStatus: string) => {
+    if (!order) return;
+    if (targetStatus === "pending" && order.payment_status === "unpaid") {
+      return toast.error("Cannot process to queue: Minimum deposit (DP) payment required.");
+    }
+    if (targetStatus === "completed" && order.payment_status !== "paid") {
+      return toast.error("Cannot complete order: Remaining balance must be fully paid before delivery.");
+    }
+    statusMut.mutate(targetStatus);
+  };
+
   const items = order?.items ?? [];
   const subtotal = items.reduce(
     (s, i) => s + (i.qty * i.price),
@@ -1026,6 +1059,26 @@ function OrderDetailPage() {
           <Button onClick={() => setPayOpen(true)} disabled={remaining <= 0}>
             <Plus className="h-4 w-4 mr-1" /> Add Payment
           </Button>
+          {order.order_status === "quotation" && (
+            <Button onClick={() => handleTransition("pending")} disabled={statusMut.isPending}>
+              Process to Production Queue
+            </Button>
+          )}
+          {order.order_status === "pending" && (
+            <Button onClick={() => handleTransition("production")} disabled={statusMut.isPending}>
+              Start Production (Cut Fabric)
+            </Button>
+          )}
+          {order.order_status === "production" && (
+            <Button onClick={() => handleTransition("ready")} disabled={statusMut.isPending}>
+              Mark as Finished (Warehouse)
+            </Button>
+          )}
+          {order.order_status === "ready" && (
+            <Button onClick={() => handleTransition("completed")} disabled={statusMut.isPending}>
+              Complete & Deliver Order
+            </Button>
+          )}
         </div>
       </div>
 
@@ -1331,6 +1384,7 @@ function OrderDetailPage() {
         orderId={orderId}
         salesId={salesId}
         remaining={remaining}
+        currentStatus={order.order_status}
         open={payOpen}
         onClose={() => setPayOpen(false)}
       />
