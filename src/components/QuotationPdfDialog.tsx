@@ -215,13 +215,18 @@ export function QuotationPdfDialog({ open, onClose, order, items, customer }: Pr
             <div className="mb-5 text-sm">
               {items.map((it, idx) => {
                 const name = it.product_name || it.product?.name || "—";
+                const d = (it.details || {}) as Record<string, unknown>;
+                const warna = (d.Warna ?? d.warna) as string | undefined;
+                const bahanObj = (d.Bahan ?? d.bahan) as Record<string, unknown> | undefined;
+                const bahanColor = bahanObj ? String(bahanObj.Color ?? bahanObj.color ?? "") : "";
+                const colorLabel = warna || bahanColor || "";
                 const lines = buildQuotationSpecLines(
                   (it.details || {}) as Record<string, unknown>,
                 );
                 return (
                   <div key={it.id ?? idx} className="mb-3">
                     <p className="m-0 font-semibold">
-                      {idx + 1}. {name}
+                      {idx + 1}. {name}{colorLabel ? ` ${colorLabel}` : ""}
                     </p>
                     {lines.length > 0 && (
                       <ul className="list-disc m-0 mt-1 pl-10">
@@ -253,17 +258,25 @@ export function QuotationPdfDialog({ open, onClose, order, items, customer }: Pr
                 </tr>
               </thead>
               <tbody>
-                {items.map((it, idx) => (
+                {items.map((it, idx) => {
+                  const d2 = (it.details || {}) as Record<string, unknown>;
+                  const w2 = (d2.Warna ?? d2.warna) as string | undefined;
+                  const bObj2 = (d2.Bahan ?? d2.bahan) as Record<string, unknown> | undefined;
+                  const bColor2 = bObj2 ? String(bObj2.Color ?? bObj2.color ?? "") : "";
+                  const color2 = w2 || bColor2 || "";
+                  const prodName = it.product_name || it.product?.name || "—";
+                  return (
                   <tr key={it.id ?? idx}>
                     <td style={{ ...cell, textAlign: "center" }}>{idx + 1}</td>
-                    <td style={cell}>{it.product_name || it.product?.name || "—"}</td>
+                    <td style={{ ...cell, fontWeight: 600 }}>{prodName}{color2 ? ` ${color2}` : ""}</td>
                     <td style={{ ...cell, textAlign: "center" }}>{it.qty}</td>
                     <td style={{ ...cell, textAlign: "right" }}>{fmtIDR(it.price)}</td>
                     <td style={{ ...cell, textAlign: "right" }}>
                       {fmtIDR(it.qty * it.price)}
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
                 {shipping > 0 && (
                   <tr>
                     <td style={{ ...cell, textAlign: "right" }} colSpan={4}>
@@ -320,7 +333,12 @@ export function QuotationPdfDialog({ open, onClose, order, items, customer }: Pr
             <div className="flex justify-end mt-12 text-sm">
               <div className="text-left">
                 <p className="m-0">Hormat kami,</p>
-                <div style={{ height: "90px" }} />
+                <img
+                  src="/assets/ttd.png"
+                  alt="Tanda Tangan & Stempel"
+                  style={{ height: 150, display: "block", marginTop: 4, marginLeft: -10 }}
+                  crossOrigin="anonymous"
+                />
                 <p className="m-0 font-semibold underline">Yusri Siti Aisyah., S.Ak</p>
               </div>
             </div>
@@ -395,6 +413,10 @@ function buildQuotationSpecLines(
   const jahitan = details.Jahitan ?? details.jahitan;
   if (jahitan) {
     lines.push({ label: "Jahitan", value: String(jahitan) });
+  }
+  const warna = details.Warna ?? details.warna;
+  if (warna) {
+    lines.push({ label: "Warna", value: String(warna) });
   }
   return lines;
 }
