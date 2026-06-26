@@ -54,13 +54,13 @@ export function printQuotation({
       const specs =
         detailEntries.length > 0
           ? `<div class="specs">${detailEntries
-              .map(
-                ([k, v]) =>
-                  `<span><strong>${escapeHtml(String(k))}:</strong> ${escapeHtml(
-                    String(v),
-                  )}</span>`,
-              )
-              .join("")}</div>`
+            .map(
+              ([k, v]) =>
+                `<span><strong>${escapeHtml(String(k))}:</strong> ${escapeHtml(
+                  String(v),
+                )}</span>`,
+            )
+            .join("")}</div>`
           : "";
       return `
         <tr>
@@ -84,13 +84,13 @@ export function printQuotation({
   const banksToShow = salesBanks.length ? salesBanks : globalBanks;
   const bankHtml = banksToShow.length
     ? `<div class="payment"><h3>Informasi Pembayaran</h3><div class="body">${banksToShow
-        .map(
-          (b) =>
-            `${escapeHtml(b.bank_name)}: ${escapeHtml(b.account_number)} a/n ${escapeHtml(
-              b.account_name,
-            )}`,
-        )
-        .join("<br />")}</div></div>`
+      .map(
+        (b) =>
+          `${escapeHtml(b.bank_name)}: ${escapeHtml(b.account_number)} a/n ${escapeHtml(
+            b.account_name,
+          )}`,
+      )
+      .join("<br />")}</div></div>`
     : "";
 
   const html = `<!doctype html>
@@ -139,7 +139,41 @@ export function printQuotation({
     margin-bottom: 18px;
   }
   .payment { margin-top: 12px; }
-  .signature { margin-top: 26px; text-align: right; }
+  .signature-wrapper {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 36px;
+    padding-right: 20px;
+  }
+  .signature {
+    text-align: center;
+    width: 260px;
+    position: relative;
+  }
+  .signature .images {
+    position: relative;
+    height: 100px;
+    margin: 5px 0;
+  }
+  .signature .stamp {
+    position: absolute;
+    left: 0;
+    top: -15px;
+    height: 110px;
+    opacity: 0.85;
+    z-index: 1;
+  }
+  .signature .sign {
+    position: absolute;
+    right: 40px;
+    top: 10px;
+    height: 80px;
+    z-index: 2;
+  }
+  .signature .name {
+    font-weight: 700;
+    margin-top: 8px;
+  }
   .info h3 {
     margin: 0 0 6px 0;
     font-size: 9pt;
@@ -181,7 +215,7 @@ export function printQuotation({
   table.items td.num { width: 32px; text-align: center; color: #64748b; }
   table.items td.center { text-align: center; }
   table.items td.right { text-align: right; }
-  table.items .prod { font-weight: 600; }
+  table.items .prod { font-weight: 600; color: #2563eb; }
   table.items .specs { margin-top: 4px; font-size: 9pt; color: #475569; }
   table.items .specs span { display: inline-block; margin-right: 10px; }
 
@@ -290,13 +324,12 @@ export function printQuotation({
     </div>
   </div>
 
-  ${
-    order.valid_until
+  ${order.valid_until
       ? `<div class="valid-box">
           <strong>Berlaku sampai:</strong> ${fmtDate(order.valid_until)}
         </div>`
       : ""
-  }
+    }
 
   ${bankHtml}
 
@@ -321,32 +354,36 @@ export function printQuotation({
     <div class="row grand"><span>TOTAL</span><span>${fmtIDR(total)}</span></div>
   </div>
 
-  ${
-    order.terms_conditions
+  ${order.terms_conditions
       ? `<div class="terms">
           <h3>Syarat &amp; Ketentuan</h3>
           <div class="body">${escapeHtml(order.terms_conditions)}</div>
         </div>`
       : ""
-  }
+    }
 
-  ${
-    order.notes
+  ${order.notes
       ? `<div class="terms">
           <h3>Catatan</h3>
           <div class="body">${escapeHtml(order.notes)}</div>
         </div>`
       : ""
-  }
+    }
 
   <div class="footer">
     Terima kasih atas kepercayaan Anda kepada ${escapeHtml(COMPANY.name)}.
   </div>
 
-  <div class="signature">
-    <div>Hormat Kami,</div>
-    <div>Manager WIFT Indonesia</div>
-    <div style="margin-top:34px;font-weight:700">( Yusri Siti Aisyah., S.Ak )</div>
+  <div class="signature-wrapper">
+    <div class="signature">
+      <div>Hormat Kami,</div>
+      <div>Manager WIFT Indonesia</div>
+      <div class="images">
+        <img src="/assets/stempel-wift.png" class="stamp" alt="Stempel" />
+        <img src="/assets/ttd-manager.png" class="sign" alt="Tanda Tangan" />
+      </div>
+      <div class="name">( Yusri Siti Aisyah., S.Ak )</div>
+    </div>
   </div>
 
   <script>
