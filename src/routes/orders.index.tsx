@@ -97,6 +97,7 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 export interface Item {
+  id?: string;
   product_id: string;
   qty: number;
   price: number;
@@ -813,6 +814,7 @@ export function UpdateOrderDialog({
     terms_conditions: "",
   });
   const [items, setItems] = useState<Item[]>([]);
+  const [deletedItemIds, setDeletedItemIds] = useState<string[]>([]);
   const [paymentAmount, setPaymentAmount] = useState<number | "">("");
   const [paymentType, setPaymentType] = useState("dp");
   const [paymentBankId, setPaymentBankId] = useState("");
@@ -837,12 +839,14 @@ export function UpdateOrderDialog({
       setPaymentType("dp");
       setPaymentBankId("");
       setPaymentReference("");
+      setDeletedItemIds([]);
       if (order.items) {
         setItems(
           order.items.map((i: any) => {
             const d = (i.details || {}) as Record<string, any>;
             const b = (d.bahan && typeof d.bahan === "object") ? d.bahan : (d.Bahan && typeof d.Bahan === "object" ? d.Bahan : {});
             return {
+              id: i.id,
               product_id: i.product_id,
               qty: i.qty,
               price: i.price,
@@ -858,6 +862,7 @@ export function UpdateOrderDialog({
       }
     } else if (!open) {
       setItems([]);
+      setDeletedItemIds([]);
     }
   }, [order, open]);
 
@@ -869,7 +874,41 @@ export function UpdateOrderDialog({
 
   const updateMut = useMutation({
     mutationFn: async (body: any) => {
-      await ordersService.update(orderId!, body);
+      if (order && deletedItemIds.length > 0) {
+        await Promise.all(
+          deletedItemIds.map((itemId) => ordersService.deleteItem(order.id, itemId)),
+        );
+      }
+
+      await Promise.all(
+        body.items.map((it: any) => {
+          const details = buildItemDetails(it, isQuotation);
+          const itemBody = {
+            product_id: it.product_id,
+            qty: it.qty,
+            price: it.price,
+            details: details || undefined,
+          };
+
+          if (it.id && order) {
+            return ordersService.updateItem(order.id, it.id, itemBody);
+          }
+
+          return ordersService.addItem(orderId!, itemBody);
+        }),
+      );
+
+      await ordersService.update(orderId!, {
+        customer_id: body.customer_id,
+        sales_id: body.sales_id,
+        items: body.items.map(({ id, ...rest }: any) => rest),
+        courier_name: body.courier_name,
+        shipping_cost: body.shipping_cost,
+        shipping_address: body.shipping_address,
+        notes: body.notes,
+        terms_conditions: body.terms_conditions,
+      });
+
       if (!isQuotation && Number(paymentAmount) > 0) {
         await paymentsService.create({
           order_id: orderId!,
@@ -877,7 +916,7 @@ export function UpdateOrderDialog({
           payment_type: paymentType,
           bank_account_id: paymentBankId,
           reference_number: paymentReference || "",
-          payment_date: new Date().toISOString()
+          payment_date: new Date().toISOString(),
         });
       }
     },
@@ -899,12 +938,16 @@ export function UpdateOrderDialog({
       sales_id: order.sales_id || "",
       items: items
         .filter((i) => i.product_id && i.qty > 0)
-        .map((i) => ({
-          product_id: i.product_id,
-          qty: i.qty,
-          price: i.price,
-          details: buildItemDetails(i, isQuotation),
-        })),
+        .map((i) => {
+          const details = buildItemDetails(i, isQuotation);
+          return {
+            id: i.id,
+            product_id: i.product_id,
+            qty: i.qty,
+            price: i.price,
+            details: details || {},
+          };
+        }),
       courier_name: form.courier_name || undefined,
       shipping_cost: Number(form.shipping_cost) || 0,
       shipping_address: form.shipping_address || undefined,
@@ -923,7 +966,7 @@ export function UpdateOrderDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto px-6 py-4">
+        <form id="shipping-form" onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-6 py-4">
           {isLoading || !order ? (
             <div className="py-8 text-center text-muted-foreground">Loading details...</div>
           ) : (
@@ -1000,7 +1043,10 @@ export function UpdateOrderDialog({
                             variant="ghost"
                             size="icon"
                             className="text-muted-foreground hover:text-destructive"
-                            onClick={() => setItems((arr) => arr.filter((_, i) => i !== idx))}
+                            onClick={() => {
+                              setItems((arr) => arr.filter((_, i) => i !== idx));
+                              if (it.id) setDeletedItemIds((ids) => [...ids, it.id!]);
+                            }}
                             disabled={items.length === 1}
                           >
                             <Trash2 className="h-4 w-4" />
@@ -1101,7 +1147,7 @@ export function UpdateOrderDialog({
               )}
             </div>
           )}
-        </div>
+        </form>
 
         <DialogFooter className="px-6 py-4 border-t">
           <Button type="button" variant="outline" onClick={onClose}>
