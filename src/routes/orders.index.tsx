@@ -101,6 +101,7 @@ export interface Item {
   qty: number;
   price: number;
   // Bahan (nested) — both modes
+  template_id?: string;
   bahan_name?: string;
   bahan_color?: string;
   bahan_spec?: string; // quotation only
@@ -148,23 +149,46 @@ export function ItemDetailsFields({
     queryFn: () => specTemplatesService.list({ page: 1, limit: 100 }),
   });
 
+  const matchedTemplate = useMemo(() => {
+    if (item.template_id || !item.bahan_name) return undefined;
+    const normalizedName = item.bahan_name.trim().toLowerCase();
+    return specs.data?.data?.find(
+      (t) => t.name?.trim().toLowerCase() === normalizedName,
+    );
+  }, [item.template_id, item.bahan_name, specs.data?.data]);
+
+  const selectedTemplateId = item.template_id ?? matchedTemplate?.id;
+
+  useEffect(() => {
+    if (!item.template_id && matchedTemplate) {
+      onChange({
+        template_id: matchedTemplate.id,
+        bahan_name: matchedTemplate.name,
+        ...(item.bahan_spec ? {} : { bahan_spec: matchedTemplate.spec }),
+      });
+    }
+  }, [item.template_id, item.bahan_spec, matchedTemplate, onChange]);
+
   return (
     <div className="grid gap-3 pt-2 border-t">
       <div className="space-y-1">
-        <Label className="text-xs text-muted-foreground">Load Material Template (Auto-fill)</Label>
+        <Label className="text-xs">Bahan — Name</Label>
         <Select
+          value={selectedTemplateId ?? item.bahan_name ?? ""}
           onValueChange={(v) => {
-            const t = specs.data?.data?.find(x => x.id === v);
+            const t = specs.data?.data?.find((x) => x.id === v);
             if (t) {
-              onChange({ bahan_name: t.name, bahan_spec: t.spec });
+              onChange({ template_id: t.id, bahan_name: t.name, bahan_spec: t.spec });
+            } else {
+              onChange({ template_id: undefined, bahan_name: v });
             }
           }}
         >
           <SelectTrigger className="h-8 text-xs">
-            <SelectValue placeholder="Select a template to auto-fill bahan name & spec..." />
+            <SelectValue placeholder="Select bahan name from template or type manually..." />
           </SelectTrigger>
           <SelectContent>
-            {specs.data?.data?.map(t => (
+            {specs.data?.data?.map((t) => (
               <SelectItem key={t.id} value={t.id}>
                 <span className="font-medium">{t.name}</span>
                 <span className="ml-1 text-xs text-muted-foreground">— {t.spec.length > 40 ? t.spec.slice(0, 40) + "…" : t.spec}</span>
@@ -175,14 +199,6 @@ export function ItemDetailsFields({
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2">
-        <div className="space-y-1">
-          <Label className="text-xs">Bahan — Name</Label>
-          <Input
-            placeholder="mis. Katun Baby Canvas"
-            value={item.bahan_name ?? ""}
-            onChange={(e) => onChange({ bahan_name: e.target.value })}
-          />
-        </div>
         <div className="space-y-1">
           <Label className="text-xs">Bahan — Color</Label>
           <Input
@@ -533,11 +549,11 @@ function CreateOrderDialog({ open, onClose }: { open: boolean; onClose: () => vo
                     onChange={(e) => setShippingCost(Number(e.target.value))}
                   />
                 </div>
-                <div className="space-y-2 sm:col-span-2">
+                {/* <div className="space-y-2 sm:col-span-2">
                   <Label>Notes</Label>
                   <Textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} />
-                </div>
-                {isQuotation && (
+                </div> */}
+                {/* {isQuotation && (
                   <div className="space-y-2 sm:col-span-2">
                     <Label>Terms &amp; Conditions</Label>
                     <Textarea
@@ -547,7 +563,7 @@ function CreateOrderDialog({ open, onClose }: { open: boolean; onClose: () => vo
                       onChange={(e) => setTermsConditions(e.target.value)}
                     />
                   </div>
-                )}
+                )} */}
               </CardContent>
             </Card>
 
@@ -621,7 +637,7 @@ function CreateOrderDialog({ open, onClose }: { open: boolean; onClose: () => vo
 
                     <ItemDetailsFields
                       item={it}
-                      isQuotation={isQuotation}
+                      isQuotation={false}
                       hideSpec={true}
                       onChange={(patch) => updateItem(idx, patch)}
                     />
