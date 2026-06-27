@@ -806,9 +806,10 @@ function OrderItemDialog({
   useEffect(() => {
     if (!open || !item || !specTemplates.data?.data) return;
     setIt((prev) => {
-      if (prev.template_id || !prev.bahan_name) return prev;
+      const bahanName = prev.bahan_name?.trim().toLowerCase();
+      if (prev.template_id || !bahanName) return prev;
       const match = specTemplates.data?.data?.find(
-        (t: any) => t.name?.trim().toLowerCase() === prev.bahan_name.trim().toLowerCase(),
+        (t: any) => t.name?.trim().toLowerCase() === bahanName,
       );
       if (!match) return prev;
       return {
