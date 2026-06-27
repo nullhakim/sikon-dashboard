@@ -51,6 +51,7 @@ import {
   paymentsService,
   bankAccountsService,
   productsService,
+  specTemplatesService,
 } from "@/lib/services";
 import { formatIDR, formatDate, formatDateISO, datetimeLocalToISO } from "@/lib/format";
 import { generateInvoicePDF, generateKwitansiPDF } from "@/lib/invoice";
@@ -423,6 +424,11 @@ function UpdateQuotationDialog({
   onClose: () => void;
 }) {
   const qc = useQueryClient();
+  const specTemplates = useQuery({
+    queryKey: ["spec-templates", { limit: 100 }],
+    queryFn: () => specTemplatesService.list({ page: 1, limit: 100 }),
+    enabled: open,
+  });
   const [form, setForm] = useState({
     terms_conditions: "",
     valid_until: "",
@@ -440,13 +446,18 @@ function UpdateQuotationDialog({
           order.items.map((i: any) => {
             const d = (i.details || {}) as Record<string, any>;
             const b = (d.bahan && typeof d.bahan === "object") ? d.bahan : (d.Bahan && typeof d.Bahan === "object" ? d.Bahan : {});
+            const bahanName = b.name ?? b.Name ?? (typeof d.bahan === "string" ? d.bahan : (typeof d.Bahan === "string" ? d.Bahan : "")) ?? "";
+            const matchedTemplate = specTemplates.data?.data?.find(
+              (t: any) => t.name?.trim().toLowerCase() === bahanName.trim().toLowerCase(),
+            );
             return {
               id: i.id,
               product_id: i.product_id,
               product_name: i.product_name || i.product?.name || "—",
               qty: i.qty,
               price: i.price,
-              bahan_name: b.name ?? b.Name ?? (typeof d.bahan === "string" ? d.bahan : (typeof d.Bahan === "string" ? d.Bahan : "")) ?? "",
+              template_id: matchedTemplate?.id,
+              bahan_name: bahanName,
               bahan_color: b.color ?? b.Color ?? d.warna ?? d.Warna ?? "",
               bahan_spec: b.spec ?? b.Spec ?? d["Bahan Kemeja"] ?? "",
               benang: d.benang ?? d.Benang ?? "",
@@ -459,7 +470,26 @@ function UpdateQuotationDialog({
     } else if (!open) {
       setItems([]);
     }
-  }, [order, open]);
+  }, [order, open, specTemplates.data?.data]);
+
+  useEffect(() => {
+    if (!open || !specTemplates.data?.data) return;
+    setItems((arr) =>
+      arr.map((it) => {
+        if (it.template_id || !it.bahan_name) return it;
+        const match = specTemplates.data?.data?.find(
+          (t: any) => t.name?.trim().toLowerCase() === it.bahan_name.trim().toLowerCase(),
+        );
+        if (!match) return it;
+        return {
+          ...it,
+          template_id: match.id,
+          bahan_name: match.name,
+          bahan_spec: it.bahan_spec || match.spec,
+        };
+      }),
+    );
+  }, [open, specTemplates.data?.data]);
 
   const updateItem = (idx: number, patch: any) =>
     setItems((arr) => arr.map((it, i) => (i === idx ? { ...it, ...patch } : it)));
@@ -740,16 +770,27 @@ function OrderItemDialog({
     enabled: open,
   });
 
+  const specTemplates = useQuery({
+    queryKey: ["spec-templates", { limit: 100 }],
+    queryFn: () => specTemplatesService.list({ page: 1, limit: 100 }),
+    enabled: open,
+  });
+
   useEffect(() => {
     if (open) {
       if (item) {
         const d = (item.details || {}) as Record<string, any>;
         const b = d.Bahan && typeof d.Bahan === "object" ? d.Bahan : (d.bahan && typeof d.bahan === "object" ? d.bahan : {});
+        const bahanName = b.Name ?? b.name ?? (typeof d.Bahan === "string" ? d.Bahan : (typeof d.bahan === "string" ? d.bahan : "")) ?? "";
+        const matchedTemplate = specTemplates.data?.data?.find(
+          (t: any) => t.name?.trim().toLowerCase() === bahanName.trim().toLowerCase(),
+        );
         setIt({
           product_id: item.product_id || item.product?.id || "",
           qty: item.qty || 1,
           price: item.price || 0,
-          bahan_name: b.Name ?? b.name ?? (typeof d.Bahan === "string" ? d.Bahan : (typeof d.bahan === "string" ? d.bahan : "")) ?? "",
+          template_id: matchedTemplate?.id,
+          bahan_name: bahanName,
           bahan_color: b.Color ?? b.color ?? d.Warna ?? d.warna ?? "",
           bahan_spec: b.Spec ?? b.spec ?? d["Bahan Kemeja"] ?? "",
           benang: d.Benang ?? d.benang ?? "",
@@ -760,7 +801,24 @@ function OrderItemDialog({
         setIt({ product_id: "", qty: 1, price: 0 });
       }
     }
-  }, [open, item]);
+  }, [open, item, specTemplates.data?.data]);
+
+  useEffect(() => {
+    if (!open || !item || !specTemplates.data?.data) return;
+    setIt((prev) => {
+      if (prev.template_id || !prev.bahan_name) return prev;
+      const match = specTemplates.data?.data?.find(
+        (t: any) => t.name?.trim().toLowerCase() === prev.bahan_name.trim().toLowerCase(),
+      );
+      if (!match) return prev;
+      return {
+        ...prev,
+        template_id: match.id,
+        bahan_name: match.name,
+        bahan_spec: prev.bahan_spec || match.spec,
+      };
+    });
+  }, [open, item, specTemplates.data?.data]);
 
   const mut = useMutation({
     mutationFn: async () => {
@@ -826,7 +884,7 @@ function OrderItemDialog({
           </div>
           <ItemDetailsFields
             item={it}
-            isQuotation={isQuotation}
+            isQuotation={false}
             onChange={(patch) => setIt(prev => ({...prev, ...patch}))}
           />
           <div className="flex items-center justify-between rounded-md border bg-muted/30 p-3 mt-4 text-sm">
