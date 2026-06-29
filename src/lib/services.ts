@@ -1,5 +1,5 @@
 // Service layer mapping Swagger endpoints to typed functions.
-import { api, type ApiPaginated, type ApiSuccess } from "./api";
+import { api, API_BASE_URL, type ApiPaginated, type ApiSuccess } from "./api";
 import type {
   BankAccount,
   Category,
@@ -264,4 +264,31 @@ export const batchPosService = {
   updateStatus: (id: string, status: string) =>
     api.patch<ApiSuccess<unknown>>(`/batch-pos/${id}/status`, { status }),
   delete: (id: string) => api.delete<ApiSuccess<unknown>>(`/batch-pos/${id}`),
+};
+
+export const uploadService = {
+  image: async (file: File, folder: string) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    const res = await fetch(`${API_BASE_URL}/uploads/image?folder=${folder}`, {
+      method: "POST",
+      body: formData,
+      headers: {
+        Accept: "application/json",
+      },
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      let msg = `Upload failed (${res.status})`;
+      try {
+        const payload = JSON.parse(text);
+        if (payload.message) msg = payload.message;
+      } catch (e) {
+        // ignore
+      }
+      throw new Error(msg);
+    }
+    const payload = await res.json();
+    return payload as ApiSuccess<{ url: string }>;
+  },
 };
