@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2, ChevronLeft, ChevronRight, Search } from "lucide-react";
+import { Plus, Pencil, Trash2, ChevronLeft, ChevronRight, Search, Image as ImageIcon, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
 
@@ -33,7 +33,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { productsService, categoriesService } from "@/lib/services";
+import { productsService, categoriesService, uploadService } from "@/lib/services";
 import { formatIDR } from "@/lib/format";
 import type { Product } from "@/lib/types";
 
@@ -60,9 +60,11 @@ interface FormState {
   base_price: string;
   category_id: string;
   description: string;
+  image_url: string;
+  image_file: File | null;
 }
 
-const emptyForm: FormState = { name: "", base_price: "", category_id: "", description: "" };
+const emptyForm: FormState = { name: "", base_price: "", category_id: "", description: "", image_url: "", image_file: null };
 
 function ProductsPage() {
   const searchParams = Route.useSearch();
@@ -73,6 +75,8 @@ function ProductsPage() {
   const [editing, setEditing] = useState<Product | null>(null);
   const [form, setForm] = useState<FormState>(emptyForm);
   const [searchInput, setSearchInput] = useState(searchParams.search || "");
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
 
   useEffect(() => {
     const timeout = setTimeout(() => {
@@ -134,6 +138,8 @@ function ProductsPage() {
         base_price: String(editing.base_price ?? ""),
         category_id: editing.category_id ?? editing.category?.id ?? "",
         description: editing.description ?? "",
+        image_url: editing.image_url ?? "",
+        image_file: null,
       });
     } else {
       setForm(emptyForm);
@@ -153,7 +159,7 @@ function ProductsPage() {
     setEditing(null);
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const name = form.name.trim();
     const base_price = Number(form.base_price);
@@ -162,11 +168,25 @@ function ProductsPage() {
       return toast.error("Valid base_price required");
     if (!form.category_id) return toast.error("Category is required");
 
+    let finalImageUrl = form.image_url;
+    if (form.image_file) {
+      try {
+        setUploadingImage(true);
+        const uploadRes = await uploadService.image(form.image_file, "products");
+        finalImageUrl = uploadRes.data.url;
+      } catch (err: any) {
+        setUploadingImage(false);
+        return toast.error(err.message || "Failed to upload image");
+      }
+      setUploadingImage(false);
+    }
+
     const body: Partial<Product> = {
       name,
       base_price,
       category_id: form.category_id,
       description: form.description.trim() || undefined,
+      image_url: finalImageUrl || undefined,
     };
     if (editing) {
       updateMut.mutate({ id: editing.id, body });
@@ -240,6 +260,7 @@ function ProductsPage() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-[60px]">Image</TableHead>
                 <TableHead>Name</TableHead>
                 <TableHead>Category</TableHead>
                 <TableHead className="text-right">Price</TableHead>
@@ -263,13 +284,27 @@ function ProductsPage() {
               )}
               {!isLoading && rows.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={4} className="py-8 text-center text-muted-foreground">
+                  <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
                     No products found matching your criteria.
                   </TableCell>
                 </TableRow>
               )}
               {rows.map((p) => (
                 <TableRow key={p.id}>
+                  <TableCell>
+                    {p.image_url ? (
+                      <img
+                        src={p.image_url}
+                        alt={p.name}
+                        className="h-10 w-10 rounded-md object-cover border cursor-pointer hover:opacity-80 transition-opacity"
+                        onClick={() => setPreviewImage(p.image_url ?? null)}
+                      />
+                    ) : (
+                      <div className="flex h-10 w-10 items-center justify-center rounded-md border bg-muted/50 text-muted-foreground">
+                        <ImageIcon className="h-5 w-5" />
+                      </div>
+                    )}
+                  </TableCell>
                   <TableCell className="font-medium">{p.name}</TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     {p.category?.name ??
@@ -390,6 +425,65 @@ function ProductsPage() {
                 </div>
               </div>
               <div className="space-y-2">
+                <Label>Product Image</Label>
+                <div className="flex gap-5 items-center">
+                  <div className="relative flex h-24 w-24 shrink-0 cursor-pointer flex-col items-center justify-center overflow-hidden rounded-xl border-2 border-dashed border-muted-foreground/25 bg-muted/20 transition-colors hover:bg-muted/50 hover:border-muted-foreground/50">
+                    <Input
+                      type="file"
+                      accept="image/*"
+                      className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) setForm({ ...form, image_file: file });
+                        e.target.value = "";
+                      }}
+                    />
+                    {form.image_file || form.image_url ? (
+                      <>
+                        <img
+                          src={
+                            form.image_file
+                              ? URL.createObjectURL(form.image_file)
+                              : form.image_url
+                          }
+                          alt="Preview"
+                          className="h-full w-full object-cover"
+                        />
+                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/40 opacity-0 transition-opacity hover:opacity-100">
+                          <Upload className="h-5 w-5 text-white drop-shadow-md" />
+                          <span className="text-[10px] font-medium text-white drop-shadow-md mt-1">Change</span>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <ImageIcon className="mb-1 h-6 w-6 text-muted-foreground/50" />
+                        <span className="text-[10px] font-medium text-muted-foreground">Upload</span>
+                      </>
+                    )}
+                  </div>
+                  <div className="flex-1 space-y-2">
+                    <div>
+                      <p className="text-sm font-medium">Product Image</p>
+                      <p className="text-xs text-muted-foreground leading-relaxed mt-0.5">
+                        Click the box to upload a new product image. <br />
+                        Recommended: Square (1:1 ratio), up to 2MB.
+                      </p>
+                    </div>
+                    {(form.image_file || form.image_url) && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-xs text-destructive hover:bg-destructive/10"
+                        onClick={() => setForm({ ...form, image_file: null, image_url: "" })}
+                      >
+                        Remove image
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <div className="space-y-2">
                 <Label htmlFor="prod-desc">Description</Label>
                 <Textarea
                   id="prod-desc"
@@ -404,11 +498,23 @@ function ProductsPage() {
               <Button type="button" variant="outline" onClick={closeDialog}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={saving}>
-                {saving ? "Saving…" : editing ? "Save changes" : "Create"}
+              <Button type="submit" disabled={saving || uploadingImage}>
+                {uploadingImage ? "Uploading…" : saving ? "Saving…" : editing ? "Save changes" : "Create"}
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!previewImage} onOpenChange={(v) => !v && setPreviewImage(null)}>
+        <DialogContent className="sm:max-w-[600px] p-1 bg-transparent border-none shadow-none">
+          {previewImage && (
+            <img
+              src={previewImage}
+              alt="Full size preview"
+              className="w-full h-auto max-h-[80vh] rounded-md object-contain"
+            />
+          )}
         </DialogContent>
       </Dialog>
     </div>
