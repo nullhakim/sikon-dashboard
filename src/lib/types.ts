@@ -18,6 +18,12 @@ export interface SpecTemplate {
   updated_at?: string;
 }
 
+export interface ProductImage {
+  id: string;
+  image_url: string;
+  is_primary: boolean;
+}
+
 export interface Product {
   id: string;
   name: string;
@@ -25,7 +31,8 @@ export interface Product {
   category_id?: string;
   category?: Category;
   description?: string;
-  image_url?: string;
+  images?: ProductImage[];
+  image_urls?: string[]; // Used for payload
   created_at?: string;
 }
 

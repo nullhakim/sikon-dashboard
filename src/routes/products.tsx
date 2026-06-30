@@ -23,6 +23,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+} from "@/components/ui/carousel";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -60,11 +67,11 @@ interface FormState {
   base_price: string;
   category_id: string;
   description: string;
-  image_url: string;
-  image_file: File | null;
+  image_urls: string[];
+  image_files: File[];
 }
 
-const emptyForm: FormState = { name: "", base_price: "", category_id: "", description: "", image_url: "", image_file: null };
+const emptyForm: FormState = { name: "", base_price: "", category_id: "", description: "", image_urls: [], image_files: [] };
 
 function ProductsPage() {
   const searchParams = Route.useSearch();
@@ -76,7 +83,7 @@ function ProductsPage() {
   const [form, setForm] = useState<FormState>(emptyForm);
   const [searchInput, setSearchInput] = useState(searchParams.search || "");
   const [uploadingImage, setUploadingImage] = useState(false);
-  const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [previewProduct, setPreviewProduct] = useState<Product | null>(null);
 
   useEffect(() => {
     const timeout = setTimeout(() => {
@@ -133,13 +140,15 @@ function ProductsPage() {
   useEffect(() => {
     if (!open) return;
     if (editing) {
+      const urls = editing.images?.map(img => img.image_url) || [];
+
       setForm({
         name: editing.name ?? "",
         base_price: String(editing.base_price ?? ""),
         category_id: editing.category_id ?? editing.category?.id ?? "",
         description: editing.description ?? "",
-        image_url: editing.image_url ?? "",
-        image_file: null,
+        image_urls: urls,
+        image_files: [],
       });
     } else {
       setForm(emptyForm);
@@ -168,15 +177,17 @@ function ProductsPage() {
       return toast.error("Valid base_price required");
     if (!form.category_id) return toast.error("Category is required");
 
-    let finalImageUrl = form.image_url;
-    if (form.image_file) {
+    let finalImageUrls = [...form.image_urls];
+    if (form.image_files.length > 0) {
       try {
         setUploadingImage(true);
-        const uploadRes = await uploadService.image(form.image_file, "products");
-        finalImageUrl = uploadRes.data.url;
+        const uploadPromises = form.image_files.map(file => uploadService.image(file, "products"));
+        const uploadRes = await Promise.all(uploadPromises);
+        const newUrls = uploadRes.map(res => res.data.url);
+        finalImageUrls = [...finalImageUrls, ...newUrls];
       } catch (err: any) {
         setUploadingImage(false);
-        return toast.error(err.message || "Failed to upload image");
+        return toast.error(err.message || "Failed to upload images");
       }
       setUploadingImage(false);
     }
@@ -186,7 +197,7 @@ function ProductsPage() {
       base_price,
       category_id: form.category_id,
       description: form.description.trim() || undefined,
-      image_url: finalImageUrl || undefined,
+      image_urls: finalImageUrls.length > 0 ? finalImageUrls : undefined,
     };
     if (editing) {
       updateMut.mutate({ id: editing.id, body });
@@ -292,18 +303,21 @@ function ProductsPage() {
               {rows.map((p) => (
                 <TableRow key={p.id}>
                   <TableCell>
-                    {p.image_url ? (
-                      <img
-                        src={p.image_url}
-                        alt={p.name}
-                        className="h-10 w-10 rounded-md object-cover border cursor-pointer hover:opacity-80 transition-opacity"
-                        onClick={() => setPreviewImage(p.image_url ?? null)}
-                      />
-                    ) : (
-                      <div className="flex h-10 w-10 items-center justify-center rounded-md border bg-muted/50 text-muted-foreground">
-                        <ImageIcon className="h-5 w-5" />
-                      </div>
-                    )}
+                    {(() => {
+                      const firstImageUrl = p.images?.find((img) => img.is_primary)?.image_url || p.images?.[0]?.image_url;
+                      return firstImageUrl ? (
+                        <img
+                          src={firstImageUrl}
+                          alt={p.name}
+                          className="h-10 w-10 rounded-md object-cover border cursor-pointer hover:opacity-80 transition-opacity"
+                          onClick={() => setPreviewProduct(p)}
+                        />
+                      ) : (
+                        <div className="flex h-10 w-10 items-center justify-center rounded-md border bg-muted/50 text-muted-foreground">
+                          <ImageIcon className="h-5 w-5" />
+                        </div>
+                      );
+                    })()}
                   </TableCell>
                   <TableCell className="font-medium">{p.name}</TableCell>
                   <TableCell className="text-sm text-muted-foreground">
@@ -425,61 +439,72 @@ function ProductsPage() {
                 </div>
               </div>
               <div className="space-y-2">
-                <Label>Product Image</Label>
-                <div className="flex gap-5 items-center">
-                  <div className="relative flex h-24 w-24 shrink-0 cursor-pointer flex-col items-center justify-center overflow-hidden rounded-xl border-2 border-dashed border-muted-foreground/25 bg-muted/20 transition-colors hover:bg-muted/50 hover:border-muted-foreground/50">
-                    <Input
-                      type="file"
-                      accept="image/*"
-                      className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) setForm({ ...form, image_file: file });
-                        e.target.value = "";
-                      }}
-                    />
-                    {form.image_file || form.image_url ? (
-                      <>
-                        <img
-                          src={
-                            form.image_file
-                              ? URL.createObjectURL(form.image_file)
-                              : form.image_url
-                          }
-                          alt="Preview"
-                          className="h-full w-full object-cover"
-                        />
-                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/40 opacity-0 transition-opacity hover:opacity-100">
-                          <Upload className="h-5 w-5 text-white drop-shadow-md" />
-                          <span className="text-[10px] font-medium text-white drop-shadow-md mt-1">Change</span>
+                <Label>Product Images</Label>
+                <div className="flex flex-col gap-4">
+                  <div className="flex flex-wrap gap-4">
+                    {form.image_urls.map((url, i) => (
+                      <div key={`url-${i}`} className="relative h-24 w-24 shrink-0 overflow-hidden rounded-xl border group">
+                        <img src={url} alt="Preview" className="h-full w-full object-cover bg-muted/20" />
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity group-hover:opacity-100">
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => {
+                              const newUrls = [...form.image_urls];
+                              newUrls.splice(i, 1);
+                              setForm({ ...form, image_urls: newUrls });
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         </div>
-                      </>
-                    ) : (
-                      <>
-                        <ImageIcon className="mb-1 h-6 w-6 text-muted-foreground/50" />
-                        <span className="text-[10px] font-medium text-muted-foreground">Upload</span>
-                      </>
-                    )}
-                  </div>
-                  <div className="flex-1 space-y-2">
-                    <div>
-                      <p className="text-sm font-medium">Product Image</p>
-                      <p className="text-xs text-muted-foreground leading-relaxed mt-0.5">
-                        Click the box to upload a new product image. <br />
-                        Recommended: Square (1:1 ratio), up to 2MB.
-                      </p>
+                      </div>
+                    ))}
+                    
+                    {form.image_files.map((file, i) => (
+                      <div key={`file-${i}`} className="relative h-24 w-24 shrink-0 overflow-hidden rounded-xl border group">
+                        <img src={URL.createObjectURL(file)} alt="Preview" className="h-full w-full object-cover bg-muted/20" />
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity group-hover:opacity-100">
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => {
+                              const newFiles = [...form.image_files];
+                              newFiles.splice(i, 1);
+                              setForm({ ...form, image_files: newFiles });
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+
+                    <div className="relative flex h-24 w-24 shrink-0 cursor-pointer flex-col items-center justify-center overflow-hidden rounded-xl border-2 border-dashed border-muted-foreground/25 bg-muted/20 transition-colors hover:bg-muted/50 hover:border-muted-foreground/50">
+                      <Input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
+                        onChange={(e) => {
+                          const files = Array.from(e.target.files || []);
+                          if (files.length > 0) setForm({ ...form, image_files: [...form.image_files, ...files] });
+                          e.target.value = "";
+                        }}
+                      />
+                      <Upload className="mb-1 h-6 w-6 text-muted-foreground/50" />
+                      <span className="text-[10px] font-medium text-muted-foreground">Upload</span>
                     </div>
-                    {(form.image_file || form.image_url) && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 px-2 text-xs text-destructive hover:bg-destructive/10"
-                        onClick={() => setForm({ ...form, image_file: null, image_url: "" })}
-                      >
-                        Remove image
-                      </Button>
-                    )}
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground leading-relaxed mt-0.5">
+                      Upload one or more images for this product. <br />
+                      Recommended: Square (1:1 ratio), up to 2MB per image.
+                    </p>
                   </div>
                 </div>
               </div>
@@ -506,15 +531,41 @@ function ProductsPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={!!previewImage} onOpenChange={(v) => !v && setPreviewImage(null)}>
-        <DialogContent className="sm:max-w-[600px] p-1 bg-transparent border-none shadow-none">
-          {previewImage && (
-            <img
-              src={previewImage}
-              alt="Full size preview"
-              className="w-full h-auto max-h-[80vh] rounded-md object-contain"
-            />
-          )}
+      <Dialog open={!!previewProduct} onOpenChange={(v) => !v && setPreviewProduct(null)}>
+        <DialogContent className="sm:max-w-[600px] p-0 bg-transparent border-none shadow-none">
+          {(() => {
+            if (!previewProduct) return null;
+            const urls = previewProduct.images?.map((img) => img.image_url) || previewProduct.image_urls || [];
+            if (urls.length === 0) return null;
+
+            if (urls.length === 1) {
+              return (
+                <img
+                  src={urls[0]}
+                  alt={previewProduct.name}
+                  className="w-full h-auto max-h-[80vh] rounded-md object-contain bg-black/50"
+                />
+              );
+            }
+
+            return (
+              <Carousel className="w-full max-w-full group">
+                <CarouselContent>
+                  {urls.map((url, i) => (
+                    <CarouselItem key={i} className="flex items-center justify-center">
+                      <img
+                        src={url}
+                        alt={previewProduct.name}
+                        className="w-full h-auto max-h-[80vh] rounded-md object-contain bg-black/50"
+                      />
+                    </CarouselItem>
+                  ))}
+                </CarouselContent>
+                <CarouselPrevious className="left-4 bg-black/50 hover:bg-black/75 text-white border-none opacity-0 transition-opacity group-hover:opacity-100" />
+                <CarouselNext className="right-4 bg-black/50 hover:bg-black/75 text-white border-none opacity-0 transition-opacity group-hover:opacity-100" />
+              </Carousel>
+            );
+          })()}
         </DialogContent>
       </Dialog>
     </div>
