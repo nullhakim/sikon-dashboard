@@ -615,6 +615,143 @@ function UpdateQuotationDialog({
   );
 }
 
+function NotaPdfDialog({
+  order,
+  items,
+  customer,
+  payments,
+  open,
+  onClose,
+}: {
+  order: any;
+  items: any[];
+  customer: any;
+  payments: any[];
+  open: boolean;
+  onClose: () => void;
+}) {
+  const [withStamp, setWithStamp] = useState(false);
+  const [withSignature, setWithSignature] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open || !order) return;
+    let isActive = true;
+    let currentUrl: string | null = null;
+
+    async function loadPdf() {
+      try {
+        const doc = await generateInvoicePDF({
+          order,
+          items,
+          customer,
+          payments,
+          bankAccounts: [], // Not needed for nota
+          options: { withStamp, withSignature, isNota: true },
+        });
+        if (isActive) {
+          const blob = doc.output("blob");
+          currentUrl = URL.createObjectURL(blob);
+          setPdfUrl(currentUrl);
+        }
+      } catch (err) {
+        if (isActive) toast.error("Failed to generate PDF preview");
+      }
+    }
+    loadPdf();
+
+    return () => {
+      isActive = false;
+      if (currentUrl) URL.revokeObjectURL(currentUrl);
+    };
+  }, [open, order, items, customer, payments, withStamp, withSignature]);
+
+  async function handleDownloadPdf() {
+    if (!order) return;
+    setGenerating(true);
+    try {
+      const doc = await generateInvoicePDF({
+        order,
+        items,
+        customer,
+        payments,
+        bankAccounts: [],
+        options: { withStamp, withSignature, isNota: true },
+      });
+      const custName = (customer?.name || "Unknown").replace(/\s+/g, "_");
+      const fileName = `Nota-${custName}-${order.order_number ?? order.id.slice(0, 8)}.pdf`;
+      doc.save(fileName);
+      onClose();
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setGenerating(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center justify-between gap-4">
+            <span>Preview Nota PDF</span>
+            <Button onClick={handleDownloadPdf} disabled={generating || !pdfUrl} size="sm">
+              {generating ? "Generating..." : <><FileDown className="h-4 w-4 mr-1" /> Download Nota</>}
+            </Button>
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="grid md:grid-cols-[300px_1fr] gap-6">
+          <div className="space-y-4">
+            <div className="text-sm font-medium">Pengaturan PDF</div>
+            <div className="space-y-3">
+              <label className="flex items-center gap-3 rounded-md border p-3 cursor-pointer hover:bg-muted/50">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4"
+                  checked={withStamp}
+                  onChange={(e) => setWithStamp(e.target.checked)}
+                />
+                <div>
+                  <div className="text-sm font-medium">Sertakan Stempel</div>
+                  <div className="text-xs text-muted-foreground">
+                    Tambahkan stempel perusahaan pada area tanda tangan.
+                  </div>
+                </div>
+              </label>
+              <label className="flex items-center gap-3 rounded-md border p-3 cursor-pointer hover:bg-muted/50">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4"
+                  checked={withSignature}
+                  onChange={(e) => setWithSignature(e.target.checked)}
+                />
+                <div>
+                  <div className="text-sm font-medium">Sertakan Tanda Tangan</div>
+                  <div className="text-xs text-muted-foreground">
+                    Tambahkan tanda tangan manager di atas nama.
+                  </div>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <div className="bg-muted/40 p-4 rounded-md flex justify-center min-h-[600px]">
+            {pdfUrl ? (
+              <iframe src={pdfUrl} className="w-full h-[80vh] rounded border bg-white shadow-sm" />
+            ) : (
+              <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
+                Generating preview...
+              </div>
+            )}
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function KwitansiPdfDialog({
   payment,
   order,
@@ -911,6 +1048,7 @@ function OrderDetailPage() {
   const [shippingOpen, setShippingOpen] = useState(false);
   const [payOpen, setPayOpen] = useState(false);
   const [pdfOpen, setPdfOpen] = useState(false);
+  const [notaOpen, setNotaOpen] = useState(false);
   const [quotationOpen, setQuotationOpen] = useState(false);
   const [itemOpen, setItemOpen] = useState(false);
   const [editItem, setEditItem] = useState<any>(null);
@@ -920,6 +1058,7 @@ function OrderDetailPage() {
   const [withStamp, setWithStamp] = useState(false);
   const [withSignature, setWithSignature] = useState(false);
   const [pdfNote, setPdfNote] = useState("");
+  const [useGlobalBank, setUseGlobalBank] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
 
@@ -1009,8 +1148,14 @@ function OrderDetailPage() {
     async function loadPdf() {
       try {
         let bankAccounts: Awaited<ReturnType<typeof bankAccountsService.byUser>>["data"] = [];
-        if (salesId) {
+        if (useGlobalBank) {
+          const res = await bankAccountsService.global();
+          bankAccounts = res.data ?? [];
+        } else if (salesId) {
           const res = await bankAccountsService.byUser(salesId);
+          bankAccounts = res.data ?? [];
+        } else {
+          const res = await bankAccountsService.global();
           bankAccounts = res.data ?? [];
         }
         const doc = await generateInvoicePDF({
@@ -1036,15 +1181,21 @@ function OrderDetailPage() {
       isActive = false;
       if (currentUrl) URL.revokeObjectURL(currentUrl);
     };
-  }, [pdfOpen, order, items, order?.customer, payments, salesId, withStamp, withSignature, pdfNote]);
+  }, [pdfOpen, order, items, order?.customer, payments, salesId, withStamp, withSignature, pdfNote, useGlobalBank]);
 
   async function handleDownloadPdf() {
     if (!order) return;
     setGenerating(true);
     try {
       let bankAccounts: Awaited<ReturnType<typeof bankAccountsService.byUser>>["data"] = [];
-      if (salesId) {
+      if (useGlobalBank) {
+        const res = await bankAccountsService.global();
+        bankAccounts = res.data ?? [];
+      } else if (salesId) {
         const res = await bankAccountsService.byUser(salesId);
+        bankAccounts = res.data ?? [];
+      } else {
+        const res = await bankAccountsService.global();
         bankAccounts = res.data ?? [];
       }
       const doc = await generateInvoicePDF({
@@ -1115,6 +1266,11 @@ function OrderDetailPage() {
           <Button variant="outline" onClick={() => setPdfOpen(true)}>
             <FileDown className="h-4 w-4 mr-1" /> Invoice PDF
           </Button>
+          {order.payment_status === "paid" && (
+            <Button variant="outline" onClick={() => setNotaOpen(true)}>
+              <FileDown className="h-4 w-4 mr-1" /> Nota PDF
+            </Button>
+          )}
           <Button onClick={() => setPayOpen(true)} disabled={remaining <= 0}>
             <Plus className="h-4 w-4 mr-1" /> Add Payment
           </Button>
@@ -1476,6 +1632,20 @@ function OrderDetailPage() {
                   <input
                     type="checkbox"
                     className="h-4 w-4"
+                    checked={useGlobalBank}
+                    onChange={(e) => setUseGlobalBank(e.target.checked)}
+                  />
+                  <div>
+                    <div className="text-sm font-medium">Gunakan Rekening CV (Global)</div>
+                    <div className="text-xs text-muted-foreground">
+                      Tampilkan rekening perusahaan alih-alih rekening sales.
+                    </div>
+                  </div>
+                </label>
+                <label className="flex items-center gap-3 rounded-md border p-3 cursor-pointer hover:bg-muted/50">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4"
                     checked={withStamp}
                     onChange={(e) => setWithStamp(e.target.checked)}
                   />
@@ -1538,6 +1708,15 @@ function OrderDetailPage() {
         payment={selectedPayment}
         order={order}
         customer={order.customer ?? null}
+      />
+
+      <NotaPdfDialog
+        open={notaOpen}
+        onClose={() => setNotaOpen(false)}
+        order={order}
+        items={order.items ?? []}
+        customer={order.customer ?? null}
+        payments={payments}
       />
 
     </div>

@@ -39,6 +39,7 @@ interface Props {
 export function QuotationPdfDialog({ open, onClose, order, items, customer }: Props) {
   const sheetRef = useRef<HTMLDivElement>(null);
   const [generating, setGenerating] = useState(false);
+  const [useGlobalBank, setUseGlobalBank] = useState(false);
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
 
   const subtotal = items.reduce((s, i) => s + i.qty * i.price, 0);
@@ -93,7 +94,7 @@ export function QuotationPdfDialog({ open, onClose, order, items, customer }: Pr
     let mounted = true;
     async function loadBanks() {
       try {
-        if (order?.sales_id) {
+        if (!useGlobalBank && order?.sales_id) {
           const res = await bankAccountsService.byUser(order.sales_id);
           if (mounted) setBankAccounts(res.data ?? []);
         } else {
@@ -113,7 +114,7 @@ export function QuotationPdfDialog({ open, onClose, order, items, customer }: Pr
     return () => {
       mounted = false;
     };
-  }, [order?.sales_id]);
+  }, [order?.sales_id, useGlobalBank]);
 
   return (
     <Dialog open={open} onOpenChange={(v) => (v ? null : onClose())}>
@@ -121,17 +122,28 @@ export function QuotationPdfDialog({ open, onClose, order, items, customer }: Pr
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between gap-4">
             <span>Preview Surat Penawaran</span>
-            <Button onClick={handleDownload} disabled={generating} size="sm">
-              {generating ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-1 animate-spin" /> Generating…
-                </>
-              ) : (
-                <>
-                  <Download className="h-4 w-4 mr-1" /> Download PDF
-                </>
-              )}
-            </Button>
+            <div className="flex items-center gap-4">
+              <label className="flex items-center gap-2 cursor-pointer text-sm font-normal">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4"
+                  checked={useGlobalBank}
+                  onChange={(e) => setUseGlobalBank(e.target.checked)}
+                />
+                Gunakan Rekening CV (Global)
+              </label>
+              <Button onClick={handleDownload} disabled={generating} size="sm">
+                {generating ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-1 animate-spin" /> Generating…
+                  </>
+                ) : (
+                  <>
+                    <Download className="h-4 w-4 mr-1" /> Download PDF
+                  </>
+                )}
+              </Button>
+            </div>
           </DialogTitle>
         </DialogHeader>
 
