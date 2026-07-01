@@ -7,6 +7,7 @@ export interface InvoiceOptions {
   withStamp?: boolean;
   withSignature?: boolean;
   note?: string;
+  isNota?: boolean;
 }
 
 interface InvoiceData {
@@ -182,7 +183,8 @@ export async function generateInvoicePDF({
 
   doc.setFontSize(28);
   doc.setFont("helvetica", "bold");
-  doc.text("INVOICE", pageWidth - margin, 46, { align: "right" });
+  const title = options?.isNota ? "NOTA" : "INVOICE";
+  doc.text(title, pageWidth - margin, 46, { align: "right" });
 
   doc.setTextColor(30, 41, 59);
 
@@ -207,10 +209,11 @@ export async function generateInvoicePDF({
   doc.setTextColor(30, 41, 59);
   doc.setFontSize(9);
 
+  const prefix = options?.isNota ? "NOTA-" : "INV-";
   const invNumber = order.order_number
-    ? `INV-${order.order_number}`
-    : `INV-${order.id.slice(0, 8).toUpperCase()}`;
-  const infoLabels = ["No. Invoice", "Tanggal"];
+    ? `${prefix}${order.order_number}`
+    : `${prefix}${order.id.slice(0, 8).toUpperCase()}`;
+  const infoLabels = [options?.isNota ? "No. Nota" : "No. Invoice", "Tanggal"];
   // const infoLabels = ["No. Invoice", "Tanggal", "Status Order", "Status Bayar"];
   const infoValues = [
     invNumber,
@@ -337,29 +340,39 @@ export async function generateInvoicePDF({
 
   // === 5. BANK INFO ===
   const bankY = finalY + 10;
-  doc.setTextColor(30, 41, 59);
-  doc.setFontSize(15);
-  doc.setFont("helvetica", "bold");
-  doc.text("Informasi Pembayaran:", margin, bankY);
+  let currentLeftY = bankY;
 
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(9);
-  const bankLines = bankAccounts.length
-    ? bankAccounts.map(formatBankLine)
-    : ["(Belum ada rekening sales yang terdaftar)"];
-  bankLines.forEach((line, i) => {
-    doc.text(line, margin, bankY + 6 + i * 5);
-  });
+  if (!options?.isNota) {
+    doc.setTextColor(30, 41, 59);
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.text("Informasi Pembayaran:", margin, currentLeftY);
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    const bankLines = bankAccounts.length
+      ? bankAccounts.map(formatBankLine)
+      : ["(Belum ada rekening sales yang terdaftar)"];
+    
+    currentLeftY += 6;
+    bankLines.forEach((line) => {
+      const splitLines = doc.splitTextToSize(line, 80);
+      doc.text(splitLines, margin, currentLeftY);
+      currentLeftY += splitLines.length * 4.5;
+    });
+    currentLeftY += 2;
+  }
 
   if (options?.note) {
     doc.setFont("helvetica", "bold");
     doc.setFontSize(12);
     doc.setTextColor(239, 68, 68);
-    const noteLines = doc.splitTextToSize(options.note, pageWidth - margin * 2);
-    doc.text(noteLines, margin, bankY + 6 + bankLines.length * 5 + 2);
+    const noteLines = doc.splitTextToSize(options.note, 80);
+    doc.text(noteLines, margin, currentLeftY);
     doc.setTextColor(30, 41, 59);
     doc.setFontSize(12);
   }
+
 
   // === 6. SIGNATURE ===
   const sigY = ty + 20;
@@ -583,7 +596,7 @@ export async function generateKwitansiPDF({
       try {
         const size = 35;
         doc.addImage(stempelData, "PNG", sigX - 35, sigY + 5, size, size);
-      } catch {}
+      } catch { }
     }
   }
 
@@ -594,7 +607,7 @@ export async function generateKwitansiPDF({
         const w = 35;
         const h = 25;
         doc.addImage(sigData, "PNG", sigX - w / 2, sigY + 7, w, h);
-      } catch {}
+      } catch { }
     }
   }
 
