@@ -62,6 +62,7 @@ export interface User {
   email: string;
   role?: string;
   phone?: string;
+  image_url?: string;
 }
 
 export interface OrderItem {
