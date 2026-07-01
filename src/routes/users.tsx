@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, Pencil, Trash2, ChevronLeft, ChevronRight, ImageIcon, Upload } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -32,7 +32,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { usersService } from "@/lib/services";
+import { usersService, uploadService } from "@/lib/services";
 import type { User } from "@/lib/types";
 
 export const Route = createFileRoute("/users")({
@@ -51,6 +51,8 @@ interface FormState {
   phone: string;
   role: string;
   password?: string;
+  image_url: string;
+  image_file: File | null;
 }
 
 const emptyForm: FormState = {
@@ -59,6 +61,8 @@ const emptyForm: FormState = {
   phone: "",
   role: "sales",
   password: "",
+  image_url: "",
+  image_file: null,
 };
 
 function UsersPage() {
@@ -69,6 +73,8 @@ function UsersPage() {
   const [editing, setEditing] = useState<User | null>(null);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<FormState>(emptyForm);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [previewUser, setPreviewUser] = useState<User | null>(null);
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ["users", { page, limit }],
@@ -86,7 +92,7 @@ function UsersPage() {
   });
 
   const updateMut = useMutation({
-    mutationFn: ({ id, body }: { id: string; body: { name?: string; role?: string } }) =>
+    mutationFn: ({ id, body }: { id: string; body: Partial<User> }) =>
       usersService.update(id, body),
     onSuccess: () => {
       toast.success("User updated");
@@ -112,6 +118,8 @@ function UsersPage() {
         email: editing.email ?? "",
         phone: editing.phone ?? "",
         role: editing.role ?? "sales",
+        image_url: editing.image_url ?? "",
+        image_file: null,
       });
     } else {
       setForm(emptyForm);
@@ -132,15 +140,36 @@ function UsersPage() {
     setForm(emptyForm);
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!form.name.trim() || !form.role.trim()) {
       toast.error("Name and role are required");
       return;
     }
     
+    let finalImageUrl = form.image_url;
+    if (form.image_file) {
+      try {
+        setUploadingImage(true);
+        const uploadRes = await uploadService.image(form.image_file, "profiles");
+        finalImageUrl = uploadRes.data.url;
+      } catch (err: any) {
+        setUploadingImage(false);
+        return toast.error(err.message || "Failed to upload image");
+      }
+      setUploadingImage(false);
+    }
+    
     if (editing) {
-      updateMut.mutate({ id: editing.id, body: { name: form.name.trim(), role: form.role } });
+      updateMut.mutate({ 
+        id: editing.id, 
+        body: { 
+          name: form.name.trim(), 
+          role: form.role, 
+          phone: form.phone.trim(), 
+          image_url: finalImageUrl || undefined 
+        } 
+      });
     } else {
       if (!form.email.trim() || !form.password?.trim()) {
         toast.error("Email and password are required for new users");
@@ -152,6 +181,7 @@ function UsersPage() {
         phone: form.phone.trim(),
         role: form.role,
         password: form.password,
+        image_url: finalImageUrl || undefined,
       });
     }
   }
@@ -185,6 +215,7 @@ function UsersPage() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-[60px]">Image</TableHead>
                 <TableHead>Name</TableHead>
                 <TableHead>Email</TableHead>
                 <TableHead>Phone</TableHead>
@@ -195,27 +226,41 @@ function UsersPage() {
             <TableBody>
               {isLoading && (
                 <TableRow>
-                  <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
+                  <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
                     Loading users…
                   </TableCell>
                 </TableRow>
               )}
               {isError && (
                 <TableRow>
-                  <TableCell colSpan={5} className="py-8 text-center text-destructive">
+                  <TableCell colSpan={6} className="py-8 text-center text-destructive">
                     {(error as Error)?.message ?? "Failed to load"}
                   </TableCell>
                 </TableRow>
               )}
               {!isLoading && rows.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
+                  <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
                     No users found.
                   </TableCell>
                 </TableRow>
               )}
               {rows.map((u) => (
                 <TableRow key={u.id}>
+                  <TableCell>
+                    {u.image_url ? (
+                      <img
+                        src={u.image_url}
+                        alt={u.name}
+                        className="h-10 w-10 rounded-full object-cover border cursor-pointer hover:opacity-80 transition-opacity"
+                        onClick={() => setPreviewUser(u)}
+                      />
+                    ) : (
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full border bg-muted/50 text-muted-foreground">
+                        <ImageIcon className="h-5 w-5" />
+                      </div>
+                    )}
+                  </TableCell>
                   <TableCell className="font-medium">{u.name}</TableCell>
                   <TableCell>{u.email}</TableCell>
                   <TableCell>{u.phone || "—"}</TableCell>
@@ -292,6 +337,54 @@ function UsersPage() {
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div className="space-y-2">
+                <Label>Profile Image</Label>
+                <div className="flex flex-col gap-4">
+                  <div className="flex flex-wrap gap-4">
+                    {(form.image_file || form.image_url) ? (
+                      <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-full border group">
+                        <img 
+                          src={form.image_file ? URL.createObjectURL(form.image_file) : form.image_url} 
+                          alt="Preview" 
+                          className="h-full w-full object-cover bg-muted/20" 
+                        />
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity group-hover:opacity-100">
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => setForm({ ...form, image_file: null, image_url: "" })}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="relative flex h-24 w-24 shrink-0 cursor-pointer flex-col items-center justify-center overflow-hidden rounded-full border-2 border-dashed border-muted-foreground/25 bg-muted/20 transition-colors hover:bg-muted/50 hover:border-muted-foreground/50">
+                        <Input
+                          type="file"
+                          accept="image/*"
+                          className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) setForm({ ...form, image_file: file });
+                            e.target.value = "";
+                          }}
+                        />
+                        <Upload className="mb-1 h-6 w-6 text-muted-foreground/50" />
+                        <span className="text-[10px] font-medium text-muted-foreground">Upload</span>
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground leading-relaxed mt-0.5">
+                      Upload a profile picture for this user. <br />
+                      Recommended: Square (1:1 ratio), up to 2MB.
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div className="space-y-2">
                 <Label htmlFor="name">Full Name</Label>
                 <Input
                   id="name"
@@ -361,11 +454,23 @@ function UsersPage() {
               <Button type="button" variant="outline" onClick={closeDialog}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={saving}>
-                {saving ? "Saving…" : editing ? "Save changes" : "Create"}
+              <Button type="submit" disabled={saving || uploadingImage}>
+                {uploadingImage ? "Uploading…" : saving ? "Saving…" : editing ? "Save changes" : "Create"}
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!previewUser} onOpenChange={(v) => !v && setPreviewUser(null)}>
+        <DialogContent className="sm:max-w-[400px] p-0 bg-transparent border-none shadow-none flex justify-center">
+          {previewUser?.image_url && (
+            <img
+              src={previewUser.image_url}
+              alt={previewUser.name}
+              className="w-full max-w-[400px] h-auto rounded-full object-cover bg-black/50 aspect-square"
+            />
+          )}
         </DialogContent>
       </Dialog>
     </div>
