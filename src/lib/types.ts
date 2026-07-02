@@ -1,5 +1,12 @@
 // Domain types derived from the SIKOn OpenAPI spec.
 
+/** A single material/part block inside an order item's `details` array. */
+export interface DetailPart {
+  part: string;          // e.g. "Kemeja (Atasan)", "Celana (Bawahan)"
+  material_name: string; // e.g. "American Drill"
+  spec: string;          // e.g. "Warna Navy Blue, Bordir Logo"
+}
+
 export type OrderStatus = "quotation" | "pending" | "production" | "ready" | "completed" | "canceled";
 export type PaymentType = "dp" | "settlement" | "installment";
 
@@ -68,12 +75,14 @@ export interface User {
 export interface OrderItem {
   id?: string;
   product_id: string;
+  custom_name?: string;    // Optional override display name
   product?: Product;
   product_name?: string;
   qty: number;
   price: number;
   subtotal?: number;
-  details?: Record<string, any>;
+  /** New shape: array of material/part blocks */
+  details?: DetailPart[] | Record<string, any>;
 }
 
 export interface Payment {

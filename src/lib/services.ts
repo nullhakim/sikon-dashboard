@@ -158,9 +158,10 @@ export const ordersService = {
     order_status?: string;
     items: {
       product_id: string;
+      custom_name?: string;
       qty: number;
       price: number;
-      details?: Record<string, any>;
+      details?: any[] | Record<string, any>;
     }[];
   }) => api.post<ApiSuccess<unknown>>("/orders", body),
   update: (
@@ -175,16 +176,16 @@ export const ordersService = {
       notes?: string;
       terms_conditions?: string;
       valid_until?: string;
-      items: { product_id: string; qty: number; price: number; details?: Record<string, any> }[];
+      items: { product_id: string; custom_name?: string; qty: number; price: number; details?: any[] | Record<string, any> }[];
     },
   ) => api.put<ApiSuccess<unknown>>(`/orders/${id}`, body),
   updateStatus: (id: string, status: OrderStatus) =>
     api.patch<ApiSuccess<unknown>>(`/orders/${id}/status`, { order_status: status }),
   delete: (id: string) => api.delete<ApiSuccess<unknown>>(`/orders/${id}`),
   payments: (orderId: string) => api.get<ApiSuccess<Payment[]>>(`payments/order/${orderId}`),
-  addItem: (orderId: string, body: { product_id: string; qty: number; price: number; details?: Record<string, any> }) =>
+  addItem: (orderId: string, body: { product_id: string; custom_name?: string; qty: number; price: number; details?: any[] | Record<string, any> }) =>
     api.post<ApiSuccess<unknown>>(`/orders/${orderId}/items`, body),
-  updateItem: (orderId: string, itemId: string, body: { product_id: string; qty: number; price: number; details?: Record<string, any> }) =>
+  updateItem: (orderId: string, itemId: string, body: { product_id: string; custom_name?: string; qty: number; price: number; details?: any[] | Record<string, any> }) =>
     api.put<ApiSuccess<unknown>>(`/orders/${orderId}/items/${itemId}`, body),
   deleteItem: (orderId: string, itemId: string) =>
     api.delete<ApiSuccess<unknown>>(`/orders/${orderId}/items/${itemId}`),

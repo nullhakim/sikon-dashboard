@@ -101,12 +101,21 @@ const formatDate = (dateStr: string | null | undefined) => {
   });
 };
 
-// Invoice (order) renders only the basic Bahan info — skips quotation-only
-// fields like Bordir / Benang / Jahitan and Bahan.Spec.
 function formatOrderDetails(details: unknown): string {
   if (!details || typeof details !== "object") return "";
-  const d = details as Record<string, any>;
   const parts: string[] = [];
+
+  if (Array.isArray(details)) {
+    details.forEach(d => {
+      if (!d.part && !d.material_name) return;
+      const inner: string[] = [];
+      if (d.material_name) inner.push(String(d.material_name));
+      if (inner.length) parts.push(`${d.part || "Bahan"}: ${inner.join(" - ")}`);
+    });
+    return parts.join(", ");
+  }
+
+  const d = details as Record<string, any>;
   const bahan = d.Bahan ?? d.bahan;
   if (bahan && typeof bahan === "object") {
     const b = bahan as Record<string, any>;
@@ -238,7 +247,7 @@ export async function generateInvoicePDF({
     const detailStr = formatOrderDetails(item.details);
     return [
       String(idx + 1),
-      (item.product_name || item.product?.name || "-") + (detailStr ? "\n" + detailStr : ""),
+      (item.custom_name || item.product_name || item.product?.name || "-") + (detailStr ? "\n" + detailStr : ""),
       String(item.qty),
       formatCurrency(item.price),
       formatCurrency(subtotal),
@@ -545,7 +554,7 @@ export async function generateKwitansiPDF({
   if (order.items && order.items.length > 0) {
     const productMap = new Map<string, { name: string; qty: number }>();
     order.items.forEach((item) => {
-      const pName = item.product_name || item.product?.name || "Produk";
+      const pName = item.custom_name || item.product_name || item.product?.name || "Produk";
       const pId = item.product_id || pName;
       if (productMap.has(pId)) {
         productMap.get(pId)!.qty += item.qty;
