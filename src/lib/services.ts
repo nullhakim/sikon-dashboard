@@ -1,5 +1,5 @@
 // Service layer mapping Swagger endpoints to typed functions.
-import { api, type ApiPaginated, type ApiSuccess } from "./api";
+import { api, API_BASE_URL, type ApiPaginated, type ApiSuccess } from "./api";
 import type {
   BankAccount,
   Category,
@@ -10,6 +10,7 @@ import type {
   Product,
   SpecTemplate,
   User,
+  BatchPO,
 } from "./types";
 
 export interface PageParams {
@@ -126,6 +127,7 @@ export interface OrdersListParams extends PageParams {
   start_date?: string;
   end_date?: string;
   sales_id?: string;
+  batch_po_id?: string;
 }
 export const ordersService = {
   list: (p: OrdersListParams = {}) => {
@@ -139,10 +141,12 @@ export const ordersService = {
     if (p.start_date) q.start_date = p.start_date;
     if (p.end_date) q.end_date = p.end_date;
     if (p.sales_id) q.sales_id = p.sales_id;
+    if (p.batch_po_id) q.batch_po_id = p.batch_po_id;
     return api.get<ApiPaginated<Order>>("/orders", q);
   },
   get: (id: string) => api.get<ApiSuccess<Order>>(`/orders/${id}`),
   create: (body: {
+    batch_po_id: string;
     customer_id: string;
     sales_id: string;
     shipping_cost?: number;
@@ -162,6 +166,7 @@ export const ordersService = {
   update: (
     id: string,
     body: {
+      batch_po_id?: string;
       customer_id: string;
       sales_id: string;
       shipping_cost?: number;
@@ -222,4 +227,68 @@ export const paymentsService = {
     },
   ) => api.put<ApiSuccess<unknown>>(`/payments/${id}`, body),
   delete: (id: string) => api.delete<ApiSuccess<unknown>>(`/payments/${id}`),
+};
+
+// Dashboard / Reports
+export const dashboardService = {
+  receivablesReport: () => api.get<ApiSuccess<any>>("/dashboard/receivables-report"),
+  salesReport: (p: { start_date?: string; end_date?: string } = {}) => 
+    api.get<ApiSuccess<any>>("/dashboard/sales-report", p as any),
+  summary: (p: { start_date?: string; end_date?: string } = {}) => 
+    api.get<ApiSuccess<any>>("/dashboard/summary", p as any),
+};
+
+// Batch POs
+export interface BatchPOsListParams extends PageParams {
+  search?: string;
+  status?: string;
+}
+
+export const batchPosService = {
+  list: (p: BatchPOsListParams = {}) => {
+    const q: Record<string, string | number> = {
+      page: p.page ?? 1,
+      limit: p.limit ?? 10,
+    };
+    if (p.search) q.search = p.search;
+    if (p.status) q.status = p.status;
+    return api.get<ApiPaginated<BatchPO>>("/batch-pos", q);
+  },
+  active: () => api.get<ApiSuccess<BatchPO[]>>("/batch-pos/active"),
+  create: (body: {
+    name: string;
+    start_date: string;
+    end_date: string;
+    quota: number;
+  }) => api.post<ApiSuccess<unknown>>("/batch-pos", body),
+  updateStatus: (id: string, status: string) =>
+    api.patch<ApiSuccess<unknown>>(`/batch-pos/${id}/status`, { status }),
+  delete: (id: string) => api.delete<ApiSuccess<unknown>>(`/batch-pos/${id}`),
+};
+
+export const uploadService = {
+  image: async (file: File, folder: string) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    const res = await fetch(`${API_BASE_URL}/uploads/image?folder=${folder}`, {
+      method: "POST",
+      body: formData,
+      headers: {
+        Accept: "application/json",
+      },
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      let msg = `Upload failed (${res.status})`;
+      try {
+        const payload = JSON.parse(text);
+        if (payload.message) msg = payload.message;
+      } catch (e) {
+        // ignore
+      }
+      throw new Error(msg);
+    }
+    const payload = await res.json();
+    return payload as ApiSuccess<{ url: string }>;
+  },
 };

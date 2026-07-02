@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { Download, Loader2 } from "lucide-react";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
@@ -11,7 +11,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import type { Order, OrderItem, Customer } from "@/lib/types";
+import type { Order, OrderItem, Customer, BankAccount } from "@/lib/types";
+import { bankAccountsService } from "@/lib/services";
 
 const fmtIDR = (n: number) =>
   "Rp " + Math.round(n || 0).toLocaleString("id-ID");
@@ -38,6 +39,8 @@ interface Props {
 export function QuotationPdfDialog({ open, onClose, order, items, customer }: Props) {
   const sheetRef = useRef<HTMLDivElement>(null);
   const [generating, setGenerating] = useState(false);
+  const [useGlobalBank, setUseGlobalBank] = useState(false);
+  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
 
   const subtotal = items.reduce((s, i) => s + i.qty * i.price, 0);
   const shipping = order.shipping_cost || 0;
@@ -87,23 +90,60 @@ export function QuotationPdfDialog({ open, onClose, order, items, customer }: Pr
     }
   }
 
+  useEffect(() => {
+    let mounted = true;
+    async function loadBanks() {
+      try {
+        if (!useGlobalBank && order?.sales_id) {
+          const res = await bankAccountsService.byUser(order.sales_id);
+          if (mounted) setBankAccounts(res.data ?? []);
+        } else {
+          const res = await bankAccountsService.global();
+          if (mounted) setBankAccounts(res.data ?? []);
+        }
+      } catch {
+        try {
+          const res = await bankAccountsService.global();
+          if (mounted) setBankAccounts(res.data ?? []);
+        } catch {
+          if (mounted) setBankAccounts([]);
+        }
+      }
+    }
+    loadBanks();
+    return () => {
+      mounted = false;
+    };
+  }, [order?.sales_id, useGlobalBank]);
+
   return (
     <Dialog open={open} onOpenChange={(v) => (v ? null : onClose())}>
       <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between gap-4">
             <span>Preview Surat Penawaran</span>
-            <Button onClick={handleDownload} disabled={generating} size="sm">
-              {generating ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-1 animate-spin" /> Generating…
-                </>
-              ) : (
-                <>
-                  <Download className="h-4 w-4 mr-1" /> Download PDF
-                </>
-              )}
-            </Button>
+            <div className="flex items-center gap-4">
+              <label className="flex items-center gap-2 cursor-pointer text-sm font-normal">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4"
+                  checked={useGlobalBank}
+                  onChange={(e) => setUseGlobalBank(e.target.checked)}
+                />
+                Gunakan Rekening CV (Global)
+              </label>
+              <Button onClick={handleDownload} disabled={generating} size="sm">
+                {generating ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-1 animate-spin" /> Generating…
+                  </>
+                ) : (
+                  <>
+                    <Download className="h-4 w-4 mr-1" /> Download PDF
+                  </>
+                )}
+              </Button>
+            </div>
           </DialogTitle>
         </DialogHeader>
 
@@ -123,14 +163,15 @@ export function QuotationPdfDialog({ open, onClose, order, items, customer }: Pr
             }}
           >
             {/* 1. Letterhead */}
-            <div className="text-center pb-3 border-b-4 border-black">
-              <h1 className="text-2xl font-bold tracking-wide uppercase m-0">
-                CV. WIJAYA FAMILY TASIKMALAYA
-              </h1>
-              <p className="m-0 mt-1 text-sm">
-                Kp. Kebon Kalapa, Desa Cibalanarik, Kec. Tanjungjaya, Kab. Tasikmalaya (0265-7543224)
-              </p>
-              <p className="m-0 text-sm">AHU-0024761-AH.01.16 Tahun 2024</p>
+            <div className="flex items-center justify-between pb-3 border-b-4 border-black">
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <img src="/assets/logo.png" alt="logo" style={{ height: 64 }} />
+                <div className="text-left">
+                  <h1 className="text-2xl font-bold tracking-wide uppercase m-0">CV. WIJAYA FAMILY TASIKMALAYA</h1>
+                  <p className="m-0 mt-1 text-sm">Kp. Kebon Kalapa, Desa Cibalanarik, Kec. Tanjungjaya, Kab. Tasikmalaya (0265-7543224)</p>
+                  <p className="m-0 text-sm">AHU-0024761-AH.01.16 Tahun 2024</p>
+                </div>
+              </div>
             </div>
 
             {/* 2. Document Title */}
@@ -186,13 +227,18 @@ export function QuotationPdfDialog({ open, onClose, order, items, customer }: Pr
             <div className="mb-5 text-sm">
               {items.map((it, idx) => {
                 const name = it.product_name || it.product?.name || "—";
+                const d = (it.details || {}) as Record<string, unknown>;
+                const warna = (d.Warna ?? d.warna) as string | undefined;
+                const bahanObj = (d.Bahan ?? d.bahan) as Record<string, unknown> | undefined;
+                const bahanColor = bahanObj ? String(bahanObj.Color ?? bahanObj.color ?? "") : "";
+                const colorLabel = warna || bahanColor || "";
                 const lines = buildQuotationSpecLines(
                   (it.details || {}) as Record<string, unknown>,
                 );
                 return (
                   <div key={it.id ?? idx} className="mb-3">
                     <p className="m-0 font-semibold">
-                      {idx + 1}. {name}
+                      {idx + 1}. {name}{colorLabel ? ` ${colorLabel}` : ""}
                     </p>
                     {lines.length > 0 && (
                       <ul className="list-disc m-0 mt-1 pl-10">
@@ -224,17 +270,25 @@ export function QuotationPdfDialog({ open, onClose, order, items, customer }: Pr
                 </tr>
               </thead>
               <tbody>
-                {items.map((it, idx) => (
+                {items.map((it, idx) => {
+                  const d2 = (it.details || {}) as Record<string, unknown>;
+                  const w2 = (d2.Warna ?? d2.warna) as string | undefined;
+                  const bObj2 = (d2.Bahan ?? d2.bahan) as Record<string, unknown> | undefined;
+                  const bColor2 = bObj2 ? String(bObj2.Color ?? bObj2.color ?? "") : "";
+                  const color2 = w2 || bColor2 || "";
+                  const prodName = it.product_name || it.product?.name || "—";
+                  return (
                   <tr key={it.id ?? idx}>
                     <td style={{ ...cell, textAlign: "center" }}>{idx + 1}</td>
-                    <td style={cell}>{it.product_name || it.product?.name || "—"}</td>
+                    <td style={{ ...cell, fontWeight: 600 }}>{prodName}{color2 ? ` ${color2}` : ""}</td>
                     <td style={{ ...cell, textAlign: "center" }}>{it.qty}</td>
                     <td style={{ ...cell, textAlign: "right" }}>{fmtIDR(it.price)}</td>
                     <td style={{ ...cell, textAlign: "right" }}>
                       {fmtIDR(it.qty * it.price)}
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
                 {shipping > 0 && (
                   <tr>
                     <td style={{ ...cell, textAlign: "right" }} colSpan={4}>
@@ -271,14 +325,33 @@ export function QuotationPdfDialog({ open, onClose, order, items, customer }: Pr
               </div>
             )}
 
+            {/* 9. Payment Info (sales / global) */}
+            <div className="mb-6 text-sm">
+              <p className="m-0 font-semibold">Informasi Pembayaran</p>
+              <div className="mt-2">
+                {bankAccounts && bankAccounts.length > 0 ? (
+                  bankAccounts.map((b) => (
+                    <div key={b.id} className="m-0 text-sm">
+                      {b.bank_name}: {b.account_number} a/n {b.account_name}
+                    </div>
+                  ))
+                ) : (
+                  <div className="m-0 text-sm">(Belum ada rekening sales yang terdaftar)</div>
+                )}
+              </div>
+            </div>
+
             {/* 8. Closing & Signature */}
             <div className="flex justify-end mt-12 text-sm">
               <div className="text-left">
                 <p className="m-0">Hormat kami,</p>
-                <div style={{ height: "90px" }} />
-                <p className="m-0 font-semibold underline">
-                  {order.sales?.name || "—"}
-                </p>
+                <img
+                  src="/assets/ttd.png"
+                  alt="Tanda Tangan & Stempel"
+                  style={{ height: 150, display: "block", marginTop: 4, marginLeft: -10 }}
+                  crossOrigin="anonymous"
+                />
+                <p className="m-0 font-semibold underline">Yusri Siti Aisyah., S.Ak</p>
               </div>
             </div>
           </div>
@@ -352,6 +425,10 @@ function buildQuotationSpecLines(
   const jahitan = details.Jahitan ?? details.jahitan;
   if (jahitan) {
     lines.push({ label: "Jahitan", value: String(jahitan) });
+  }
+  const warna = details.Warna ?? details.warna;
+  if (warna) {
+    lines.push({ label: "Warna", value: String(warna) });
   }
   return lines;
 }

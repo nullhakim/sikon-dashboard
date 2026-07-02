@@ -39,12 +39,19 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 
 import {
   ordersService,
   paymentsService,
   bankAccountsService,
   productsService,
+  specTemplatesService,
 } from "@/lib/services";
 import { formatIDR, formatDate, formatDateISO, datetimeLocalToISO } from "@/lib/format";
 import { generateInvoicePDF, generateKwitansiPDF } from "@/lib/invoice";
@@ -66,6 +73,7 @@ const statusVariant: Record<string, string> = {
   quotation: "bg-violet-100 text-violet-800 border-violet-200",
   pending: "bg-amber-100 text-amber-800 border-amber-200",
   production: "bg-blue-100 text-blue-800 border-blue-200",
+  ready: "bg-cyan-100 text-cyan-800 border-cyan-200",
   completed: "bg-emerald-100 text-emerald-800 border-emerald-200",
   canceled: "bg-rose-100 text-rose-800 border-rose-200",
 };
@@ -92,12 +100,14 @@ function AddPaymentDialog({
   orderId,
   salesId,
   remaining,
+  currentStatus,
   open,
   onClose,
 }: {
   orderId: string;
   salesId?: string | null;
   remaining: number;
+  currentStatus?: string;
   open: boolean;
   onClose: () => void;
 }) {
@@ -127,15 +137,24 @@ function AddPaymentDialog({
   }, [open]);
 
   const createMut = useMutation({
-    mutationFn: () =>
-      paymentsService.create({
+    mutationFn: async () => {
+      await paymentsService.create({
         order_id: orderId,
         bank_account_id: bankAccountId,
         amount: Number(amount),
         payment_type: paymentType,
         reference_number: referenceNumber,
         payment_date: datetimeLocalToISO(paymentDate),
-      }),
+      });
+      if (currentStatus === "quotation" && (paymentType === "dp" || paymentType === "settlement")) {
+        try {
+          await ordersService.updateStatus(orderId, "pending");
+          toast.success("Order automatically moved to pending");
+        } catch (e) {
+          // ignore
+        }
+      }
+    },
     onSuccess: () => {
       toast.success("Payment recorded");
       qc.invalidateQueries({ queryKey: ["order-payments", orderId] });
@@ -405,6 +424,11 @@ function UpdateQuotationDialog({
   onClose: () => void;
 }) {
   const qc = useQueryClient();
+  const specTemplates = useQuery({
+    queryKey: ["spec-templates", { limit: 100 }],
+    queryFn: () => specTemplatesService.list({ page: 1, limit: 100 }),
+    enabled: open,
+  });
   const [form, setForm] = useState({
     terms_conditions: "",
     valid_until: "",
@@ -422,13 +446,18 @@ function UpdateQuotationDialog({
           order.items.map((i: any) => {
             const d = (i.details || {}) as Record<string, any>;
             const b = (d.bahan && typeof d.bahan === "object") ? d.bahan : (d.Bahan && typeof d.Bahan === "object" ? d.Bahan : {});
+            const bahanName = b.name ?? b.Name ?? (typeof d.bahan === "string" ? d.bahan : (typeof d.Bahan === "string" ? d.Bahan : "")) ?? "";
+            const matchedTemplate = specTemplates.data?.data?.find(
+              (t: any) => t.name?.trim().toLowerCase() === bahanName.trim().toLowerCase(),
+            );
             return {
               id: i.id,
               product_id: i.product_id,
               product_name: i.product_name || i.product?.name || "—",
               qty: i.qty,
               price: i.price,
-              bahan_name: b.name ?? b.Name ?? (typeof d.bahan === "string" ? d.bahan : (typeof d.Bahan === "string" ? d.Bahan : "")) ?? "",
+              template_id: matchedTemplate?.id,
+              bahan_name: bahanName,
               bahan_color: b.color ?? b.Color ?? d.warna ?? d.Warna ?? "",
               bahan_spec: b.spec ?? b.Spec ?? d["Bahan Kemeja"] ?? "",
               benang: d.benang ?? d.Benang ?? "",
@@ -441,7 +470,26 @@ function UpdateQuotationDialog({
     } else if (!open) {
       setItems([]);
     }
-  }, [order, open]);
+  }, [order, open, specTemplates.data?.data]);
+
+  useEffect(() => {
+    if (!open || !specTemplates.data?.data) return;
+    setItems((arr) =>
+      arr.map((it) => {
+        if (it.template_id || !it.bahan_name) return it;
+        const match = specTemplates.data?.data?.find(
+          (t: any) => t.name?.trim().toLowerCase() === it.bahan_name.trim().toLowerCase(),
+        );
+        if (!match) return it;
+        return {
+          ...it,
+          template_id: match.id,
+          bahan_name: match.name,
+          bahan_spec: it.bahan_spec || match.spec,
+        };
+      }),
+    );
+  }, [open, specTemplates.data?.data]);
 
   const updateItem = (idx: number, patch: any) =>
     setItems((arr) => arr.map((it, i) => (i === idx ? { ...it, ...patch } : it)));
@@ -506,30 +554,29 @@ function UpdateQuotationDialog({
         <div className="flex-1 overflow-y-auto px-6 py-4">
           <form id="update-quotation-form" onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-4">
-              <h3 className="font-semibold">Items (Details Only)</h3>
-              {items.map((it, idx) => (
-                <div key={it.id || idx} className="space-y-3 rounded-md border p-3 bg-muted/10">
-                  <div className="grid gap-3 sm:grid-cols-[1fr_80px_120px] items-end opacity-70">
-                    <div className="space-y-1">
-                      <Label className="text-xs">Product (Disabled)</Label>
-                      <Input value={it.product_name} disabled />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs">Qty (Disabled)</Label>
-                      <Input value={it.qty} disabled />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs">Price (Disabled)</Label>
-                      <Input value={formatIDR(it.price)} disabled />
-                    </div>
-                  </div>
-                  <ItemDetailsFields
-                    item={it}
-                    isQuotation={true}
-                    onChange={(patch) => updateItem(idx, patch)}
-                  />
-                </div>
-              ))}
+              <h3 className="font-semibold text-sm">Items (Click to edit details)</h3>
+              <Accordion type="multiple" className="w-full space-y-3">
+                {items.map((it, idx) => (
+                  <AccordionItem value={`item-${idx}`} key={it.id || idx} className="border rounded-md px-4 bg-muted/10">
+                    <AccordionTrigger className="hover:no-underline py-3">
+                      <div className="flex flex-col items-start text-left w-full gap-1 pr-4">
+                        <div className="font-medium text-sm">{it.product_name}</div>
+                        <div className="flex gap-4 text-xs text-muted-foreground font-normal">
+                          <span>Qty: {it.qty}</span>
+                          <span>Price: {formatIDR(it.price)}</span>
+                        </div>
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="pt-2 pb-4">
+                      <ItemDetailsFields
+                        item={it}
+                        isQuotation={true}
+                        onChange={(patch) => updateItem(idx, patch)}
+                      />
+                    </AccordionContent>
+                  </AccordionItem>
+                ))}
+              </Accordion>
             </div>
 
             <div className="space-y-4 pt-4 border-t">
@@ -563,6 +610,143 @@ function UpdateQuotationDialog({
             {updateOrderMut.isPending ? "Saving..." : "Save Changes"}
           </Button>
         </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function NotaPdfDialog({
+  order,
+  items,
+  customer,
+  payments,
+  open,
+  onClose,
+}: {
+  order: any;
+  items: any[];
+  customer: any;
+  payments: any[];
+  open: boolean;
+  onClose: () => void;
+}) {
+  const [withStamp, setWithStamp] = useState(false);
+  const [withSignature, setWithSignature] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open || !order) return;
+    let isActive = true;
+    let currentUrl: string | null = null;
+
+    async function loadPdf() {
+      try {
+        const doc = await generateInvoicePDF({
+          order,
+          items,
+          customer,
+          payments,
+          bankAccounts: [], // Not needed for nota
+          options: { withStamp, withSignature, isNota: true },
+        });
+        if (isActive) {
+          const blob = doc.output("blob");
+          currentUrl = URL.createObjectURL(blob);
+          setPdfUrl(currentUrl);
+        }
+      } catch (err) {
+        if (isActive) toast.error("Failed to generate PDF preview");
+      }
+    }
+    loadPdf();
+
+    return () => {
+      isActive = false;
+      if (currentUrl) URL.revokeObjectURL(currentUrl);
+    };
+  }, [open, order, items, customer, payments, withStamp, withSignature]);
+
+  async function handleDownloadPdf() {
+    if (!order) return;
+    setGenerating(true);
+    try {
+      const doc = await generateInvoicePDF({
+        order,
+        items,
+        customer,
+        payments,
+        bankAccounts: [],
+        options: { withStamp, withSignature, isNota: true },
+      });
+      const custName = (customer?.name || "Unknown").replace(/\s+/g, "_");
+      const fileName = `Nota-${custName}-${order.order_number ?? order.id.slice(0, 8)}.pdf`;
+      doc.save(fileName);
+      onClose();
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setGenerating(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center justify-between gap-4">
+            <span>Preview Nota PDF</span>
+            <Button onClick={handleDownloadPdf} disabled={generating || !pdfUrl} size="sm">
+              {generating ? "Generating..." : <><FileDown className="h-4 w-4 mr-1" /> Download Nota</>}
+            </Button>
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="grid md:grid-cols-[300px_1fr] gap-6">
+          <div className="space-y-4">
+            <div className="text-sm font-medium">Pengaturan PDF</div>
+            <div className="space-y-3">
+              <label className="flex items-center gap-3 rounded-md border p-3 cursor-pointer hover:bg-muted/50">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4"
+                  checked={withStamp}
+                  onChange={(e) => setWithStamp(e.target.checked)}
+                />
+                <div>
+                  <div className="text-sm font-medium">Sertakan Stempel</div>
+                  <div className="text-xs text-muted-foreground">
+                    Tambahkan stempel perusahaan pada area tanda tangan.
+                  </div>
+                </div>
+              </label>
+              <label className="flex items-center gap-3 rounded-md border p-3 cursor-pointer hover:bg-muted/50">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4"
+                  checked={withSignature}
+                  onChange={(e) => setWithSignature(e.target.checked)}
+                />
+                <div>
+                  <div className="text-sm font-medium">Sertakan Tanda Tangan</div>
+                  <div className="text-xs text-muted-foreground">
+                    Tambahkan tanda tangan manager di atas nama.
+                  </div>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <div className="bg-muted/40 p-4 rounded-md flex justify-center min-h-[600px]">
+            {pdfUrl ? (
+              <iframe src={pdfUrl} className="w-full h-[80vh] rounded border bg-white shadow-sm" />
+            ) : (
+              <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
+                Generating preview...
+              </div>
+            )}
+          </div>
+        </div>
       </DialogContent>
     </Dialog>
   );
@@ -723,16 +907,27 @@ function OrderItemDialog({
     enabled: open,
   });
 
+  const specTemplates = useQuery({
+    queryKey: ["spec-templates", { limit: 100 }],
+    queryFn: () => specTemplatesService.list({ page: 1, limit: 100 }),
+    enabled: open,
+  });
+
   useEffect(() => {
     if (open) {
       if (item) {
         const d = (item.details || {}) as Record<string, any>;
         const b = d.Bahan && typeof d.Bahan === "object" ? d.Bahan : (d.bahan && typeof d.bahan === "object" ? d.bahan : {});
+        const bahanName = b.Name ?? b.name ?? (typeof d.Bahan === "string" ? d.Bahan : (typeof d.bahan === "string" ? d.bahan : "")) ?? "";
+        const matchedTemplate = specTemplates.data?.data?.find(
+          (t: any) => t.name?.trim().toLowerCase() === bahanName.trim().toLowerCase(),
+        );
         setIt({
           product_id: item.product_id || item.product?.id || "",
           qty: item.qty || 1,
           price: item.price || 0,
-          bahan_name: b.Name ?? b.name ?? (typeof d.Bahan === "string" ? d.Bahan : (typeof d.bahan === "string" ? d.bahan : "")) ?? "",
+          template_id: matchedTemplate?.id,
+          bahan_name: bahanName,
           bahan_color: b.Color ?? b.color ?? d.Warna ?? d.warna ?? "",
           bahan_spec: b.Spec ?? b.spec ?? d["Bahan Kemeja"] ?? "",
           benang: d.Benang ?? d.benang ?? "",
@@ -743,7 +938,25 @@ function OrderItemDialog({
         setIt({ product_id: "", qty: 1, price: 0 });
       }
     }
-  }, [open, item]);
+  }, [open, item, specTemplates.data?.data]);
+
+  useEffect(() => {
+    if (!open || !item || !specTemplates.data?.data) return;
+    setIt((prev) => {
+      const bahanName = prev.bahan_name?.trim().toLowerCase();
+      if (prev.template_id || !bahanName) return prev;
+      const match = specTemplates.data?.data?.find(
+        (t: any) => t.name?.trim().toLowerCase() === bahanName,
+      );
+      if (!match) return prev;
+      return {
+        ...prev,
+        template_id: match.id,
+        bahan_name: match.name,
+        bahan_spec: prev.bahan_spec || match.spec,
+      };
+    });
+  }, [open, item, specTemplates.data?.data]);
 
   const mut = useMutation({
     mutationFn: async () => {
@@ -787,7 +1000,7 @@ function OrderItemDialog({
             <Label>Product</Label>
             <Select value={it.product_id} onValueChange={(val) => {
                const p = productsQ.data?.data?.find((x: any) => x.id === val);
-               setIt(prev => ({ ...prev, product_id: val, price: p && !isEditing ? (p.base_price ?? p.price) : prev.price }));
+               setIt(prev => ({ ...prev, product_id: val, price: p && !isEditing ? (p.base_price ?? 0) : prev.price }));
             }} disabled={productsQ.isLoading}>
               <SelectTrigger><SelectValue placeholder="Select a product" /></SelectTrigger>
               <SelectContent>
@@ -809,7 +1022,7 @@ function OrderItemDialog({
           </div>
           <ItemDetailsFields
             item={it}
-            isQuotation={isQuotation}
+            isQuotation={false}
             onChange={(patch) => setIt(prev => ({...prev, ...patch}))}
           />
           <div className="flex items-center justify-between rounded-md border bg-muted/30 p-3 mt-4 text-sm">
@@ -835,6 +1048,7 @@ function OrderDetailPage() {
   const [shippingOpen, setShippingOpen] = useState(false);
   const [payOpen, setPayOpen] = useState(false);
   const [pdfOpen, setPdfOpen] = useState(false);
+  const [notaOpen, setNotaOpen] = useState(false);
   const [quotationOpen, setQuotationOpen] = useState(false);
   const [itemOpen, setItemOpen] = useState(false);
   const [editItem, setEditItem] = useState<any>(null);
@@ -844,6 +1058,7 @@ function OrderDetailPage() {
   const [withStamp, setWithStamp] = useState(false);
   const [withSignature, setWithSignature] = useState(false);
   const [pdfNote, setPdfNote] = useState("");
+  const [useGlobalBank, setUseGlobalBank] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
 
@@ -883,6 +1098,27 @@ function OrderDetailPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const statusMut = useMutation({
+    mutationFn: (status: string) => ordersService.updateStatus(orderId, status as import("@/lib/types").OrderStatus),
+    onSuccess: () => {
+      toast.success("Order status updated");
+      qc.invalidateQueries({ queryKey: ["order", orderId] });
+      qc.invalidateQueries({ queryKey: ["orders"] });
+    },
+    onError: (e: any) => toast.error(e?.payload?.error || e.message),
+  });
+
+  const handleTransition = (targetStatus: string) => {
+    if (!order) return;
+    if (targetStatus === "pending" && order.payment_status === "unpaid") {
+      return toast.error("Cannot process to queue: Minimum deposit (DP) payment required.");
+    }
+    if (targetStatus === "completed" && order.payment_status !== "paid") {
+      return toast.error("Cannot complete order: Remaining balance must be fully paid before delivery.");
+    }
+    statusMut.mutate(targetStatus);
+  };
+
   const items = order?.items ?? [];
   const subtotal = items.reduce(
     (s, i) => s + (i.qty * i.price),
@@ -912,8 +1148,14 @@ function OrderDetailPage() {
     async function loadPdf() {
       try {
         let bankAccounts: Awaited<ReturnType<typeof bankAccountsService.byUser>>["data"] = [];
-        if (salesId) {
+        if (useGlobalBank) {
+          const res = await bankAccountsService.global();
+          bankAccounts = res.data ?? [];
+        } else if (salesId) {
           const res = await bankAccountsService.byUser(salesId);
+          bankAccounts = res.data ?? [];
+        } else {
+          const res = await bankAccountsService.global();
           bankAccounts = res.data ?? [];
         }
         const doc = await generateInvoicePDF({
@@ -939,15 +1181,21 @@ function OrderDetailPage() {
       isActive = false;
       if (currentUrl) URL.revokeObjectURL(currentUrl);
     };
-  }, [pdfOpen, order, items, order?.customer, payments, salesId, withStamp, withSignature, pdfNote]);
+  }, [pdfOpen, order, items, order?.customer, payments, salesId, withStamp, withSignature, pdfNote, useGlobalBank]);
 
   async function handleDownloadPdf() {
     if (!order) return;
     setGenerating(true);
     try {
       let bankAccounts: Awaited<ReturnType<typeof bankAccountsService.byUser>>["data"] = [];
-      if (salesId) {
+      if (useGlobalBank) {
+        const res = await bankAccountsService.global();
+        bankAccounts = res.data ?? [];
+      } else if (salesId) {
         const res = await bankAccountsService.byUser(salesId);
+        bankAccounts = res.data ?? [];
+      } else {
+        const res = await bankAccountsService.global();
         bankAccounts = res.data ?? [];
       }
       const doc = await generateInvoicePDF({
@@ -987,7 +1235,7 @@ function OrderDetailPage() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
           <Button asChild variant="ghost" size="sm" className="-ml-2 h-8 px-2">
-            <Link to="/orders">
+            <Link to="/orders" search={{ page: 1, search: "", order_status: "", payment_status: "", start_date: "", end_date: "", sales_id: "", batch_po_id: "" }}>
               <ArrowLeft className="h-4 w-4 mr-1" /> All Orders
             </Link>
           </Button>
@@ -1018,9 +1266,34 @@ function OrderDetailPage() {
           <Button variant="outline" onClick={() => setPdfOpen(true)}>
             <FileDown className="h-4 w-4 mr-1" /> Invoice PDF
           </Button>
+          {order.payment_status === "paid" && (
+            <Button variant="outline" onClick={() => setNotaOpen(true)}>
+              <FileDown className="h-4 w-4 mr-1" /> Nota PDF
+            </Button>
+          )}
           <Button onClick={() => setPayOpen(true)} disabled={remaining <= 0}>
             <Plus className="h-4 w-4 mr-1" /> Add Payment
           </Button>
+          {order.order_status === "quotation" && (
+            <Button onClick={() => handleTransition("pending")} disabled={statusMut.isPending}>
+              Process to Production Queue
+            </Button>
+          )}
+          {order.order_status === "pending" && (
+            <Button onClick={() => handleTransition("production")} disabled={statusMut.isPending}>
+              Start Production (Cut Fabric)
+            </Button>
+          )}
+          {order.order_status === "production" && (
+            <Button onClick={() => handleTransition("ready")} disabled={statusMut.isPending}>
+              Mark as Finished (Warehouse)
+            </Button>
+          )}
+          {order.order_status === "ready" && (
+            <Button onClick={() => handleTransition("completed")} disabled={statusMut.isPending}>
+              Complete & Deliver Order
+            </Button>
+          )}
         </div>
       </div>
 
@@ -1181,7 +1454,7 @@ function OrderDetailPage() {
                             className="h-8 w-8 text-muted-foreground hover:text-destructive"
                             onClick={() => {
                               if (confirm("Delete this item?")) {
-                                deleteItemMut.mutate(it.id);
+                                deleteItemMut.mutate(it.id!);
                               }
                             }}
                           >
@@ -1326,6 +1599,7 @@ function OrderDetailPage() {
         orderId={orderId}
         salesId={salesId}
         remaining={remaining}
+        currentStatus={order.order_status}
         open={payOpen}
         onClose={() => setPayOpen(false)}
       />
@@ -1354,6 +1628,20 @@ function OrderDetailPage() {
                     className="h-20 resize-none"
                   />
                 </div>
+                <label className="flex items-center gap-3 rounded-md border p-3 cursor-pointer hover:bg-muted/50">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4"
+                    checked={useGlobalBank}
+                    onChange={(e) => setUseGlobalBank(e.target.checked)}
+                  />
+                  <div>
+                    <div className="text-sm font-medium">Gunakan Rekening CV (Global)</div>
+                    <div className="text-xs text-muted-foreground">
+                      Tampilkan rekening perusahaan alih-alih rekening sales.
+                    </div>
+                  </div>
+                </label>
                 <label className="flex items-center gap-3 rounded-md border p-3 cursor-pointer hover:bg-muted/50">
                   <input
                     type="checkbox"
@@ -1420,6 +1708,15 @@ function OrderDetailPage() {
         payment={selectedPayment}
         order={order}
         customer={order.customer ?? null}
+      />
+
+      <NotaPdfDialog
+        open={notaOpen}
+        onClose={() => setNotaOpen(false)}
+        order={order}
+        items={order.items ?? []}
+        customer={order.customer ?? null}
+        payments={payments}
       />
 
     </div>
