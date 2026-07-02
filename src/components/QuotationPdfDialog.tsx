@@ -226,15 +226,18 @@ export function QuotationPdfDialog({ open, onClose, order, items, customer }: Pr
             {/* 5. Item Specifications */}
             <div className="mb-5 text-sm">
               {items.map((it, idx) => {
-                const name = it.product_name || it.product?.name || "—";
-                const d = (it.details || {}) as Record<string, unknown>;
-                const warna = (d.Warna ?? d.warna) as string | undefined;
-                const bahanObj = (d.Bahan ?? d.bahan) as Record<string, unknown> | undefined;
-                const bahanColor = bahanObj ? String(bahanObj.Color ?? bahanObj.color ?? "") : "";
-                const colorLabel = warna || bahanColor || "";
-                const lines = buildQuotationSpecLines(
-                  (it.details || {}) as Record<string, unknown>,
-                );
+                const name = it.custom_name || it.product_name || it.product?.name || "—";
+                const d = (it.details || {}) as any;
+                
+                let colorLabel = "";
+                if (!Array.isArray(d)) {
+                  const warna = (d.Warna ?? d.warna) as string | undefined;
+                  const bahanObj = (d.Bahan ?? d.bahan) as Record<string, unknown> | undefined;
+                  const bahanColor = bahanObj ? String(bahanObj.Color ?? bahanObj.color ?? "") : "";
+                  colorLabel = warna || bahanColor || "";
+                }
+                
+                const lines = buildQuotationSpecLines(d);
                 return (
                   <div key={it.id ?? idx} className="mb-3">
                     <p className="m-0 font-semibold">
@@ -271,12 +274,15 @@ export function QuotationPdfDialog({ open, onClose, order, items, customer }: Pr
               </thead>
               <tbody>
                 {items.map((it, idx) => {
-                  const d2 = (it.details || {}) as Record<string, unknown>;
-                  const w2 = (d2.Warna ?? d2.warna) as string | undefined;
-                  const bObj2 = (d2.Bahan ?? d2.bahan) as Record<string, unknown> | undefined;
-                  const bColor2 = bObj2 ? String(bObj2.Color ?? bObj2.color ?? "") : "";
-                  const color2 = w2 || bColor2 || "";
-                  const prodName = it.product_name || it.product?.name || "—";
+                  const d2 = (it.details || {}) as any;
+                  let color2 = "";
+                  if (!Array.isArray(d2)) {
+                    const w2 = (d2.Warna ?? d2.warna) as string | undefined;
+                    const bObj2 = (d2.Bahan ?? d2.bahan) as Record<string, unknown> | undefined;
+                    const bColor2 = bObj2 ? String(bObj2.Color ?? bObj2.color ?? "") : "";
+                    color2 = w2 || bColor2 || "";
+                  }
+                  const prodName = it.custom_name || it.product_name || it.product?.name || "—";
                   return (
                   <tr key={it.id ?? idx}>
                     <td style={{ ...cell, textAlign: "center" }}>{idx + 1}</td>
@@ -388,10 +394,25 @@ function expandWithSuffix(value: string, marker: string, suffix: string) {
 }
 
 function buildQuotationSpecLines(
-  details: Record<string, unknown>,
+  details: any,
 ): { label: string; value: string }[] {
   const lines: { label: string; value: string }[] = [];
-  const bahan = details.Bahan ?? details.bahan;
+  
+  if (Array.isArray(details)) {
+    details.forEach(d => {
+      if (!d.part && !d.material_name) return;
+      const parts: string[] = [];
+      if (d.material_name) parts.push(String(d.material_name));
+      const head = parts.join(" — ");
+      const spec = d.spec ? String(d.spec) : "";
+      const value = [head, spec].filter(Boolean).join(". ");
+      if (value) lines.push({ label: d.part || "Bahan", value });
+    });
+    return lines;
+  }
+
+  const d = details as Record<string, unknown>;
+  const bahan = d.Bahan ?? d.bahan;
   if (bahan && typeof bahan === "object") {
     const b = bahan as Record<string, unknown>;
     const parts: string[] = [];
@@ -408,25 +429,25 @@ function buildQuotationSpecLines(
     lines.push({ label: "Bahan", value: bahan });
   }
 
-  const bordir = details.Bordir ?? details.bordir;
+  const bordir = d.Bordir ?? d.bordir;
   if (bordir) {
     lines.push({
       label: "Bordir",
       value: expandWithSuffix(String(bordir), "Sehingga Hasil Cetakan", BORDIR_SUFFIX),
     });
   }
-  const benang = details.Benang ?? details.benang;
+  const benang = d.Benang ?? d.benang;
   if (benang) {
     lines.push({
       label: "Benang",
       value: expandWithSuffix(String(benang), "Sehingga Warna Bordir", BENANG_SUFFIX),
     });
   }
-  const jahitan = details.Jahitan ?? details.jahitan;
+  const jahitan = d.Jahitan ?? d.jahitan;
   if (jahitan) {
     lines.push({ label: "Jahitan", value: String(jahitan) });
   }
-  const warna = details.Warna ?? details.warna;
+  const warna = d.Warna ?? d.warna;
   if (warna) {
     lines.push({ label: "Warna", value: String(warna) });
   }

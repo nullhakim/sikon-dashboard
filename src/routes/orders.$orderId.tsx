@@ -444,25 +444,17 @@ function UpdateQuotationDialog({
       if (order.items) {
         setItems(
           order.items.map((i: any) => {
-            const d = (i.details || {}) as Record<string, any>;
-            const b = (d.bahan && typeof d.bahan === "object") ? d.bahan : (d.Bahan && typeof d.Bahan === "object" ? d.Bahan : {});
-            const bahanName = b.name ?? b.Name ?? (typeof d.bahan === "string" ? d.bahan : (typeof d.Bahan === "string" ? d.Bahan : "")) ?? "";
-            const matchedTemplate = specTemplates.data?.data?.find(
-              (t: any) => t.name?.trim().toLowerCase() === bahanName.trim().toLowerCase(),
-            );
             return {
               id: i.id,
               product_id: i.product_id,
               product_name: i.product_name || i.product?.name || "—",
+              custom_name: i.custom_name ?? "",
               qty: i.qty,
               price: i.price,
-              template_id: matchedTemplate?.id,
-              bahan_name: bahanName,
-              bahan_color: b.color ?? b.Color ?? d.warna ?? d.Warna ?? "",
-              bahan_spec: b.spec ?? b.Spec ?? d["Bahan Kemeja"] ?? "",
-              benang: d.benang ?? d.Benang ?? "",
-              bordir: d.bordir ?? d.Bordir ?? "",
-              jahitan: d.jahitan ?? d.Jahitan ?? "",
+              details: parseDetailsFromBackend(i.details),
+              benang: i.details?.benang ?? i.details?.Benang ?? "",
+              bordir: i.details?.bordir ?? i.details?.Bordir ?? "",
+              jahitan: i.details?.jahitan ?? i.details?.Jahitan ?? "",
             };
           }),
         );
@@ -472,38 +464,21 @@ function UpdateQuotationDialog({
     }
   }, [order, open, specTemplates.data?.data]);
 
-  useEffect(() => {
-    if (!open || !specTemplates.data?.data) return;
-    setItems((arr) =>
-      arr.map((it) => {
-        if (it.template_id || !it.bahan_name) return it;
-        const match = specTemplates.data?.data?.find(
-          (t: any) => t.name?.trim().toLowerCase() === it.bahan_name.trim().toLowerCase(),
-        );
-        if (!match) return it;
-        return {
-          ...it,
-          template_id: match.id,
-          bahan_name: match.name,
-          bahan_spec: it.bahan_spec || match.spec,
-        };
-      }),
-    );
-  }, [open, specTemplates.data?.data]);
+
 
   const updateItem = (idx: number, patch: any) =>
     setItems((arr) => arr.map((it, i) => (i === idx ? { ...it, ...patch } : it)));
 
   const updateOrderMut = useMutation({
     mutationFn: async () => {
-      // 1. Update all items
       await Promise.all(
         items.map((it) =>
           ordersService.updateItem(order.id, it.id, {
             product_id: it.product_id,
+            custom_name: it.custom_name || undefined,
             qty: it.qty,
             price: it.price,
-            details: buildItemDetails(it, true),
+            details: buildItemDetails(it),
           })
         )
       );
@@ -520,6 +495,7 @@ function UpdateQuotationDialog({
         valid_until: form.valid_until || undefined,
         items: order.items.map((i: any) => ({
           product_id: i.product_id,
+          custom_name: i.custom_name || undefined,
           qty: i.qty,
           price: i.price,
           details: i.details,
@@ -899,7 +875,7 @@ function OrderItemDialog({
   const qc = useQueryClient();
   const isEditing = !!item;
 
-  const [it, setIt] = useState<Item>({ product_id: "", qty: 1, price: 0 });
+  const [it, setIt] = useState<Item>({ product_id: "", qty: 1, price: 0, details: [] });
 
   const productsQ = useQuery({
     queryKey: ["products", "all"],
@@ -916,53 +892,28 @@ function OrderItemDialog({
   useEffect(() => {
     if (open) {
       if (item) {
-        const d = (item.details || {}) as Record<string, any>;
-        const b = d.Bahan && typeof d.Bahan === "object" ? d.Bahan : (d.bahan && typeof d.bahan === "object" ? d.bahan : {});
-        const bahanName = b.Name ?? b.name ?? (typeof d.Bahan === "string" ? d.Bahan : (typeof d.bahan === "string" ? d.bahan : "")) ?? "";
-        const matchedTemplate = specTemplates.data?.data?.find(
-          (t: any) => t.name?.trim().toLowerCase() === bahanName.trim().toLowerCase(),
-        );
         setIt({
           product_id: item.product_id || item.product?.id || "",
+          custom_name: item.custom_name ?? "",
           qty: item.qty || 1,
           price: item.price || 0,
-          template_id: matchedTemplate?.id,
-          bahan_name: bahanName,
-          bahan_color: b.Color ?? b.color ?? d.Warna ?? d.warna ?? "",
-          bahan_spec: b.Spec ?? b.spec ?? d["Bahan Kemeja"] ?? "",
-          benang: d.Benang ?? d.benang ?? "",
-          bordir: d.Bordir ?? d.bordir ?? "",
-          jahitan: d.Jahitan ?? d.jahitan ?? "",
+          details: parseDetailsFromBackend(item.details),
+          benang: item.details?.benang ?? item.details?.Benang ?? "",
+          bordir: item.details?.bordir ?? item.details?.Bordir ?? "",
+          jahitan: item.details?.jahitan ?? item.details?.Jahitan ?? "",
         });
       } else {
-        setIt({ product_id: "", qty: 1, price: 0 });
+        setIt({ product_id: "", qty: 1, price: 0, details: [] });
       }
     }
-  }, [open, item, specTemplates.data?.data]);
-
-  useEffect(() => {
-    if (!open || !item || !specTemplates.data?.data) return;
-    setIt((prev) => {
-      const bahanName = prev.bahan_name?.trim().toLowerCase();
-      if (prev.template_id || !bahanName) return prev;
-      const match = specTemplates.data?.data?.find(
-        (t: any) => t.name?.trim().toLowerCase() === bahanName,
-      );
-      if (!match) return prev;
-      return {
-        ...prev,
-        template_id: match.id,
-        bahan_name: match.name,
-        bahan_spec: prev.bahan_spec || match.spec,
-      };
-    });
-  }, [open, item, specTemplates.data?.data]);
+  }, [open, item]);
 
   const mut = useMutation({
     mutationFn: async () => {
-      const details = buildItemDetails(it, isQuotation);
+      const details = buildItemDetails(it);
       const body = {
         product_id: it.product_id,
+        custom_name: it.custom_name || undefined,
         qty: Number(it.qty),
         price: Number(it.price),
         details: details || {},
