@@ -9,6 +9,8 @@ import {
   Tags,
   Landmark,
   BookOpen,
+  PieChart,
+  Layers,
 } from "lucide-react";
 
 import {
@@ -25,10 +27,12 @@ import {
 
 const main = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
+  { title: "Reports", url: "/reports", icon: PieChart },
 ];
 
 const transactions = [
   { title: "Orders", url: "/orders", icon: ShoppingCart },
+  { title: "Batch PO", url: "/batch-pos", icon: Layers },
   { title: "Payments", url: "/payments", icon: CreditCard },
 ];
 

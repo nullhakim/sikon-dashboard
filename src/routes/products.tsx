@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2, ChevronLeft, ChevronRight, Search } from "lucide-react";
+import { Plus, Pencil, Trash2, ChevronLeft, ChevronRight, Search, Image as ImageIcon, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
 
@@ -23,6 +23,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+} from "@/components/ui/carousel";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -33,7 +40,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { productsService, categoriesService } from "@/lib/services";
+import { productsService, categoriesService, uploadService } from "@/lib/services";
 import { formatIDR } from "@/lib/format";
 import type { Product } from "@/lib/types";
 
@@ -60,9 +67,11 @@ interface FormState {
   base_price: string;
   category_id: string;
   description: string;
+  image_urls: string[];
+  image_files: File[];
 }
 
-const emptyForm: FormState = { name: "", base_price: "", category_id: "", description: "" };
+const emptyForm: FormState = { name: "", base_price: "", category_id: "", description: "", image_urls: [], image_files: [] };
 
 function ProductsPage() {
   const searchParams = Route.useSearch();
@@ -73,6 +82,8 @@ function ProductsPage() {
   const [editing, setEditing] = useState<Product | null>(null);
   const [form, setForm] = useState<FormState>(emptyForm);
   const [searchInput, setSearchInput] = useState(searchParams.search || "");
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [previewProduct, setPreviewProduct] = useState<Product | null>(null);
 
   useEffect(() => {
     const timeout = setTimeout(() => {
@@ -129,11 +140,15 @@ function ProductsPage() {
   useEffect(() => {
     if (!open) return;
     if (editing) {
+      const urls = editing.images?.map(img => img.image_url) || [];
+
       setForm({
         name: editing.name ?? "",
         base_price: String(editing.base_price ?? ""),
         category_id: editing.category_id ?? editing.category?.id ?? "",
         description: editing.description ?? "",
+        image_urls: urls,
+        image_files: [],
       });
     } else {
       setForm(emptyForm);
@@ -153,7 +168,7 @@ function ProductsPage() {
     setEditing(null);
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const name = form.name.trim();
     const base_price = Number(form.base_price);
@@ -162,11 +177,27 @@ function ProductsPage() {
       return toast.error("Valid base_price required");
     if (!form.category_id) return toast.error("Category is required");
 
+    let finalImageUrls = [...form.image_urls];
+    if (form.image_files.length > 0) {
+      try {
+        setUploadingImage(true);
+        const uploadPromises = form.image_files.map(file => uploadService.image(file, "products"));
+        const uploadRes = await Promise.all(uploadPromises);
+        const newUrls = uploadRes.map(res => res.data.url);
+        finalImageUrls = [...finalImageUrls, ...newUrls];
+      } catch (err: any) {
+        setUploadingImage(false);
+        return toast.error(err.message || "Failed to upload images");
+      }
+      setUploadingImage(false);
+    }
+
     const body: Partial<Product> = {
       name,
       base_price,
       category_id: form.category_id,
       description: form.description.trim() || undefined,
+      image_urls: finalImageUrls.length > 0 ? finalImageUrls : undefined,
     };
     if (editing) {
       updateMut.mutate({ id: editing.id, body });
@@ -177,6 +208,9 @@ function ProductsPage() {
 
   const rows = data?.data ?? [];
   const totalPage = data?.paging?.total_page ?? 1;
+  const hasNextPage = data?.paging?.total_page
+    ? searchParams.page < data.paging.total_page
+    : rows.length === searchParams.limit;
   const saving = createMut.isPending || updateMut.isPending;
 
   return (
@@ -237,6 +271,7 @@ function ProductsPage() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-[60px]">Image</TableHead>
                 <TableHead>Name</TableHead>
                 <TableHead>Category</TableHead>
                 <TableHead className="text-right">Price</TableHead>
@@ -260,13 +295,30 @@ function ProductsPage() {
               )}
               {!isLoading && rows.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={4} className="py-8 text-center text-muted-foreground">
+                  <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
                     No products found matching your criteria.
                   </TableCell>
                 </TableRow>
               )}
               {rows.map((p) => (
                 <TableRow key={p.id}>
+                  <TableCell>
+                    {(() => {
+                      const firstImageUrl = p.images?.find((img) => img.is_primary)?.image_url || p.images?.[0]?.image_url;
+                      return firstImageUrl ? (
+                        <img
+                          src={firstImageUrl}
+                          alt={p.name}
+                          className="h-10 w-10 rounded-md object-cover border cursor-pointer hover:opacity-80 transition-opacity"
+                          onClick={() => setPreviewProduct(p)}
+                        />
+                      ) : (
+                        <div className="flex h-10 w-10 items-center justify-center rounded-md border bg-muted/50 text-muted-foreground">
+                          <ImageIcon className="h-5 w-5" />
+                        </div>
+                      );
+                    })()}
+                  </TableCell>
                   <TableCell className="font-medium">{p.name}</TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     {p.category?.name ??
@@ -321,7 +373,7 @@ function ProductsPage() {
           <Button
             variant="outline"
             size="sm"
-            disabled={searchParams.page >= totalPage}
+            disabled={!hasNextPage}
             onClick={() => navigate({ search: (prev) => ({ ...prev, page: prev.page + 1 }) })}
           >
             Next <ChevronRight className="h-4 w-4" />
@@ -387,6 +439,76 @@ function ProductsPage() {
                 </div>
               </div>
               <div className="space-y-2">
+                <Label>Product Images</Label>
+                <div className="flex flex-col gap-4">
+                  <div className="flex flex-wrap gap-4">
+                    {form.image_urls.map((url, i) => (
+                      <div key={`url-${i}`} className="relative h-24 w-24 shrink-0 overflow-hidden rounded-xl border group">
+                        <img src={url} alt="Preview" className="h-full w-full object-cover bg-muted/20" />
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity group-hover:opacity-100">
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => {
+                              const newUrls = [...form.image_urls];
+                              newUrls.splice(i, 1);
+                              setForm({ ...form, image_urls: newUrls });
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                    
+                    {form.image_files.map((file, i) => (
+                      <div key={`file-${i}`} className="relative h-24 w-24 shrink-0 overflow-hidden rounded-xl border group">
+                        <img src={URL.createObjectURL(file)} alt="Preview" className="h-full w-full object-cover bg-muted/20" />
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity group-hover:opacity-100">
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => {
+                              const newFiles = [...form.image_files];
+                              newFiles.splice(i, 1);
+                              setForm({ ...form, image_files: newFiles });
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+
+                    <div className="relative flex h-24 w-24 shrink-0 cursor-pointer flex-col items-center justify-center overflow-hidden rounded-xl border-2 border-dashed border-muted-foreground/25 bg-muted/20 transition-colors hover:bg-muted/50 hover:border-muted-foreground/50">
+                      <Input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
+                        onChange={(e) => {
+                          const files = Array.from(e.target.files || []);
+                          if (files.length > 0) setForm({ ...form, image_files: [...form.image_files, ...files] });
+                          e.target.value = "";
+                        }}
+                      />
+                      <Upload className="mb-1 h-6 w-6 text-muted-foreground/50" />
+                      <span className="text-[10px] font-medium text-muted-foreground">Upload</span>
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground leading-relaxed mt-0.5">
+                      Upload one or more images for this product. <br />
+                      Recommended: Square (1:1 ratio), up to 2MB per image.
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div className="space-y-2">
                 <Label htmlFor="prod-desc">Description</Label>
                 <Textarea
                   id="prod-desc"
@@ -401,11 +523,49 @@ function ProductsPage() {
               <Button type="button" variant="outline" onClick={closeDialog}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={saving}>
-                {saving ? "Saving…" : editing ? "Save changes" : "Create"}
+              <Button type="submit" disabled={saving || uploadingImage}>
+                {uploadingImage ? "Uploading…" : saving ? "Saving…" : editing ? "Save changes" : "Create"}
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!previewProduct} onOpenChange={(v) => !v && setPreviewProduct(null)}>
+        <DialogContent className="sm:max-w-[600px] p-0 bg-transparent border-none shadow-none">
+          {(() => {
+            if (!previewProduct) return null;
+            const urls = previewProduct.images?.map((img) => img.image_url) || previewProduct.image_urls || [];
+            if (urls.length === 0) return null;
+
+            if (urls.length === 1) {
+              return (
+                <img
+                  src={urls[0]}
+                  alt={previewProduct.name}
+                  className="w-full h-auto max-h-[80vh] rounded-md object-contain bg-black/50"
+                />
+              );
+            }
+
+            return (
+              <Carousel className="w-full max-w-full group">
+                <CarouselContent>
+                  {urls.map((url, i) => (
+                    <CarouselItem key={i} className="flex items-center justify-center">
+                      <img
+                        src={url}
+                        alt={previewProduct.name}
+                        className="w-full h-auto max-h-[80vh] rounded-md object-contain bg-black/50"
+                      />
+                    </CarouselItem>
+                  ))}
+                </CarouselContent>
+                <CarouselPrevious className="left-4 bg-black/50 hover:bg-black/75 text-white border-none opacity-0 transition-opacity group-hover:opacity-100" />
+                <CarouselNext className="right-4 bg-black/50 hover:bg-black/75 text-white border-none opacity-0 transition-opacity group-hover:opacity-100" />
+              </Carousel>
+            );
+          })()}
         </DialogContent>
       </Dialog>
     </div>

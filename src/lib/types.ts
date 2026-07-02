@@ -1,6 +1,6 @@
 // Domain types derived from the SIKOn OpenAPI spec.
 
-export type OrderStatus = "quotation" | "pending" | "production" | "completed" | "canceled";
+export type OrderStatus = "quotation" | "pending" | "production" | "ready" | "completed" | "canceled";
 export type PaymentType = "dp" | "settlement" | "installment";
 
 export interface Category {
@@ -18,6 +18,12 @@ export interface SpecTemplate {
   updated_at?: string;
 }
 
+export interface ProductImage {
+  id: string;
+  image_url: string;
+  is_primary: boolean;
+}
+
 export interface Product {
   id: string;
   name: string;
@@ -25,6 +31,8 @@ export interface Product {
   category_id?: string;
   category?: Category;
   description?: string;
+  images?: ProductImage[];
+  image_urls?: string[]; // Used for payload
   created_at?: string;
 }
 
@@ -54,6 +62,7 @@ export interface User {
   email: string;
   role?: string;
   phone?: string;
+  image_url?: string;
 }
 
 export interface OrderItem {
@@ -81,8 +90,21 @@ export interface Payment {
   order?: Order;
 }
 
+export interface BatchPO {
+  id: string;
+  name: string;
+  start_date: string;
+  end_date: string;
+  quota: number;
+  status: "draft" | "active" | "closed" | string;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface Order {
   id: string;
+  batch_po_id?: string;
+  batch_po?: BatchPO;
   order_number?: string;
   customer_id: string;
   customer?: Customer;

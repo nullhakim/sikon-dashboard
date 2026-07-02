@@ -37,12 +37,21 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 // ScrollArea import removed
 
-import { ordersService, customersService, productsService, usersService, specTemplatesService } from "@/lib/services";
+import { ordersService, customersService, productsService, usersService, specTemplatesService, bankAccountsService, paymentsService, batchPosService } from "@/lib/services";
 import { formatIDR, formatDate } from "@/lib/format";
 import type { OrderStatus } from "@/lib/types";
 import { QuickCreateCustomerDialog } from "@/components/QuickCreateCustomerDialog";
+
+// TODO: Replace with real auth context when authentication is implemented.
+const currentUser = { role: "admin" };
 
 export const Route = createFileRoute("/orders/")({
   head: () => ({
@@ -59,17 +68,19 @@ export const Route = createFileRoute("/orders/")({
     start_date: typeof search.start_date === "string" ? search.start_date : "",
     end_date: typeof search.end_date === "string" ? search.end_date : "",
     sales_id: typeof search.sales_id === "string" ? search.sales_id : "",
+    batch_po_id: typeof search.batch_po_id === "string" ? search.batch_po_id : "",
   }),
   component: OrdersPage,
 });
 
-const statusList: OrderStatus[] = ["quotation", "pending", "production", "completed", "canceled"];
+const statusList: OrderStatus[] = ["quotation", "pending", "production", "ready", "completed", "canceled"];
 const paymentStatusList = ["unpaid", "partial", "paid"];
 
 const statusVariant: Record<string, string> = {
   quotation: "bg-violet-100 text-violet-800 border-violet-200",
   pending: "bg-amber-100 text-amber-800 border-amber-200",
   production: "bg-blue-100 text-blue-800 border-blue-200",
+  ready: "bg-cyan-100 text-cyan-800 border-cyan-200",
   completed: "bg-emerald-100 text-emerald-800 border-emerald-200",
   canceled: "bg-rose-100 text-rose-800 border-rose-200",
 };
@@ -86,10 +97,12 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 export interface Item {
+  id?: string;
   product_id: string;
   qty: number;
   price: number;
   // Bahan (nested) — both modes
+  template_id?: string;
   bahan_name?: string;
   bahan_color?: string;
   bahan_spec?: string; // quotation only
@@ -137,23 +150,46 @@ export function ItemDetailsFields({
     queryFn: () => specTemplatesService.list({ page: 1, limit: 100 }),
   });
 
+  const matchedTemplate = useMemo(() => {
+    if (item.template_id || !item.bahan_name) return undefined;
+    const normalizedName = item.bahan_name.trim().toLowerCase();
+    return specs.data?.data?.find(
+      (t) => t.name?.trim().toLowerCase() === normalizedName,
+    );
+  }, [item.template_id, item.bahan_name, specs.data?.data]);
+
+  const selectedTemplateId = item.template_id ?? matchedTemplate?.id;
+
+  useEffect(() => {
+    if (!item.template_id && matchedTemplate) {
+      onChange({
+        template_id: matchedTemplate.id,
+        bahan_name: matchedTemplate.name,
+        ...(item.bahan_spec ? {} : { bahan_spec: matchedTemplate.spec }),
+      });
+    }
+  }, [item.template_id, item.bahan_spec, matchedTemplate, onChange]);
+
   return (
     <div className="grid gap-3 pt-2 border-t">
       <div className="space-y-1">
-        <Label className="text-xs text-muted-foreground">Load Material Template (Auto-fill)</Label>
+        <Label className="text-xs">Bahan — Name</Label>
         <Select
+          value={selectedTemplateId ?? item.bahan_name ?? ""}
           onValueChange={(v) => {
-            const t = specs.data?.data?.find(x => x.id === v);
+            const t = specs.data?.data?.find((x) => x.id === v);
             if (t) {
-              onChange({ bahan_name: t.name, bahan_spec: t.spec });
+              onChange({ template_id: t.id, bahan_name: t.name, bahan_spec: t.spec });
+            } else {
+              onChange({ template_id: undefined, bahan_name: v });
             }
           }}
         >
           <SelectTrigger className="h-8 text-xs">
-            <SelectValue placeholder="Select a template to auto-fill bahan name & spec..." />
+            <SelectValue placeholder="Select bahan name from template or type manually..." />
           </SelectTrigger>
           <SelectContent>
-            {specs.data?.data?.map(t => (
+            {specs.data?.data?.map((t) => (
               <SelectItem key={t.id} value={t.id}>
                 <span className="font-medium">{t.name}</span>
                 <span className="ml-1 text-xs text-muted-foreground">— {t.spec.length > 40 ? t.spec.slice(0, 40) + "…" : t.spec}</span>
@@ -164,14 +200,6 @@ export function ItemDetailsFields({
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2">
-        <div className="space-y-1">
-          <Label className="text-xs">Bahan — Name</Label>
-          <Input
-            placeholder="mis. Katun Baby Canvas"
-            value={item.bahan_name ?? ""}
-            onChange={(e) => onChange({ bahan_name: e.target.value })}
-          />
-        </div>
         <div className="space-y-1">
           <Label className="text-xs">Bahan — Color</Label>
           <Input
@@ -248,11 +276,12 @@ export function ItemDetailsFields({
   );
 }
 
-function CreateOrderDialog({ open, onClose, mode }: { open: boolean; onClose: () => void; mode: "quotation" | "order" }) {
-  const isQuotation = mode === "quotation";
+function CreateOrderDialog({ open, onClose }: { open: boolean; onClose: () => void; }) {
+  const isQuotation = true;
   const qc = useQueryClient();
   const [customerId, setCustomerId] = useState("");
   const [salesId, setSalesId] = useState("");
+  const [batchPoId, setBatchPoId] = useState("");
   const [newCustomerOpen, setNewCustomerOpen] = useState(false);
 
   const customers = useQuery({
@@ -270,24 +299,48 @@ function CreateOrderDialog({ open, onClose, mode }: { open: boolean; onClose: ()
     queryFn: () => usersService.list({ role: "sales", limit: 100 }),
     enabled: open,
   });
+  const activeBatchPOs = useQuery({
+    queryKey: ["batch-pos", "active"],
+    queryFn: () => batchPosService.active(),
+    enabled: open,
+  });
+
+  // Derive the currently selected BatchPO object for guard checks
+  const selectedBatchPO = activeBatchPOs.data?.data?.find((b) => b.id === batchPoId);
+  const isBatchPOClosed = selectedBatchPO?.status === "closed";
+  const isFormLocked = isBatchPOClosed && currentUser.role !== "admin";
 
   const [courier, setCourier] = useState("");
   const [shippingCost, setShippingCost] = useState<number | "">("");
-  const [address, setAddress] = useState("");
   const [note, setNote] = useState("");
   const [termsConditions, setTermsConditions] = useState("");
   const [items, setItems] = useState<Item[]>([{ product_id: "", qty: 1, price: 0 }]);
+
+  const [paymentAmount, setPaymentAmount] = useState<number | "">("");
+  const [paymentType, setPaymentType] = useState("dp");
+  const [paymentBankId, setPaymentBankId] = useState("");
+  const [paymentReference, setPaymentReference] = useState("");
+
+  const bankAccounts = useQuery({
+    queryKey: ["bank-accounts", "user", salesId],
+    queryFn: () => bankAccountsService.byUser(salesId!),
+    enabled: open && !!salesId,
+  });
 
   useEffect(() => {
     if (!open) {
       setCustomerId("");
       setSalesId("");
+      setBatchPoId("");
       setCourier("");
       setShippingCost("");
-      setAddress("");
       setNote("");
       setTermsConditions("");
       setItems([{ product_id: "", qty: 1, price: 0 }]);
+      setPaymentAmount("");
+      setPaymentType("dp");
+      setPaymentBankId("");
+      setPaymentReference("");
     }
   }, [open]);
 
@@ -297,14 +350,14 @@ function CreateOrderDialog({ open, onClose, mode }: { open: boolean; onClose: ()
   const create = useMutation({
     mutationFn: () =>
       ordersService.create({
+        batch_po_id: batchPoId,
         customer_id: customerId,
         sales_id: salesId,
         courier_name: courier || undefined,
         shipping_cost: Number(shippingCost) || 0,
-        shipping_address: address || undefined,
         notes: note || undefined,
-        terms_conditions: isQuotation ? (termsConditions || undefined) : undefined,
-        ...(isQuotation ? { order_status: "quotation" } : {}),
+        terms_conditions: termsConditions || undefined,
+        order_status: "quotation",
         items: items
           .filter((i) => i.product_id && i.qty > 0)
           .map((i) => ({
@@ -314,12 +367,45 @@ function CreateOrderDialog({ open, onClose, mode }: { open: boolean; onClose: ()
             details: buildItemDetails(i, isQuotation),
           })),
       }),
-    onSuccess: () => {
+    onSuccess: async (res: any) => {
       toast.success(isQuotation ? "Quotation created" : "Order created");
       qc.invalidateQueries({ queryKey: ["orders"] });
+      
+      const orderId = res?.data?.id || res?.id;
+      if (orderId && Number(paymentAmount) > 0) {
+        try {
+          await paymentsService.create({
+            order_id: orderId,
+            amount: Number(paymentAmount),
+            payment_type: paymentType,
+            bank_account_id: paymentBankId,
+            reference_number: paymentReference || "DIRECT-PAYMENT",
+            payment_date: new Date().toISOString()
+          });
+          toast.success("Initial payment recorded");
+          if (paymentType === "dp" || paymentType === "settlement") {
+            try {
+              await ordersService.updateStatus(orderId, "pending");
+              toast.success("Order automatically moved to pending");
+            } catch (e) {
+              // ignore
+            }
+          }
+        } catch (e: any) {
+          toast.error("Failed to record initial payment: " + (e?.payload?.error || e.message));
+        }
+      }
+      
       onClose();
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: any) => {
+      const status = (e as any)?.status;
+      if (status === 403) {
+        toast.error("This Batch PO is closed. Only administrators can perform this action.");
+      } else {
+        toast.error(e?.payload?.error || e.message);
+      }
+    },
   });
 
   const updateItem = (idx: number, patch: Partial<Item>) =>
@@ -327,10 +413,15 @@ function CreateOrderDialog({ open, onClose, mode }: { open: boolean; onClose: ()
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!batchPoId) return toast.error("Select a Batch PO");
     if (!customerId) return toast.error("Choose a customer");
     if (!salesId) return toast.error("Choose a sales person");
     if (!items.some((i) => i.product_id && i.qty > 0))
       return toast.error("Add at least one item");
+    if (Number(paymentAmount) > 0) {
+      if (!paymentBankId) return toast.error("Select bank account for payment");
+      if (!paymentType) return toast.error("Select payment type");
+    }
     create.mutate();
   };
 
@@ -338,9 +429,9 @@ function CreateOrderDialog({ open, onClose, mode }: { open: boolean; onClose: ()
     <Dialog open={open} onOpenChange={(v) => (v ? null : onClose())}>
       <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-0">
         <DialogHeader className="px-6 pt-6 pb-2 border-b">
-          <DialogTitle>{isQuotation ? "Buat Penawaran" : "Buat Pesanan"}</DialogTitle>
+          <DialogTitle>Buat Pesanan Baru</DialogTitle>
           <DialogDescription>
-            {isQuotation ? "Create a new quotation (Surat Penawaran)." : "Create a new direct order."}
+            Create a new order (initialized as quotation).
           </DialogDescription>
         </DialogHeader>
 
@@ -348,9 +439,49 @@ function CreateOrderDialog({ open, onClose, mode }: { open: boolean; onClose: ()
           <form id="create-order-form" onSubmit={submit} className="space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">Customer & Shipping</CardTitle>
+                <CardTitle className="text-base">Batch PO & Customer & Shipping</CardTitle>
               </CardHeader>
               <CardContent className="grid gap-4 sm:grid-cols-2">
+                {/* Batch PO Selection — mandatory */}
+                <div className="space-y-2 sm:col-span-2">
+                  <Label>
+                    Batch PO <span className="text-destructive">*</span>
+                  </Label>
+                  <Select
+                    value={batchPoId}
+                    onValueChange={setBatchPoId}
+                    disabled={activeBatchPOs.isLoading}
+                  >
+                    <SelectTrigger className={!batchPoId ? "border-destructive/50" : ""}>
+                      <SelectValue
+                        placeholder={
+                          activeBatchPOs.isLoading ? "Loading batches…" : "Select an active Batch PO"
+                        }
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {activeBatchPOs.data?.data?.length === 0 && (
+                        <div className="px-2 py-3 text-xs text-muted-foreground">
+                          No active Batch POs available.
+                        </div>
+                      )}
+                      {activeBatchPOs.data?.data?.map((b) => (
+                        <SelectItem key={b.id} value={b.id}>
+                          <span className="font-medium">{b.name}</span>
+                          <span className="ml-1 text-xs text-muted-foreground capitalize">— {b.status}</span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {isBatchPOClosed && (
+                    <p className="text-xs text-destructive">
+                      {currentUser.role === "admin"
+                        ? "⚠ This Batch PO is closed. You have admin access to proceed."
+                        : "This Batch PO is closed. Only administrators can add orders."}
+                    </p>
+                  )}
+                </div>
+
                 <div className="space-y-2">
                   <Label>Sales Person</Label>
                   <Select
@@ -419,15 +550,11 @@ function CreateOrderDialog({ open, onClose, mode }: { open: boolean; onClose: ()
                     onChange={(e) => setShippingCost(Number(e.target.value))}
                   />
                 </div>
-                <div className="space-y-2 sm:col-span-2">
-                  <Label>Address</Label>
-                  <Textarea rows={2} value={address} onChange={(e) => setAddress(e.target.value)} />
-                </div>
-                <div className="space-y-2 sm:col-span-2">
+                {/* <div className="space-y-2 sm:col-span-2">
                   <Label>Notes</Label>
                   <Textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} />
-                </div>
-                {isQuotation && (
+                </div> */}
+                {/* {isQuotation && (
                   <div className="space-y-2 sm:col-span-2">
                     <Label>Terms &amp; Conditions</Label>
                     <Textarea
@@ -437,9 +564,10 @@ function CreateOrderDialog({ open, onClose, mode }: { open: boolean; onClose: ()
                       onChange={(e) => setTermsConditions(e.target.value)}
                     />
                   </div>
-                )}
+                )} */}
               </CardContent>
             </Card>
+
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
@@ -510,7 +638,7 @@ function CreateOrderDialog({ open, onClose, mode }: { open: boolean; onClose: ()
 
                     <ItemDetailsFields
                       item={it}
-                      isQuotation={isQuotation}
+                      isQuotation={false}
                       hideSpec={true}
                       onChange={(patch) => updateItem(idx, patch)}
                     />
@@ -533,6 +661,99 @@ function CreateOrderDialog({ open, onClose, mode }: { open: boolean; onClose: ()
                 </div>
               </CardContent>
             </Card>
+
+            {true && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Direct Payment (Optional)</CardTitle>
+                </CardHeader>
+                <CardContent className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2 sm:col-span-2">
+                    <div className="grid grid-cols-3 gap-2 bg-muted/50 p-3 rounded-md text-sm">
+                      <div>
+                        <div className="text-muted-foreground">Total Order</div>
+                        <div className="font-semibold">{formatIDR(total)}</div>
+                      </div>
+                      <div>
+                        <div className="text-muted-foreground">Payment</div>
+                        <div className="font-semibold text-emerald-600">
+                          {formatIDR(Number(paymentAmount) || 0)}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-muted-foreground">Remaining</div>
+                        <div className={`font-semibold ${total - (Number(paymentAmount) || 0) > 0 ? "text-amber-600" : "text-emerald-600"}`}>
+                          {formatIDR(total - (Number(paymentAmount) || 0))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label>Bank Account (Sales)</Label>
+                    <Select
+                      value={paymentBankId}
+                      onValueChange={setPaymentBankId}
+                      disabled={!salesId || bankAccounts.isLoading}
+                    >
+                      <SelectTrigger>
+                        <SelectValue
+                          placeholder={
+                            !salesId
+                              ? "Select sales first"
+                              : bankAccounts.isLoading
+                                ? "Loading…"
+                                : "Select bank account"
+                          }
+                        />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {bankAccounts.data?.data?.map((ba) => (
+                          <SelectItem key={ba.id} value={ba.id}>
+                            {ba.bank_name} — {ba.account_number} ({ba.account_name})
+                          </SelectItem>
+                        ))}
+                        {bankAccounts.data?.data?.length === 0 && (
+                          <div className="px-3 py-2 text-xs text-muted-foreground">
+                            No bank accounts for this sales user.
+                          </div>
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Amount</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      placeholder="0"
+                      value={paymentAmount}
+                      onChange={(e) => setPaymentAmount(e.target.value ? Number(e.target.value) : "")}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Payment Type</Label>
+                    <Select value={paymentType} onValueChange={setPaymentType}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="dp">DP</SelectItem>
+                        <SelectItem value="settlement">SETTLEMENT</SelectItem>
+                        <SelectItem value="installment">INSTALLMENT</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label>Reference Number (Optional)</Label>
+                    <Input
+                      placeholder="TRX-12345"
+                      value={paymentReference}
+                      onChange={(e) => setPaymentReference(e.target.value)}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </form>
         </div>
 
@@ -540,8 +761,12 @@ function CreateOrderDialog({ open, onClose, mode }: { open: boolean; onClose: ()
           <Button type="button" variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button type="submit" form="create-order-form" disabled={create.isPending}>
-            {create.isPending ? "Creating…" : isQuotation ? "Buat Penawaran" : "Buat Pesanan"}
+          <Button
+            type="submit"
+            form="create-order-form"
+            disabled={create.isPending || !batchPoId || isFormLocked}
+          >
+            {create.isPending ? "Creating…" : "Buat Pesanan"}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -589,9 +814,20 @@ export function UpdateOrderDialog({
     terms_conditions: "",
   });
   const [items, setItems] = useState<Item[]>([]);
+  const [deletedItemIds, setDeletedItemIds] = useState<string[]>([]);
+  const [paymentAmount, setPaymentAmount] = useState<number | "">("");
+  const [paymentType, setPaymentType] = useState("dp");
+  const [paymentBankId, setPaymentBankId] = useState("");
+  const [paymentReference, setPaymentReference] = useState("");
+
+  const bankAccounts = useQuery({
+    queryKey: ["bank-accounts", "user", order?.sales_id],
+    queryFn: () => bankAccountsService.byUser(order!.sales_id!),
+    enabled: open && !!order?.sales_id && !isQuotation,
+  });
 
   useEffect(() => {
-    if (order) {
+    if (order && open) {
       setForm({
         courier_name: order.courier_name || "",
         shipping_cost: order.shipping_cost || 0,
@@ -599,12 +835,18 @@ export function UpdateOrderDialog({
         notes: order.notes || "",
         terms_conditions: order.terms_conditions || "",
       });
+      setPaymentAmount("");
+      setPaymentType("dp");
+      setPaymentBankId("");
+      setPaymentReference("");
+      setDeletedItemIds([]);
       if (order.items) {
         setItems(
           order.items.map((i: any) => {
             const d = (i.details || {}) as Record<string, any>;
             const b = (d.bahan && typeof d.bahan === "object") ? d.bahan : (d.Bahan && typeof d.Bahan === "object" ? d.Bahan : {});
             return {
+              id: i.id,
               product_id: i.product_id,
               qty: i.qty,
               price: i.price,
@@ -620,6 +862,7 @@ export function UpdateOrderDialog({
       }
     } else if (!open) {
       setItems([]);
+      setDeletedItemIds([]);
     }
   }, [order, open]);
 
@@ -630,13 +873,60 @@ export function UpdateOrderDialog({
   const total = subtotal + Number(form.shipping_cost || 0);
 
   const updateMut = useMutation({
-    mutationFn: (body: any) => ordersService.update(orderId!, body),
+    mutationFn: async (body: any) => {
+      if (order && deletedItemIds.length > 0) {
+        await Promise.all(
+          deletedItemIds.map((itemId) => ordersService.deleteItem(order.id, itemId)),
+        );
+      }
+
+      await Promise.all(
+        body.items.map((it: any) => {
+          const details = buildItemDetails(it, isQuotation);
+          const itemBody = {
+            product_id: it.product_id,
+            qty: it.qty,
+            price: it.price,
+            details: details || undefined,
+          };
+
+          if (it.id && order) {
+            return ordersService.updateItem(order.id, it.id, itemBody);
+          }
+
+          return ordersService.addItem(orderId!, itemBody);
+        }),
+      );
+
+      await ordersService.update(orderId!, {
+        customer_id: body.customer_id,
+        sales_id: body.sales_id,
+        items: body.items.map(({ id, ...rest }: any) => rest),
+        courier_name: body.courier_name,
+        shipping_cost: body.shipping_cost,
+        shipping_address: body.shipping_address,
+        notes: body.notes,
+        terms_conditions: body.terms_conditions,
+      });
+
+      if (!isQuotation && Number(paymentAmount) > 0) {
+        await paymentsService.create({
+          order_id: orderId!,
+          amount: Number(paymentAmount),
+          payment_type: paymentType,
+          bank_account_id: paymentBankId,
+          reference_number: paymentReference || "",
+          payment_date: new Date().toISOString(),
+        });
+      }
+    },
     onSuccess: () => {
-      toast.success("Order updated");
+      toast.success(isQuotation ? "Quotation updated" : "Order & Payment updated");
       qc.invalidateQueries({ queryKey: ["order", orderId] });
       qc.invalidateQueries({ queryKey: ["orders"] });
+      onClose();
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: any) => toast.error(e?.payload?.error || e.message),
   });
 
   function handleSubmit(e: React.FormEvent) {
@@ -648,12 +938,16 @@ export function UpdateOrderDialog({
       sales_id: order.sales_id || "",
       items: items
         .filter((i) => i.product_id && i.qty > 0)
-        .map((i) => ({
-          product_id: i.product_id,
-          qty: i.qty,
-          price: i.price,
-          details: buildItemDetails(i, isQuotation),
-        })),
+        .map((i) => {
+          const details = buildItemDetails(i, isQuotation);
+          return {
+            id: i.id,
+            product_id: i.product_id,
+            qty: i.qty,
+            price: i.price,
+            details: details || {},
+          };
+        }),
       courier_name: form.courier_name || undefined,
       shipping_cost: Number(form.shipping_cost) || 0,
       shipping_address: form.shipping_address || undefined,
@@ -672,14 +966,14 @@ export function UpdateOrderDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto px-6 py-4">
+        <form id="shipping-form" onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-6 py-4">
           {isLoading || !order ? (
             <div className="py-8 text-center text-muted-foreground">Loading details...</div>
           ) : (
             <div className="space-y-6">
               <div>
                 <div className="flex flex-row items-center justify-between mb-3">
-                  <h3 className="font-semibold">Line Items</h3>
+                  <h3 className="font-semibold text-sm">Items (Click to edit details)</h3>
                   <Button
                     type="button"
                     variant="outline"
@@ -689,136 +983,171 @@ export function UpdateOrderDialog({
                     <Plus className="h-4 w-4 mr-1" /> Add item
                   </Button>
                 </div>
-                <div className="space-y-3">
+                <Accordion type="multiple" className="w-full space-y-3">
                   {items.map((it, idx) => (
-                    <div key={idx} className="space-y-3 rounded-md border p-3">
-                      <div className="grid gap-3 sm:grid-cols-[1fr_80px_120px_auto] items-end">
-                        <div className="space-y-1">
-                          <Label className="text-xs">Product</Label>
-                          <Select
-                            value={it.product_id}
-                            onValueChange={(v) => {
-                              const p = products.data?.data?.find((x) => x.id === v);
-                              updateItem(idx, { product_id: v, price: p?.base_price ?? it.price });
+                    <AccordionItem value={`item-${idx}`} key={idx} className="border rounded-md px-4 bg-muted/10">
+                      <AccordionTrigger className="hover:no-underline py-3">
+                        <div className="flex flex-col items-start text-left w-full gap-1 pr-4">
+                          <div className="font-medium text-sm">
+                            {products.data?.data?.find(p => p.id === it.product_id)?.name || "Select Product"}
+                          </div>
+                          <div className="flex gap-4 text-xs text-muted-foreground font-normal">
+                            <span>Qty: {it.qty}</span>
+                            <span>Price: {formatIDR(it.price)}</span>
+                          </div>
+                        </div>
+                      </AccordionTrigger>
+                      <AccordionContent className="pt-2 pb-4 space-y-4">
+                        <div className="grid gap-3 sm:grid-cols-[1fr_80px_120px_auto] items-end">
+                          <div className="space-y-1">
+                            <Label className="text-xs">Product</Label>
+                            <Select
+                              value={it.product_id}
+                              onValueChange={(v) => {
+                                const p = products.data?.data?.find((x) => x.id === v);
+                                updateItem(idx, { product_id: v, price: p?.base_price ?? it.price });
+                              }}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select product" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {products.data?.data?.map((p) => (
+                                  <SelectItem key={p.id} value={p.id}>
+                                    {p.name} — {formatIDR(p.base_price)}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Qty</Label>
+                            <Input
+                              type="number"
+                              min={1}
+                              value={it.qty}
+                              onChange={(e) => updateItem(idx, { qty: Number(e.target.value) })}
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Price</Label>
+                            <Input
+                              type="number"
+                              min={0}
+                              value={it.price}
+                              onChange={(e) => updateItem(idx, { price: Number(e.target.value) })}
+                            />
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="text-muted-foreground hover:text-destructive"
+                            onClick={() => {
+                              setItems((arr) => arr.filter((_, i) => i !== idx));
+                              if (it.id) setDeletedItemIds((ids) => [...ids, it.id!]);
                             }}
+                            disabled={items.length === 1}
                           >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select product" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {products.data?.data?.map((p) => (
-                                <SelectItem key={p.id} value={p.id}>
-                                  {p.name} — {formatIDR(p.base_price)}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         </div>
-                        <div className="space-y-1">
-                          <Label className="text-xs">Qty</Label>
-                          <Input
-                            type="number"
-                            min={1}
-                            value={it.qty}
-                            onChange={(e) => updateItem(idx, { qty: Number(e.target.value) })}
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-xs">Price</Label>
-                          <Input
-                            type="number"
-                            min={0}
-                            value={it.price}
-                            onChange={(e) => updateItem(idx, { price: Number(e.target.value) })}
-                          />
-                        </div>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="text-muted-foreground hover:text-destructive"
-                          onClick={() => setItems((arr) => arr.filter((_, i) => i !== idx))}
-                          disabled={items.length === 1}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-
-                      <ItemDetailsFields
-                        item={it}
-                        isQuotation={isQuotation}
-                        onChange={(patch) => updateItem(idx, patch)}
-                      />
-                    </div>
+                        <ItemDetailsFields
+                          item={it}
+                          isQuotation={isQuotation}
+                          onChange={(patch) => updateItem(idx, patch)}
+                        />
+                      </AccordionContent>
+                    </AccordionItem>
                   ))}
-                </div>
+                </Accordion>
               </div>
 
-              <form id="shipping-form" onSubmit={handleSubmit} className="space-y-4">
-                <h3 className="font-semibold">Logistics & Notes</h3>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label>Courier</Label>
-                    <Input
-                      value={form.courier_name}
-                      onChange={(e) => setForm({ ...form, courier_name: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Shipping Cost</Label>
-                    <Input
-                      type="number"
-                      min={0}
-                      value={form.shipping_cost}
-                      onChange={(e) => setForm({ ...form, shipping_cost: Number(e.target.value) })}
-                    />
-                  </div>
-                  <div className="space-y-2 sm:col-span-2">
-                    <Label>Address</Label>
-                    <Textarea
-                      rows={2}
-                      value={form.shipping_address}
-                      onChange={(e) => setForm({ ...form, shipping_address: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-2 sm:col-span-2">
-                    <Label>Order Note</Label>
-                    <Textarea
-                      rows={2}
-                      value={form.notes}
-                      onChange={(e) => setForm({ ...form, notes: e.target.value })}
-                    />
-                  </div>
-                  {isQuotation && (
+              {!isQuotation && (
+                <div className="space-y-4 pt-4 border-t">
+                  <h3 className="font-semibold text-sm">Quick Add Payment (Optional)</h3>
+                  <div className="grid gap-4 sm:grid-cols-2">
                     <div className="space-y-2 sm:col-span-2">
-                      <Label>Terms &amp; Conditions</Label>
-                      <Textarea
-                        rows={3}
-                        value={form.terms_conditions}
-                        onChange={(e) => setForm({ ...form, terms_conditions: e.target.value })}
+                      <div className="grid grid-cols-3 gap-2 bg-muted/50 p-3 rounded-md text-sm">
+                        <div>
+                          <div className="text-muted-foreground">Total Order</div>
+                          <div className="font-semibold">{formatIDR(total)}</div>
+                        </div>
+                        <div>
+                          <div className="text-muted-foreground">Quick Payment</div>
+                          <div className="font-semibold text-emerald-600">
+                            {formatIDR(Number(paymentAmount) || 0)}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-muted-foreground">Remaining</div>
+                          <div className={`font-semibold ${total - (Number(paymentAmount) || 0) > 0 ? "text-amber-600" : "text-emerald-600"}`}>
+                            {formatIDR(total - (Number(paymentAmount) || 0))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="space-y-2 sm:col-span-2">
+                      <Label>Bank Account (Sales)</Label>
+                      <Select
+                        value={paymentBankId}
+                        onValueChange={setPaymentBankId}
+                        disabled={!order?.sales_id || bankAccounts.isLoading}
+                      >
+                        <SelectTrigger>
+                          <SelectValue
+                            placeholder={
+                              !order?.sales_id
+                                ? "Select sales first"
+                                : bankAccounts.isLoading
+                                  ? "Loading…"
+                                  : "Select bank account"
+                            }
+                          />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {bankAccounts.data?.data?.map((ba) => (
+                            <SelectItem key={ba.id} value={ba.id}>
+                              {ba.bank_name} — {ba.account_number} ({ba.account_name})
+                            </SelectItem>
+                          ))}
+                          {bankAccounts.data?.data?.length === 0 && (
+                            <div className="px-3 py-2 text-xs text-muted-foreground">
+                              No bank accounts for this sales user.
+                            </div>
+                          )}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Amount</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        placeholder="0"
+                        value={paymentAmount}
+                        onChange={(e) => setPaymentAmount(e.target.value ? Number(e.target.value) : "")}
                       />
                     </div>
-                  )}
+                    <div className="space-y-2">
+                      <Label>Payment Type</Label>
+                      <Select value={paymentType} onValueChange={setPaymentType}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="dp">DP</SelectItem>
+                          <SelectItem value="settlement">SETTLEMENT</SelectItem>
+                          <SelectItem value="installment">INSTALLMENT</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
                 </div>
-              </form>
-
-              <div className="rounded-lg border bg-muted/30 p-4 space-y-2 text-sm">
-                <div className="flex items-center justify-between text-muted-foreground">
-                  <span>Subtotal</span>
-                  <span className="font-medium text-foreground">{formatIDR(subtotal)}</span>
-                </div>
-                <div className="flex items-center justify-between text-muted-foreground">
-                  <span>Shipping</span>
-                  <span className="font-medium text-foreground">{formatIDR(form.shipping_cost || 0)}</span>
-                </div>
-                <div className="flex items-center justify-between border-t pt-2 text-base font-semibold">
-                  <span>Total</span>
-                  <span>{formatIDR(total)}</span>
-                </div>
-              </div>
+              )}
             </div>
           )}
-        </div>
+        </form>
 
         <DialogFooter className="px-6 py-4 border-t">
           <Button type="button" variant="outline" onClick={onClose}>
@@ -841,7 +1170,7 @@ function OrdersPage() {
   const qc = useQueryClient();
 
   const [editOrder, setEditOrder] = useState<{ id: string; type: "order" | "quotation" } | null>(null);
-  const [createMode, setCreateMode] = useState<"quotation" | "order" | null>(null);
+  const [createModeOpen, setCreateModeOpen] = useState(false);
 
   // Local input state for debounced search box
   const [searchInput, setSearchInput] = useState(search.search);
@@ -872,19 +1201,17 @@ function OrdersPage() {
   const setPage = (p: number) =>
     navigate({ search: (prev: typeof search) => ({ ...prev, page: p }), replace: true });
 
-  const queryParams = useMemo(
-    () => ({
-      page: search.page,
-      limit,
-      search: search.search || undefined,
-      order_status: search.order_status || undefined,
-      payment_status: search.payment_status || undefined,
-      start_date: search.start_date || undefined,
-      end_date: search.end_date || undefined,
-      sales_id: search.sales_id || undefined,
-    }),
-    [search],
-  );
+  const queryParams = {
+    page: search.page,
+    limit,
+    search: search.search || undefined,
+    order_status: search.order_status || undefined,
+    payment_status: search.payment_status || undefined,
+    start_date: search.start_date || undefined,
+    end_date: search.end_date || undefined,
+    sales_id: search.sales_id || undefined,
+    batch_po_id: search.batch_po_id || undefined,
+  };
 
   const { data, isLoading, isError, error, isFetching } = useQuery({
     queryKey: ["orders", queryParams],
@@ -897,6 +1224,12 @@ function OrdersPage() {
   });
   const salesUsers = usersData?.data ?? [];
 
+  const { data: allBatchPOsData } = useQuery({
+    queryKey: ["batch-pos", "list", { limit: 100 }],
+    queryFn: () => batchPosService.list({ limit: 100 }),
+  });
+  const allBatchPOs = allBatchPOsData?.data ?? [];
+
   const statusMut = useMutation({
     mutationFn: ({ id, status }: { id: string; status: OrderStatus }) =>
       ordersService.updateStatus(id, status),
@@ -904,7 +1237,7 @@ function OrdersPage() {
       toast.success("Status updated");
       qc.invalidateQueries({ queryKey: ["orders"] });
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: any) => toast.error(e?.payload?.error || e.message),
   });
 
   const deleteMut = useMutation({
@@ -913,12 +1246,13 @@ function OrdersPage() {
       toast.success("Order deleted");
       qc.invalidateQueries({ queryKey: ["orders"] });
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: any) => toast.error(e?.payload?.error || e.message),
   });
 
   const orders = data?.data ?? [];
   const totalPage = data?.paging?.total_page ?? 1;
   const page = search.page;
+  const hasNextPage = data?.paging?.total_page ? page < data.paging.total_page : orders.length === limit;
 
   const startDate = search.start_date ? new Date(search.start_date) : undefined;
   const endDate = search.end_date ? new Date(search.end_date) : undefined;
@@ -927,6 +1261,7 @@ function OrdersPage() {
     (search.order_status ? 1 : 0) +
     (search.payment_status ? 1 : 0) +
     (search.sales_id ? 1 : 0) +
+    (search.batch_po_id ? 1 : 0) +
     (search.start_date || search.end_date ? 1 : 0);
 
   const hasAnyFilter =
@@ -934,6 +1269,7 @@ function OrdersPage() {
     !!search.order_status ||
     !!search.payment_status ||
     !!search.sales_id ||
+    !!search.batch_po_id ||
     !!search.start_date ||
     !!search.end_date;
 
@@ -947,6 +1283,7 @@ function OrdersPage() {
         start_date: "",
         end_date: "",
         sales_id: "",
+        batch_po_id: "",
       }),
       replace: true,
     });
@@ -961,7 +1298,7 @@ function OrdersPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button onClick={() => setCreateMode("order")}>
+          <Button onClick={() => setCreateModeOpen(true)}>
             <Plus className="mr-1 h-4 w-4" /> New Order
           </Button>
         </div>
@@ -1061,6 +1398,29 @@ function OrdersPage() {
                   </div>
 
                   <div className="space-y-2">
+                    <Label className="text-xs">Batch PO</Label>
+                    <Select
+                      value={search.batch_po_id || "all"}
+                      onValueChange={(v) =>
+                        setFilter({ batch_po_id: v === "all" ? "" : v })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Batches</SelectItem>
+                        {allBatchPOs.map((b) => (
+                          <SelectItem key={b.id} value={b.id}>
+                            <span>{b.name}</span>
+                            <span className="ml-1 text-xs text-muted-foreground capitalize">— {b.status}</span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
                     <Label className="text-xs">Date Range</Label>
                     <div className="grid grid-cols-2 gap-2">
                       <Popover>
@@ -1145,6 +1505,7 @@ function OrdersPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Invoice</TableHead>
+                <TableHead>Batch PO</TableHead>
                 <TableHead>Sales</TableHead>
                 <TableHead>Customer</TableHead>
                 <TableHead>Created</TableHead>
@@ -1158,7 +1519,7 @@ function OrdersPage() {
               {isLoading &&
                 Array.from({ length: 5 }).map((_, i) => (
                   <TableRow key={`sk-${i}`}>
-                    {Array.from({ length: 7 }).map((_, j) => (
+                    {Array.from({ length: 8 }).map((_, j) => (
                       <TableCell key={j}>
                         <Skeleton className="h-4 w-full" />
                       </TableCell>
@@ -1167,14 +1528,14 @@ function OrdersPage() {
                 ))}
               {isError && !isLoading && (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center text-destructive py-8">
+                  <TableCell colSpan={8} className="text-center text-destructive py-8">
                     {(error as Error)?.message ?? "Failed to load orders"}
                   </TableCell>
                 </TableRow>
               )}
               {!isLoading && !isError && orders.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center text-muted-foreground py-10">
+                  <TableCell colSpan={8} className="text-center text-muted-foreground py-10">
                     <div className="space-y-1">
                       <p className="font-medium">No orders found</p>
                       <p className="text-xs">
@@ -1191,6 +1552,15 @@ function OrdersPage() {
                   <TableCell className="font-mono text-xs">
                     {o.order_number ?? o.id.slice(0, 8)}
                   </TableCell>
+                  <TableCell className="text-xs">
+                    {o.batch_po?.name ? (
+                      <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium bg-indigo-50 text-indigo-700 border-indigo-200">
+                        {o.batch_po.name}
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
+                  </TableCell>
                   <TableCell className="font-medium">
                     {o.sales?.name ?? "—"}
                   </TableCell>
@@ -1201,26 +1571,7 @@ function OrdersPage() {
                     {formatDate(o.created_at)}
                   </TableCell>
                   <TableCell>
-                    <Select
-                      value={o.order_status}
-                      onValueChange={(v) =>
-                        statusMut.mutate({ id: o.id, status: v as OrderStatus })
-                      }
-                    >
-                      <SelectTrigger
-                        className={`h-7 w-[130px] text-xs font-medium capitalize border ${statusVariant[o.order_status?.toLowerCase()] ?? ""
-                          }`}
-                      >
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {statusList.map((s) => (
-                          <SelectItem key={s} value={s} className="capitalize">
-                            {s}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <StatusBadge status={o.order_status} />
                   </TableCell>
                   <TableCell className="text-right font-medium">
                     {formatIDR(o.total_amount)}
@@ -1230,6 +1581,15 @@ function OrdersPage() {
                   </TableCell>
                   <TableCell>
                     <div className="flex justify-end gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                        title="Quick Update"
+                        onClick={() => setEditOrder({ id: o.id, type: o.order_status === "quotation" ? "quotation" : "order" })}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
                       <Button asChild variant="ghost" size="icon" className="h-8 w-8" title="View">
                         <Link to="/orders/$orderId" params={{ orderId: o.id }}>
                           <Eye className="h-4 w-4" />
@@ -1271,7 +1631,7 @@ function OrdersPage() {
           <Button
             variant="outline"
             size="sm"
-            disabled={page >= totalPage}
+            disabled={!hasNextPage}
             onClick={() => setPage(page + 1)}
           >
             Next <ChevronRight className="h-4 w-4" />
@@ -1289,9 +1649,8 @@ function OrdersPage() {
 
 
       <CreateOrderDialog
-        open={createMode !== null}
-        onClose={() => setCreateMode(null)}
-        mode={createMode ?? "order"}
+        open={createModeOpen}
+        onClose={() => setCreateModeOpen(false)}
       />
     </div>
   );

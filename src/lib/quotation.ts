@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import type { Order, OrderItem, Customer } from "./types";
+import type { Order, OrderItem, Customer, BankAccount } from "./types";
 
 const COMPANY = {
   name: "WIFT INDONESIA",
@@ -11,8 +11,7 @@ const COMPANY = {
   website: "wiftindonesia.com",
 };
 
-const fmtIDR = (n: number) =>
-  "Rp " + Math.round(n || 0).toLocaleString("id-ID");
+const fmtIDR = (n: number) => "Rp " + Math.round(n || 0).toLocaleString("id-ID");
 
 const fmtDate = (s?: string | null) => {
   if (!s) return "—";
@@ -37,10 +36,12 @@ export function printQuotation({
   order,
   items,
   customer,
+  bankAccounts,
 }: {
   order: Order;
   items: OrderItem[];
   customer: Customer | null;
+  bankAccounts?: BankAccount[];
 }) {
   const subtotal = items.reduce((s, i) => s + i.qty * i.price, 0);
   const shipping = order.shipping_cost || 0;
@@ -49,19 +50,17 @@ export function printQuotation({
   const rowsHtml = items
     .map((it, idx) => {
       const name = escapeHtml(it.product_name || it.product?.name || "—");
-      const detailEntries = it.details
-        ? Object.entries(it.details as Record<string, any>)
-        : [];
+      const detailEntries = it.details ? Object.entries(it.details as Record<string, any>) : [];
       const specs =
         detailEntries.length > 0
           ? `<div class="specs">${detailEntries
-              .map(
-                ([k, v]) =>
-                  `<span><strong>${escapeHtml(String(k))}:</strong> ${escapeHtml(
-                    String(v),
-                  )}</span>`,
-              )
-              .join("")}</div>`
+            .map(
+              ([k, v]) =>
+                `<span><strong>${escapeHtml(String(k))}:</strong> ${escapeHtml(
+                  String(v),
+                )}</span>`,
+            )
+            .join("")}</div>`
           : "";
       return `
         <tr>
@@ -77,6 +76,22 @@ export function printQuotation({
       `;
     })
     .join("");
+
+  const salesBanks = (bankAccounts || []).filter(
+    (b) => !!b.user_id && !!order.sales && b.user_id === order.sales.id,
+  );
+  const globalBanks = (bankAccounts || []).filter((b) => b.is_global);
+  const banksToShow = salesBanks.length ? salesBanks : globalBanks;
+  const bankHtml = banksToShow.length
+    ? `<div class="payment"><h3>Informasi Pembayaran</h3><div class="body">${banksToShow
+      .map(
+        (b) =>
+          `${escapeHtml(b.bank_name)}: ${escapeHtml(b.account_number)} a/n ${escapeHtml(
+            b.account_name,
+          )}`,
+      )
+      .join("<br />")}</div></div>`
+    : "";
 
   const html = `<!doctype html>
 <html lang="id">
@@ -104,6 +119,7 @@ export function printQuotation({
   .company .name { font-size: 18pt; font-weight: 800; letter-spacing: 0.5px; color: #1e293b; }
   .company .tag { color: #64748b; font-size: 9.5pt; margin-top: 2px; }
   .company .meta { font-size: 9pt; color: #475569; margin-top: 6px; max-width: 320px; }
+  .company img { height: 48px; margin-right: 12px; vertical-align: middle; }
   .doc-title {
     text-align: right;
   }
@@ -121,6 +137,42 @@ export function printQuotation({
     grid-template-columns: 1fr 1fr;
     gap: 24px;
     margin-bottom: 18px;
+  }
+  .payment { margin-top: 12px; }
+  .signature-wrapper {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 36px;
+    padding-right: 20px;
+  }
+  .signature {
+    text-align: center;
+    width: 260px;
+    position: relative;
+  }
+  .signature .images {
+    position: relative;
+    height: 100px;
+    margin: 5px 0;
+  }
+  .signature .stamp {
+    position: absolute;
+    left: 0;
+    top: -15px;
+    height: 110px;
+    opacity: 0.85;
+    z-index: 1;
+  }
+  .signature .sign {
+    position: absolute;
+    right: 40px;
+    top: 10px;
+    height: 80px;
+    z-index: 2;
+  }
+  .signature .name {
+    font-weight: 700;
+    margin-top: 8px;
   }
   .info h3 {
     margin: 0 0 6px 0;
@@ -163,7 +215,7 @@ export function printQuotation({
   table.items td.num { width: 32px; text-align: center; color: #64748b; }
   table.items td.center { text-align: center; }
   table.items td.right { text-align: right; }
-  table.items .prod { font-weight: 600; }
+  table.items .prod { font-weight: 600; color: #2563eb; }
   table.items .specs { margin-top: 4px; font-size: 9pt; color: #475569; }
   table.items .specs span { display: inline-block; margin-right: 10px; }
 
@@ -234,12 +286,15 @@ export function printQuotation({
 
   <div class="header">
     <div class="company">
-      <div class="name">${escapeHtml(COMPANY.name)}</div>
-      <div class="tag">${escapeHtml(COMPANY.tagline)}</div>
-      <div class="meta">
-        ${escapeHtml(COMPANY.address)}<br />
-        Telp: ${escapeHtml(COMPANY.phone)} · ${escapeHtml(COMPANY.email)}<br />
-        ${escapeHtml(COMPANY.website)}
+      <img src="/assets/logo.png" alt="logo" />
+      <div style="display:inline-block;vertical-align:middle">
+        <div class="name">${escapeHtml(COMPANY.name)}</div>
+        <div class="tag">${escapeHtml(COMPANY.tagline)}</div>
+        <div class="meta">
+          ${escapeHtml(COMPANY.address)}<br />
+          Telp: ${escapeHtml(COMPANY.phone)} · ${escapeHtml(COMPANY.email)}<br />
+          ${escapeHtml(COMPANY.website)}
+        </div>
       </div>
     </div>
     <div class="doc-title">
@@ -269,13 +324,14 @@ export function printQuotation({
     </div>
   </div>
 
-  ${
-    order.valid_until
+  ${order.valid_until
       ? `<div class="valid-box">
           <strong>Berlaku sampai:</strong> ${fmtDate(order.valid_until)}
         </div>`
       : ""
-  }
+    }
+
+  ${bankHtml}
 
   <table class="items">
     <thead>
@@ -298,26 +354,36 @@ export function printQuotation({
     <div class="row grand"><span>TOTAL</span><span>${fmtIDR(total)}</span></div>
   </div>
 
-  ${
-    order.terms_conditions
+  ${order.terms_conditions
       ? `<div class="terms">
           <h3>Syarat &amp; Ketentuan</h3>
           <div class="body">${escapeHtml(order.terms_conditions)}</div>
         </div>`
       : ""
-  }
+    }
 
-  ${
-    order.notes
+  ${order.notes
       ? `<div class="terms">
           <h3>Catatan</h3>
           <div class="body">${escapeHtml(order.notes)}</div>
         </div>`
       : ""
-  }
+    }
 
   <div class="footer">
     Terima kasih atas kepercayaan Anda kepada ${escapeHtml(COMPANY.name)}.
+  </div>
+
+  <div class="signature-wrapper">
+    <div class="signature">
+      <div>Hormat Kami,</div>
+      <div>Manager WIFT Indonesia</div>
+      <div class="images">
+        <img src="/assets/stempel-wift.png" class="stamp" alt="Stempel" />
+        <img src="/assets/ttd-manager.png" class="sign" alt="Tanda Tangan" />
+      </div>
+      <div class="name">( Yusri Siti Aisyah., S.Ak )</div>
+    </div>
   </div>
 
   <script>

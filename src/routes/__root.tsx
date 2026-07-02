@@ -123,7 +123,7 @@ function RootComponent() {
             </main>
           </div>
         </div>
-        <Toaster richColors position="top-right" />
+        <Toaster richColors position="top-right" closeButton />
       </SidebarProvider>
     </QueryClientProvider>
   );
