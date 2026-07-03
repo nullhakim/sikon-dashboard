@@ -56,7 +56,7 @@ import {
 import { formatIDR, formatDate, formatDateISO, datetimeLocalToISO } from "@/lib/format";
 import { generateInvoicePDF, generateKwitansiPDF } from "@/lib/invoice";
 import { QuotationPdfDialog } from "@/components/QuotationPdfDialog";
-import { Item, buildItemDetails, ItemDetailsFields } from "@/routes/orders.index";
+import { Item, buildItemDetails, ItemDetailsFields, parseDetailsFromBackend } from "@/routes/orders.index";
 export const Route = createFileRoute("/orders/$orderId")({
   head: () => ({
     meta: [
@@ -942,40 +942,62 @@ function OrderItemDialog({
 
   return (
     <Dialog open={open} onOpenChange={(v) => (v ? null : onClose())}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-3xl">
         <DialogHeader>
           <DialogTitle>{isEditing ? "Edit Item" : "Add Item"}</DialogTitle>
         </DialogHeader>
         <form id="item-form" onSubmit={handleSubmit} className="space-y-4 py-2">
-          <div className="space-y-2">
-            <Label>Product</Label>
-            <Select value={it.product_id} onValueChange={(val) => {
-               const p = productsQ.data?.data?.find((x: any) => x.id === val);
-               setIt(prev => ({ ...prev, product_id: val, price: p && !isEditing ? (p.base_price ?? 0) : prev.price }));
-            }} disabled={productsQ.isLoading}>
-              <SelectTrigger><SelectValue placeholder="Select a product" /></SelectTrigger>
-              <SelectContent>
-                {productsQ.data?.data?.map((p: any) => (
-                  <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Quantity</Label>
-              <Input type="number" min={1} value={it.qty} onChange={(e) => setIt(prev => ({...prev, qty: Number(e.target.value)}))} />
+          <div className="grid md:grid-cols-2 gap-6">
+            {/* Left Side: Product Details */}
+            <div className="space-y-4 pt-2">
+              <div className="space-y-2">
+                <Label>Product</Label>
+                <Select value={it.product_id} onValueChange={(val) => {
+                   const p = productsQ.data?.data?.find((x: any) => x.id === val);
+                   setIt(prev => ({ ...prev, product_id: val, price: p && !isEditing ? (p.base_price ?? 0) : prev.price }));
+                }} disabled={productsQ.isLoading}>
+                  <SelectTrigger><SelectValue placeholder="Select a product" /></SelectTrigger>
+                  <SelectContent>
+                    {productsQ.data?.data?.map((p: any) => (
+                      <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs">Custom Product Name <span className="text-muted-foreground font-normal">(Optional)</span></Label>
+                <Input
+                  placeholder="e.g., Seragam PDH Bank Mandiri"
+                  value={it.custom_name ?? ""}
+                  onChange={(e) => setIt(prev => ({...prev, custom_name: e.target.value}))}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Quantity</Label>
+                  <Input type="number" min={1} value={it.qty} onChange={(e) => setIt(prev => ({...prev, qty: Number(e.target.value)}))} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Price</Label>
+                  <Input type="number" min={0} value={it.price} onChange={(e) => setIt(prev => ({...prev, price: Number(e.target.value)}))} />
+                </div>
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label>Price</Label>
-              <Input type="number" min={0} value={it.price} onChange={(e) => setIt(prev => ({...prev, price: Number(e.target.value)}))} />
+
+            {/* Right Side: Material & Specification */}
+            <div>
+              <ItemDetailsFields
+                item={it}
+                isQuotation={false}
+                hideSpec={true}
+                hideCustomName={true}
+                onChange={(patch) => setIt(prev => ({...prev, ...patch}))}
+              />
             </div>
           </div>
-          <ItemDetailsFields
-            item={it}
-            isQuotation={false}
-            onChange={(patch) => setIt(prev => ({...prev, ...patch}))}
-          />
+
           <div className="flex items-center justify-between rounded-md border bg-muted/30 p-3 mt-4 text-sm">
             <span className="font-semibold text-muted-foreground">Item Subtotal</span>
             <span className="font-semibold text-primary">{formatIDR((Number(it.qty) || 0) * (Number(it.price) || 0))}</span>

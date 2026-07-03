@@ -172,10 +172,14 @@ export function parseDetailsFromBackend(
 export function ItemDetailsFields({
   item,
   isQuotation,
+  hideSpec,
+  hideCustomName,
   onChange,
 }: {
   item: Item;
   isQuotation: boolean;
+  hideSpec?: boolean;
+  hideCustomName?: boolean;
   onChange: (patch: Partial<Item>) => void;
 }) {
   const specs = useQuery({
@@ -199,14 +203,16 @@ export function ItemDetailsFields({
   return (
     <div className="space-y-3 pt-2 border-t">
       {/* Custom Name */}
-      <div className="space-y-1">
-        <Label className="text-xs">Custom Product Name <span className="text-muted-foreground font-normal">(Optional)</span></Label>
-        <Input
-          placeholder="e.g., Seragam PDH Bank Mandiri"
-          value={item.custom_name ?? ""}
-          onChange={(e) => onChange({ custom_name: e.target.value })}
-        />
-      </div>
+      {!hideCustomName && (
+        <div className="space-y-1">
+          <Label className="text-xs">Custom Product Name <span className="text-muted-foreground font-normal">(Optional)</span></Label>
+          <Input
+            placeholder="e.g., Seragam PDH Bank Mandiri"
+            value={item.custom_name ?? ""}
+            onChange={(e) => onChange({ custom_name: e.target.value })}
+          />
+        </div>
+      )}
 
       {/* Material Parts Array */}
       <div className="space-y-2">
@@ -293,15 +299,17 @@ export function ItemDetailsFields({
             </div>
 
             {/* Specification */}
-            <div className="space-y-1">
-              <Label className="text-xs">Specification</Label>
-              <Textarea
-                rows={2}
-                placeholder="e.g., Warna Navy Blue, Bordir Logo Dada Kiri"
-                value={part.spec}
-                onChange={(e) => updatePart(idx, { spec: e.target.value })}
-              />
-            </div>
+            {!hideSpec && (
+              <div className="space-y-1">
+                <Label className="text-xs">Specification</Label>
+                <Textarea
+                  rows={2}
+                  placeholder="e.g., Warna Navy Blue, Bordir Logo Dada Kiri"
+                  value={part.spec}
+                  onChange={(e) => updatePart(idx, { spec: e.target.value })}
+                />
+              </div>
+            )}
           </div>
         ))}
       </div>
