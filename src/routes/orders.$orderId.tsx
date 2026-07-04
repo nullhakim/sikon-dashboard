@@ -477,8 +477,12 @@ function UpdateQuotationDialog({
             product_id: it.product_id,
             custom_name: it.custom_name || undefined,
             qty: it.qty,
-            price: it.price,
-            details: buildItemDetails(it),
+            details: {
+              parts: buildItemDetails(it) || [],
+              bordir: it.bordir,
+              benang: it.benang,
+              jahitan: it.jahitan
+            },
           })
         )
       );
@@ -493,12 +497,17 @@ function UpdateQuotationDialog({
         notes: order.notes || undefined,
         terms_conditions: form.terms_conditions || undefined,
         valid_until: form.valid_until || undefined,
-        items: order.items.map((i: any) => ({
-          product_id: i.product_id,
-          custom_name: i.custom_name || undefined,
-          qty: i.qty,
-          price: i.price,
-          details: i.details,
+        items: items.map((it: any) => ({
+          product_id: it.product_id,
+          custom_name: it.custom_name || undefined,
+          qty: it.qty,
+          price: it.price,
+          details: {
+            parts: buildItemDetails(it) || [],
+            bordir: it.bordir,
+            benang: it.benang,
+            jahitan: it.jahitan
+          },
         })),
       });
     },

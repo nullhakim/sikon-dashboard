@@ -99,6 +99,7 @@ function StatusBadge({ status }: { status: string }) {
 export interface DetailPartForm {
   part: string;
   material_name: string;
+  warna?: string;
   spec: string;
 }
 
@@ -125,7 +126,7 @@ export function buildItemDetails(
   _isQuotation?: boolean,
 ): DetailPartForm[] | undefined {
   const parts = it.details.filter(
-    (d) => d.part.trim() || d.material_name.trim() || d.spec.trim(),
+    (d) => d.part.trim() || d.material_name.trim() || d.spec.trim() || (d.warna && d.warna.trim()),
   );
   return parts.length > 0 ? parts : undefined;
 }
@@ -134,7 +135,7 @@ export function buildItemDetails(
 export function parseDetailsFromBackend(
   raw: any,
 ): DetailPartForm[] {
-  if (!raw) return [{ part: "", material_name: "", spec: "" }];
+  if (!raw) return [{ part: "", material_name: "", warna: "", spec: "" }];
   // New shape: array of {part, material_name, spec}
   if (Array.isArray(raw)) {
     const parsed = raw.filter((r: any) => r && typeof r === "object");
@@ -142,9 +143,22 @@ export function parseDetailsFromBackend(
       ? parsed.map((r: any) => ({
           part: r.part ?? "",
           material_name: r.material_name ?? "",
+          warna: r.warna ?? "",
           spec: r.spec ?? "",
         }))
-      : [{ part: "", material_name: "", spec: "" }];
+      : [{ part: "", material_name: "", warna: "", spec: "" }];
+  }
+  // Object shape with parts array
+  if (raw && typeof raw === "object" && Array.isArray(raw.parts)) {
+    const parsed = raw.parts.filter((r: any) => r && typeof r === "object");
+    return parsed.length > 0
+      ? parsed.map((r: any) => ({
+          part: r.part ?? "",
+          material_name: r.material_name ?? "",
+          warna: r.warna ?? "",
+          spec: r.spec ?? "",
+        }))
+      : [{ part: "", material_name: "", warna: "", spec: "" }];
   }
   // Legacy object shape — migrate to single-block array
   if (typeof raw === "object") {
@@ -157,15 +171,17 @@ export function parseDetailsFromBackend(
       (typeof b === "object" ? b.spec ?? b.Spec : "") ??
       raw["Bahan Kemeja"] ??
       "";
+    const warna = raw.Warna ?? raw.warna ?? (typeof b === "object" ? b.Color ?? b.color : "") ?? "";
     return [
       {
         part: "",
         material_name: typeof bahanName === "string" ? bahanName : "",
+        warna: typeof warna === "string" ? warna : "",
         spec: typeof spec === "string" ? spec : "",
       },
     ];
   }
-  return [{ part: "", material_name: "", spec: "" }];
+  return [{ part: "", material_name: "", warna: "", spec: "" }];
 }
 
 
@@ -187,7 +203,7 @@ export function ItemDetailsFields({
     queryFn: () => specTemplatesService.list({ page: 1, limit: 100 }),
   });
 
-  const details = item.details ?? [{ part: "", material_name: "", spec: "" }];
+  const details = item.details ?? [{ part: "", material_name: "", warna: "", spec: "" }];
 
   const updatePart = (idx: number, patch: Partial<DetailPartForm>) =>
     onChange({
@@ -195,7 +211,7 @@ export function ItemDetailsFields({
     });
 
   const addPart = () =>
-    onChange({ details: [...details, { part: "", material_name: "", spec: "" }] });
+    onChange({ details: [...details, { part: "", material_name: "", warna: "", spec: "" }] });
 
   const removePart = (idx: number) =>
     onChange({ details: details.filter((_, i) => i !== idx) });
@@ -295,6 +311,17 @@ export function ItemDetailsFields({
                 placeholder="Or type a custom material name…"
                 value={part.material_name}
                 onChange={(e) => updatePart(idx, { material_name: e.target.value })}
+              />
+            </div>
+
+            {/* Warna */}
+            <div className="space-y-1">
+              <Label className="text-xs">Warna</Label>
+              <Input
+                className="h-7 text-xs"
+                placeholder="e.g., Navy Blue, Hitam"
+                value={part.warna ?? ""}
+                onChange={(e) => updatePart(idx, { warna: e.target.value })}
               />
             </div>
 
@@ -460,7 +487,12 @@ function CreateOrderDialog({ open, onClose }: { open: boolean; onClose: () => vo
             custom_name: i.custom_name || undefined,
             qty: i.qty,
             price: i.price,
-            details: buildItemDetails(i),
+            details: {
+              parts: buildItemDetails(i) || [],
+              bordir: i.bordir,
+              benang: i.benang,
+              jahitan: i.jahitan
+            },
           })),
       }),
     onSuccess: async (res: any) => {
@@ -1033,7 +1065,12 @@ export function UpdateOrderDialog({
           custom_name: i.custom_name || undefined,
           qty: i.qty,
           price: i.price,
-          details: buildItemDetails(i) || {},
+          details: {
+            parts: buildItemDetails(i) || [],
+            bordir: i.bordir,
+            benang: i.benang,
+            jahitan: i.jahitan
+          },
         })),
       courier_name: form.courier_name || undefined,
       shipping_cost: Number(form.shipping_cost) || 0,
