@@ -32,6 +32,56 @@ const escapeHtml = (str: string) =>
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
 
+function formatQuotationDetailsHtml(details: unknown): string {
+  if (!details || typeof details !== "object") return "";
+  const partsList: string[] = [];
+
+  const extractParts = (arr: any[]) => {
+    arr.forEach(d => {
+      if (!d.part && !d.material_name && !d.spec) return;
+      const inner: string[] = [];
+      if (d.material_name) inner.push(String(d.material_name));
+      if (d.spec) inner.push(String(d.spec));
+      
+      const partName = d.part || "Bahan";
+      if (inner.length) partsList.push(`<span><strong>${escapeHtml(partName)}:</strong> ${escapeHtml(inner.join(" - "))}</span>`);
+      else if (partName !== "Bahan") partsList.push(`<span><strong>${escapeHtml(partName)}</strong></span>`);
+    });
+  };
+
+  if (Array.isArray(details)) {
+    extractParts(details);
+    return partsList.join("");
+  }
+
+  const d = details as Record<string, any>;
+  
+  if (Array.isArray(d.parts)) {
+    extractParts(d.parts);
+  } else {
+    // Legacy shape
+    const bahan = d.Bahan ?? d.bahan;
+    if (bahan && typeof bahan === "object") {
+      const b = bahan as Record<string, any>;
+      const inner: string[] = [];
+      if (b.Name ?? b.name) inner.push(String(b.Name ?? b.name));
+      if (b.Color ?? b.color) inner.push(String(b.Color ?? b.color));
+      if (b.Spec ?? b.spec) inner.push(String(b.Spec ?? b.spec));
+      if (inner.length) partsList.push(`<span><strong>Bahan:</strong> ${escapeHtml(inner.join(" - "))}</span>`);
+    } else if (typeof bahan === "string" && bahan.trim()) {
+      partsList.push(`<span><strong>Bahan:</strong> ${escapeHtml(bahan)}</span>`);
+    }
+    const warna = d.Warna ?? d.warna;
+    if (warna) partsList.push(`<span><strong>Warna:</strong> ${escapeHtml(String(warna))}</span>`);
+  }
+
+  if (d.bordir || d.Bordir) partsList.push(`<span><strong>Bordir:</strong> ${escapeHtml(String(d.bordir || d.Bordir))}</span>`);
+  if (d.benang || d.Benang) partsList.push(`<span><strong>Benang:</strong> ${escapeHtml(String(d.benang || d.Benang))}</span>`);
+  if (d.jahitan || d.Jahitan) partsList.push(`<span><strong>Jahitan:</strong> ${escapeHtml(String(d.jahitan || d.Jahitan))}</span>`);
+
+  return partsList.join("");
+}
+
 export function printQuotation({
   order,
   items,
@@ -50,18 +100,8 @@ export function printQuotation({
   const rowsHtml = items
     .map((it, idx) => {
       const name = escapeHtml(it.product_name || it.product?.name || "—");
-      const detailEntries = it.details ? Object.entries(it.details as Record<string, any>) : [];
-      const specs =
-        detailEntries.length > 0
-          ? `<div class="specs">${detailEntries
-            .map(
-              ([k, v]) =>
-                `<span><strong>${escapeHtml(String(k))}:</strong> ${escapeHtml(
-                  String(v),
-                )}</span>`,
-            )
-            .join("")}</div>`
-          : "";
+      const specsHtml = formatQuotationDetailsHtml(it.details);
+      const specs = specsHtml ? `<div class="specs">${specsHtml}</div>` : "";
       return `
         <tr>
           <td class="num">${idx + 1}</td>

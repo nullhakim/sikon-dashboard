@@ -398,35 +398,46 @@ function buildQuotationSpecLines(
 ): { label: string; value: string }[] {
   const lines: { label: string; value: string }[] = [];
   
-  if (Array.isArray(details)) {
-    details.forEach(d => {
-      if (!d.part && !d.material_name) return;
+  const extractParts = (arr: any[]) => {
+    arr.forEach(d => {
+      if (!d.part && !d.material_name && !d.warna && !d.spec) return;
       const parts: string[] = [];
       if (d.material_name) parts.push(String(d.material_name));
+      if (d.warna) parts.push(String(d.warna));
       const head = parts.join(" — ");
       const spec = d.spec ? String(d.spec) : "";
       const value = [head, spec].filter(Boolean).join(". ");
-      if (value) lines.push({ label: d.part || "Bahan", value });
+      if (value) lines.push({ label: "Bahan", value });
     });
+  };
+
+  if (Array.isArray(details)) {
+    extractParts(details);
     return lines;
   }
 
   const d = details as Record<string, unknown>;
-  const bahan = d.Bahan ?? d.bahan;
-  if (bahan && typeof bahan === "object") {
-    const b = bahan as Record<string, unknown>;
-    const parts: string[] = [];
-    const bName = b.Name ?? b.name;
-    const bColor = b.Color ?? b.color;
-    if (bName) parts.push(String(bName));
-    if (bColor) parts.push(String(bColor));
-    const head = parts.join(" — ");
-    const bSpec = b.Spec ?? b.spec;
-    const spec = bSpec ? String(bSpec) : "";
-    const value = [head, spec].filter(Boolean).join(". ");
-    if (value) lines.push({ label: "Bahan", value });
-  } else if (typeof bahan === "string" && bahan.trim()) {
-    lines.push({ label: "Bahan", value: bahan });
+  
+  if (Array.isArray(d.parts)) {
+    extractParts(d.parts);
+  } else {
+    // Legacy shape
+    const bahan = d.Bahan ?? d.bahan;
+    if (bahan && typeof bahan === "object") {
+      const b = bahan as Record<string, unknown>;
+      const parts: string[] = [];
+      const bName = b.Name ?? b.name;
+      const bColor = b.Color ?? b.color;
+      if (bName) parts.push(String(bName));
+      if (bColor) parts.push(String(bColor));
+      const head = parts.join(" — ");
+      const bSpec = b.Spec ?? b.spec;
+      const spec = bSpec ? String(bSpec) : "";
+      const value = [head, spec].filter(Boolean).join(". ");
+      if (value) lines.push({ label: "Bahan", value });
+    } else if (typeof bahan === "string" && bahan.trim()) {
+      lines.push({ label: "Bahan", value: bahan });
+    }
   }
 
   const bordir = d.Bordir ?? d.bordir;

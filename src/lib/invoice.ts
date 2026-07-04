@@ -103,32 +103,45 @@ const formatDate = (dateStr: string | null | undefined) => {
 
 function formatOrderDetails(details: unknown): string {
   if (!details || typeof details !== "object") return "";
-  const parts: string[] = [];
+  const partsList: string[] = [];
 
-  if (Array.isArray(details)) {
-    details.forEach(d => {
-      if (!d.part && !d.material_name) return;
+  const extractParts = (arr: any[]) => {
+    arr.forEach(d => {
+      if (!d.part && !d.material_name && !d.warna) return;
       const inner: string[] = [];
       if (d.material_name) inner.push(String(d.material_name));
-      if (inner.length) parts.push(`${d.part || "Bahan"}: ${inner.join(" - ")}`);
+      if (d.warna) inner.push(String(d.warna));
+      
+      if (inner.length) partsList.push(`Bahan: ${inner.join(" - ")}`);
     });
-    return parts.join(", ");
+  };
+
+  if (Array.isArray(details)) {
+    extractParts(details);
+    return partsList.join("\n");
   }
 
   const d = details as Record<string, any>;
-  const bahan = d.Bahan ?? d.bahan;
-  if (bahan && typeof bahan === "object") {
-    const b = bahan as Record<string, any>;
-    const inner: string[] = [];
-    if (b.Name ?? b.name) inner.push(String(b.Name ?? b.name));
-    if (b.Color ?? b.color) inner.push(String(b.Color ?? b.color));
-    if (inner.length) parts.push(`Bahan: ${inner.join(" - ")}`);
-  } else if (typeof bahan === "string" && bahan.trim()) {
-    parts.push(`Bahan: ${bahan}`);
+  
+  if (Array.isArray(d.parts)) {
+    extractParts(d.parts);
+  } else {
+    // Legacy shape
+    const bahan = d.Bahan ?? d.bahan;
+    if (bahan && typeof bahan === "object") {
+      const b = bahan as Record<string, any>;
+      const inner: string[] = [];
+      if (b.Name ?? b.name) inner.push(String(b.Name ?? b.name));
+      if (b.Color ?? b.color) inner.push(String(b.Color ?? b.color));
+      if (inner.length) partsList.push(`Bahan: ${inner.join(" - ")}`);
+    } else if (typeof bahan === "string" && bahan.trim()) {
+      partsList.push(`Bahan: ${bahan}`);
+    }
+    const warna = d.Warna ?? d.warna;
+    if (warna) partsList.push(`Warna: ${warna}`);
   }
-  const warna = d.Warna ?? d.warna;
-  if (warna) parts.push(`Warna: ${warna}`);
-  return parts.join(", ");
+
+  return partsList.join("\n");
 }
 
 async function loadImageDataURL(url: string): Promise<string | null> {
