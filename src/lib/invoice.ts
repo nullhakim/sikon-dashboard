@@ -182,7 +182,7 @@ export async function generateInvoicePDF({
   const logoData = await loadImageDataURL("/assets/logo.png");
   if (logoData) {
     try {
-      doc.addImage(logoData, "PNG", margin - 5, 12, 25, 25);
+      doc.addImage(logoData, "PNG", margin - 5, 12, 25, 25, undefined, "FAST");
     } catch {
       // ignore
     }
@@ -410,7 +410,7 @@ export async function generateInvoicePDF({
     if (stempelData) {
       try {
         const size = 35;
-        doc.addImage(stempelData, "PNG", pageWidth - margin - 70, sigY + 5, size, size);
+        doc.addImage(stempelData, "PNG", pageWidth - margin - 70, sigY + 5, size, size, undefined, "FAST");
       } catch {
         // ignore
       }
@@ -424,7 +424,7 @@ export async function generateInvoicePDF({
       try {
         const w = 35;
         const h = 25;
-        doc.addImage(sigData, "PNG", pageWidth - margin - 25 - w / 2, sigY + 7, w, h);
+        doc.addImage(sigData, "PNG", pageWidth - margin - 25 - w / 2, sigY + 7, w, h, undefined, "FAST");
       } catch {
         // ignore
       }
@@ -488,7 +488,7 @@ export async function generateKwitansiPDF({
   const logoData = await loadImageDataURL("/assets/logo.png");
   if (logoData) {
     try {
-      doc.addImage(logoData, "PNG", margin, 12, 25, 25);
+      doc.addImage(logoData, "PNG", margin, 12, 25, 25, undefined, "FAST");
     } catch {
       // ignore
     }
@@ -617,7 +617,7 @@ export async function generateKwitansiPDF({
     if (stempelData) {
       try {
         const size = 35;
-        doc.addImage(stempelData, "PNG", sigX - 35, sigY + 5, size, size);
+        doc.addImage(stempelData, "PNG", sigX - 35, sigY + 5, size, size, undefined, "FAST");
       } catch { }
     }
   }
@@ -628,7 +628,7 @@ export async function generateKwitansiPDF({
       try {
         const w = 35;
         const h = 25;
-        doc.addImage(sigData, "PNG", sigX - w / 2, sigY + 7, w, h);
+        doc.addImage(sigData, "PNG", sigX - w / 2, sigY + 7, w, h, undefined, "FAST");
       } catch { }
     }
   }
