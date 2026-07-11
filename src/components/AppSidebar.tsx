@@ -11,6 +11,7 @@ import {
   BookOpen,
   PieChart,
   Layers,
+  ClipboardList,
 } from "lucide-react";
 
 import {
@@ -28,6 +29,7 @@ import {
 const main = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
   { title: "Reports", url: "/reports", icon: PieChart },
+  { title: "Daily Report", url: "/reports/daily", icon: ClipboardList },
 ];
 
 const transactions = [
