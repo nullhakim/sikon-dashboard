@@ -239,6 +239,15 @@ export const dashboardService = {
     api.get<ApiSuccess<any>>("/dashboard/summary", p as any),
 };
 
+// Daily Report
+import type { DailyReportResponse } from "./types/daily-report";
+
+export const dailyReportService = {
+  /** Fetch daily report snapshot. Omit `date` to use today. */
+  get: (date?: string) =>
+    api.get<DailyReportResponse>("/reports/daily", date ? { date } : undefined),
+};
+
 // Batch POs
 export interface BatchPOsListParams extends PageParams {
   search?: string;
