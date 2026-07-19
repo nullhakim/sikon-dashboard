@@ -101,25 +101,47 @@ const formatDate = (dateStr: string | null | undefined) => {
   });
 };
 
-// Invoice (order) renders only the basic Bahan info — skips quotation-only
-// fields like Bordir / Benang / Jahitan and Bahan.Spec.
 function formatOrderDetails(details: unknown): string {
   if (!details || typeof details !== "object") return "";
-  const d = details as Record<string, any>;
-  const parts: string[] = [];
-  const bahan = d.Bahan ?? d.bahan;
-  if (bahan && typeof bahan === "object") {
-    const b = bahan as Record<string, any>;
-    const inner: string[] = [];
-    if (b.Name ?? b.name) inner.push(String(b.Name ?? b.name));
-    if (b.Color ?? b.color) inner.push(String(b.Color ?? b.color));
-    if (inner.length) parts.push(`Bahan: ${inner.join(" - ")}`);
-  } else if (typeof bahan === "string" && bahan.trim()) {
-    parts.push(`Bahan: ${bahan}`);
+  const partsList: string[] = [];
+
+  const extractParts = (arr: any[]) => {
+    arr.forEach(d => {
+      if (!d.part && !d.material_name && !d.warna) return;
+      const inner: string[] = [];
+      if (d.material_name) inner.push(String(d.material_name));
+      if (d.warna) inner.push(String(d.warna));
+      
+      if (inner.length) partsList.push(`Bahan: ${inner.join(" - ")}`);
+    });
+  };
+
+  if (Array.isArray(details)) {
+    extractParts(details);
+    return partsList.join("\n");
   }
-  const warna = d.Warna ?? d.warna;
-  if (warna) parts.push(`Warna: ${warna}`);
-  return parts.join(", ");
+
+  const d = details as Record<string, any>;
+  
+  if (Array.isArray(d.parts)) {
+    extractParts(d.parts);
+  } else {
+    // Legacy shape
+    const bahan = d.Bahan ?? d.bahan;
+    if (bahan && typeof bahan === "object") {
+      const b = bahan as Record<string, any>;
+      const inner: string[] = [];
+      if (b.Name ?? b.name) inner.push(String(b.Name ?? b.name));
+      if (b.Color ?? b.color) inner.push(String(b.Color ?? b.color));
+      if (inner.length) partsList.push(`Bahan: ${inner.join(" - ")}`);
+    } else if (typeof bahan === "string" && bahan.trim()) {
+      partsList.push(`Bahan: ${bahan}`);
+    }
+    const warna = d.Warna ?? d.warna;
+    if (warna) partsList.push(`Warna: ${warna}`);
+  }
+
+  return partsList.join("\n");
 }
 
 async function loadImageDataURL(url: string): Promise<string | null> {
@@ -160,7 +182,7 @@ export async function generateInvoicePDF({
   const logoData = await loadImageDataURL("/assets/logo.png");
   if (logoData) {
     try {
-      doc.addImage(logoData, "PNG", margin - 5, 12, 25, 25);
+      doc.addImage(logoData, "PNG", margin - 5, 12, 25, 25, undefined, "FAST");
     } catch {
       // ignore
     }
@@ -238,7 +260,7 @@ export async function generateInvoicePDF({
     const detailStr = formatOrderDetails(item.details);
     return [
       String(idx + 1),
-      (item.product_name || item.product?.name || "-") + (detailStr ? "\n" + detailStr : ""),
+      (item.custom_name || item.product_name || item.product?.name || "-") + (detailStr ? "\n" + detailStr : ""),
       String(item.qty),
       formatCurrency(item.price),
       formatCurrency(subtotal),
@@ -388,7 +410,7 @@ export async function generateInvoicePDF({
     if (stempelData) {
       try {
         const size = 35;
-        doc.addImage(stempelData, "PNG", pageWidth - margin - 70, sigY + 5, size, size);
+        doc.addImage(stempelData, "PNG", pageWidth - margin - 70, sigY + 5, size, size, undefined, "FAST");
       } catch {
         // ignore
       }
@@ -402,7 +424,7 @@ export async function generateInvoicePDF({
       try {
         const w = 35;
         const h = 25;
-        doc.addImage(sigData, "PNG", pageWidth - margin - 25 - w / 2, sigY + 7, w, h);
+        doc.addImage(sigData, "PNG", pageWidth - margin - 25 - w / 2, sigY + 7, w, h, undefined, "FAST");
       } catch {
         // ignore
       }
@@ -466,7 +488,7 @@ export async function generateKwitansiPDF({
   const logoData = await loadImageDataURL("/assets/logo.png");
   if (logoData) {
     try {
-      doc.addImage(logoData, "PNG", margin, 12, 25, 25);
+      doc.addImage(logoData, "PNG", margin, 12, 25, 25, undefined, "FAST");
     } catch {
       // ignore
     }
@@ -545,7 +567,7 @@ export async function generateKwitansiPDF({
   if (order.items && order.items.length > 0) {
     const productMap = new Map<string, { name: string; qty: number }>();
     order.items.forEach((item) => {
-      const pName = item.product_name || item.product?.name || "Produk";
+      const pName = item.custom_name || item.product_name || item.product?.name || "Produk";
       const pId = item.product_id || pName;
       if (productMap.has(pId)) {
         productMap.get(pId)!.qty += item.qty;
@@ -595,7 +617,7 @@ export async function generateKwitansiPDF({
     if (stempelData) {
       try {
         const size = 35;
-        doc.addImage(stempelData, "PNG", sigX - 35, sigY + 5, size, size);
+        doc.addImage(stempelData, "PNG", sigX - 35, sigY + 5, size, size, undefined, "FAST");
       } catch { }
     }
   }
@@ -606,7 +628,7 @@ export async function generateKwitansiPDF({
       try {
         const w = 35;
         const h = 25;
-        doc.addImage(sigData, "PNG", sigX - w / 2, sigY + 7, w, h);
+        doc.addImage(sigData, "PNG", sigX - w / 2, sigY + 7, w, h, undefined, "FAST");
       } catch { }
     }
   }

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus, ChevronLeft, ChevronRight, Trash2, Eye, Pencil, Search, Filter, X, CalendarIcon, FileText } from "lucide-react";
@@ -96,17 +96,22 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
+export interface DetailPartForm {
+  part: string;
+  material_name: string;
+  warna?: string;
+  spec: string;
+}
+
 export interface Item {
   id?: string;
   product_id: string;
+  custom_name?: string;       // New: optional display-name override
   qty: number;
   price: number;
-  // Bahan (nested) — both modes
-  template_id?: string;
-  bahan_name?: string;
-  bahan_color?: string;
-  bahan_spec?: string; // quotation only
-  // Quotation-only top-level
+  // New: dynamic multi-part materials array
+  details: DetailPartForm[];
+  // Legacy quotation-only top-level fields (kept for backward compat)
   benang?: string;
   bordir?: string;
   jahitan?: string;
@@ -115,111 +120,228 @@ export interface Item {
 export const BORDIR_AUTOFILL = "Bordir Menggunakan Sistem Komputerisasi";
 export const BENANG_AUTOFILL = "Benang Bordir Menggunakan Benang Polyster";
 
+/** Build the `details` array payload from the form state. */
 export function buildItemDetails(
   it: Item,
-  isQuotation: boolean,
-): Record<string, any> | undefined {
-  const details: Record<string, any> = {};
-  const bahan: Record<string, string> = {};
-  if (it.bahan_name?.trim()) bahan.name = it.bahan_name.trim();
-  if (it.bahan_color?.trim()) bahan.color = it.bahan_color.trim();
-  if (it.bahan_spec?.trim()) bahan.spec = it.bahan_spec.trim();
-  if (Object.keys(bahan).length) details.bahan = bahan;
-  if (isQuotation) {
-    if (it.benang?.trim()) details.Benang = it.benang.trim();
-    if (it.bordir?.trim()) details.Bordir = it.bordir.trim();
-    if (it.jahitan?.trim()) details.Jahitan = it.jahitan.trim();
+  _isQuotation?: boolean,
+): DetailPartForm[] | undefined {
+  const parts = it.details.filter(
+    (d) => d.part.trim() || d.material_name.trim() || d.spec.trim() || (d.warna && d.warna.trim()),
+  );
+  return parts.length > 0 ? parts : undefined;
+}
+
+/** Helper: parse legacy details (object) or new details (array) from backend into form state. */
+export function parseDetailsFromBackend(
+  raw: any,
+): DetailPartForm[] {
+  if (!raw) return [{ part: "", material_name: "", warna: "", spec: "" }];
+  // New shape: array of {part, material_name, spec}
+  if (Array.isArray(raw)) {
+    const parsed = raw.filter((r: any) => r && typeof r === "object");
+    return parsed.length > 0
+      ? parsed.map((r: any) => ({
+          part: r.part ?? "",
+          material_name: r.material_name ?? "",
+          warna: r.warna ?? "",
+          spec: r.spec ?? "",
+        }))
+      : [{ part: "", material_name: "", warna: "", spec: "" }];
   }
-  return Object.keys(details).length > 0 ? details : undefined;
+  // Object shape with parts array
+  if (raw && typeof raw === "object" && Array.isArray(raw.parts)) {
+    const parsed = raw.parts.filter((r: any) => r && typeof r === "object");
+    return parsed.length > 0
+      ? parsed.map((r: any) => ({
+          part: r.part ?? "",
+          material_name: r.material_name ?? "",
+          warna: r.warna ?? "",
+          spec: r.spec ?? "",
+        }))
+      : [{ part: "", material_name: "", warna: "", spec: "" }];
+  }
+  // Legacy object shape — migrate to single-block array
+  if (typeof raw === "object") {
+    const b = raw.bahan ?? raw.Bahan ?? {};
+    const bahanName =
+      (typeof b === "object" ? b.name ?? b.Name : b) ??
+      raw.bahan_name ??
+      "";
+    const spec =
+      (typeof b === "object" ? b.spec ?? b.Spec : "") ??
+      raw["Bahan Kemeja"] ??
+      "";
+    const warna = raw.Warna ?? raw.warna ?? (typeof b === "object" ? b.Color ?? b.color : "") ?? "";
+    return [
+      {
+        part: "",
+        material_name: typeof bahanName === "string" ? bahanName : "",
+        warna: typeof warna === "string" ? warna : "",
+        spec: typeof spec === "string" ? spec : "",
+      },
+    ];
+  }
+  return [{ part: "", material_name: "", warna: "", spec: "" }];
 }
 
 
 export function ItemDetailsFields({
   item,
   isQuotation,
+  hideSpec,
+  hideCustomName,
   onChange,
-  hideSpec = false,
 }: {
   item: Item;
   isQuotation: boolean;
-  onChange: (patch: Partial<Item>) => void;
   hideSpec?: boolean;
+  hideCustomName?: boolean;
+  onChange: (patch: Partial<Item>) => void;
 }) {
   const specs = useQuery({
     queryKey: ["spec-templates", { limit: 100 }],
     queryFn: () => specTemplatesService.list({ page: 1, limit: 100 }),
   });
 
-  const matchedTemplate = useMemo(() => {
-    if (item.template_id || !item.bahan_name) return undefined;
-    const normalizedName = item.bahan_name.trim().toLowerCase();
-    return specs.data?.data?.find(
-      (t) => t.name?.trim().toLowerCase() === normalizedName,
-    );
-  }, [item.template_id, item.bahan_name, specs.data?.data]);
+  const details = item.details ?? [{ part: "", material_name: "", warna: "", spec: "" }];
 
-  const selectedTemplateId = item.template_id ?? matchedTemplate?.id;
+  const updatePart = (idx: number, patch: Partial<DetailPartForm>) =>
+    onChange({
+      details: details.map((d, i) => (i === idx ? { ...d, ...patch } : d)),
+    });
 
-  useEffect(() => {
-    if (!item.template_id && matchedTemplate) {
-      onChange({
-        template_id: matchedTemplate.id,
-        bahan_name: matchedTemplate.name,
-        ...(item.bahan_spec ? {} : { bahan_spec: matchedTemplate.spec }),
-      });
-    }
-  }, [item.template_id, item.bahan_spec, matchedTemplate, onChange]);
+  const addPart = () =>
+    onChange({ details: [...details, { part: "", material_name: "", warna: "", spec: "" }] });
+
+  const removePart = (idx: number) =>
+    onChange({ details: details.filter((_, i) => i !== idx) });
 
   return (
-    <div className="grid gap-3 pt-2 border-t">
-      <div className="space-y-1">
-        <Label className="text-xs">Bahan — Name</Label>
-        <Select
-          value={selectedTemplateId ?? item.bahan_name ?? ""}
-          onValueChange={(v) => {
-            const t = specs.data?.data?.find((x) => x.id === v);
-            if (t) {
-              onChange({ template_id: t.id, bahan_name: t.name, bahan_spec: t.spec });
-            } else {
-              onChange({ template_id: undefined, bahan_name: v });
-            }
-          }}
-        >
-          <SelectTrigger className="h-8 text-xs">
-            <SelectValue placeholder="Select bahan name from template or type manually..." />
-          </SelectTrigger>
-          <SelectContent>
-            {specs.data?.data?.map((t) => (
-              <SelectItem key={t.id} value={t.id}>
-                <span className="font-medium">{t.name}</span>
-                <span className="ml-1 text-xs text-muted-foreground">— {t.spec.length > 40 ? t.spec.slice(0, 40) + "…" : t.spec}</span>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div className="grid gap-3 sm:grid-cols-2">
+    <div className="space-y-3 pt-2 border-t">
+      {/* Custom Name */}
+      {!hideCustomName && (
         <div className="space-y-1">
-          <Label className="text-xs">Bahan — Color</Label>
+          <Label className="text-xs">Custom Product Name <span className="text-muted-foreground font-normal">(Optional)</span></Label>
           <Input
-            placeholder="mis. Hitam"
-            value={item.bahan_color ?? ""}
-            onChange={(e) => onChange({ bahan_color: e.target.value })}
+            placeholder="e.g., Seragam PDH Bank Mandiri"
+            value={item.custom_name ?? ""}
+            onChange={(e) => onChange({ custom_name: e.target.value })}
           />
         </div>
+      )}
+
+      {/* Material Parts Array */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <Label className="text-xs">Material / Specification</Label>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-7 px-2 text-xs"
+            onClick={addPart}
+          >
+            <Plus className="h-3 w-3 mr-1" /> Add Material Part
+          </Button>
+        </div>
+
+        {details.map((part, idx) => (
+          <div
+            key={idx}
+            className="rounded-md border bg-muted/20 p-3 space-y-2"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-muted-foreground">
+                Part {idx + 1}
+              </span>
+              {details.length > 1 && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 px-2 text-xs text-muted-foreground hover:text-destructive"
+                  onClick={() => removePart(idx)}
+                >
+                  <Trash2 className="h-3 w-3" />
+                </Button>
+              )}
+            </div>
+
+            {/* Part Name */}
+            <div className="space-y-1">
+              <Label className="text-xs">Part Name</Label>
+              <Input
+                placeholder="e.g., Kemeja, Celana, Topi"
+                value={part.part}
+                onChange={(e) => updatePart(idx, { part: e.target.value })}
+              />
+            </div>
+
+            {/* Material Name (dropdown from spec templates) */}
+            <div className="space-y-1">
+              <Label className="text-xs">Material Name</Label>
+              <Select
+                value={part.material_name}
+                onValueChange={(v) => {
+                  const t = specs.data?.data?.find((x) => x.name === v);
+                  updatePart(idx, {
+                    material_name: v,
+                    // Auto-fill spec only if the current spec is blank
+                    ...(t && !part.spec ? { spec: t.spec } : {}),
+                  });
+                }}
+              >
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue placeholder="Select from catalog or type manually…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {specs.data?.data?.map((t) => (
+                    <SelectItem key={t.id} value={t.name}>
+                      <span className="font-medium">{t.name}</span>
+                      <span className="ml-1 text-xs text-muted-foreground">
+                        — {t.spec.length > 40 ? t.spec.slice(0, 40) + "…" : t.spec}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {/* Allow free-text override */}
+              <Input
+                className="mt-1 h-7 text-xs"
+                placeholder="Or type a custom material name…"
+                value={part.material_name}
+                onChange={(e) => updatePart(idx, { material_name: e.target.value })}
+              />
+            </div>
+
+            {/* Warna */}
+            <div className="space-y-1">
+              <Label className="text-xs">Warna</Label>
+              <Input
+                className="h-7 text-xs"
+                placeholder="e.g., Navy Blue, Hitam"
+                value={part.warna ?? ""}
+                onChange={(e) => updatePart(idx, { warna: e.target.value })}
+              />
+            </div>
+
+            {/* Specification */}
+            {!hideSpec && (
+              <div className="space-y-1">
+                <Label className="text-xs">Specification</Label>
+                <Textarea
+                  rows={2}
+                  placeholder="e.g., Warna Navy Blue, Bordir Logo Dada Kiri"
+                  value={part.spec}
+                  onChange={(e) => updatePart(idx, { spec: e.target.value })}
+                />
+              </div>
+            )}
+          </div>
+        ))}
       </div>
 
-      <div className={hideSpec ? "hidden" : "space-y-1"}>
-        <Label className="text-xs">Bahan — Spec</Label>
-        <Textarea
-          rows={2}
-          placeholder="Karakteristik tekstur permukaan kain..."
-          value={item.bahan_spec ?? ""}
-          onChange={(e) => onChange({ bahan_spec: e.target.value })}
-        />
-      </div>
-
+      {/* Quotation-only legacy fields */}
       {isQuotation && (
         <>
           <div className="space-y-1">
@@ -314,7 +436,7 @@ function CreateOrderDialog({ open, onClose }: { open: boolean; onClose: () => vo
   const [shippingCost, setShippingCost] = useState<number | "">("");
   const [note, setNote] = useState("");
   const [termsConditions, setTermsConditions] = useState("");
-  const [items, setItems] = useState<Item[]>([{ product_id: "", qty: 1, price: 0 }]);
+  const [items, setItems] = useState<Item[]>([{ product_id: "", qty: 1, price: 0, details: [] }]);
 
   const [paymentAmount, setPaymentAmount] = useState<number | "">("");
   const [paymentType, setPaymentType] = useState("dp");
@@ -336,7 +458,7 @@ function CreateOrderDialog({ open, onClose }: { open: boolean; onClose: () => vo
       setShippingCost("");
       setNote("");
       setTermsConditions("");
-      setItems([{ product_id: "", qty: 1, price: 0 }]);
+      setItems([{ product_id: "", qty: 1, price: 0, details: [] }]);
       setPaymentAmount("");
       setPaymentType("dp");
       setPaymentBankId("");
@@ -362,9 +484,15 @@ function CreateOrderDialog({ open, onClose }: { open: boolean; onClose: () => vo
           .filter((i) => i.product_id && i.qty > 0)
           .map((i) => ({
             product_id: i.product_id,
+            custom_name: i.custom_name || undefined,
             qty: i.qty,
             price: i.price,
-            details: buildItemDetails(i, isQuotation),
+            details: {
+              parts: buildItemDetails(i) || [],
+              bordir: i.bordir,
+              benang: i.benang,
+              jahitan: i.jahitan
+            },
           })),
       }),
     onSuccess: async (res: any) => {
@@ -576,7 +704,7 @@ function CreateOrderDialog({ open, onClose }: { open: boolean; onClose: () => vo
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={() => setItems((arr) => [...arr, { product_id: "", qty: 1, price: 0 }])}
+                  onClick={() => setItems((arr) => [...arr, { product_id: "", qty: 1, price: 0, details: [] }])}
                 >
                   <Plus className="h-4 w-4 mr-1" /> Add item
                 </Button>
@@ -842,22 +970,14 @@ export function UpdateOrderDialog({
       setDeletedItemIds([]);
       if (order.items) {
         setItems(
-          order.items.map((i: any) => {
-            const d = (i.details || {}) as Record<string, any>;
-            const b = (d.bahan && typeof d.bahan === "object") ? d.bahan : (d.Bahan && typeof d.Bahan === "object" ? d.Bahan : {});
-            return {
-              id: i.id,
-              product_id: i.product_id,
-              qty: i.qty,
-              price: i.price,
-              bahan_name: b.name ?? b.Name ?? (typeof d.bahan === "string" ? d.bahan : (typeof d.Bahan === "string" ? d.Bahan : "")) ?? "",
-              bahan_color: b.color ?? b.Color ?? d.warna ?? d.Warna ?? "",
-              bahan_spec: b.spec ?? b.Spec ?? d["Bahan Kemeja"] ?? "",
-              benang: d.benang ?? d.Benang ?? "",
-              bordir: d.bordir ?? d.Bordir ?? "",
-              jahitan: d.jahitan ?? d.Jahitan ?? "",
-            };
-          }),
+          order.items.map((i: any) => ({
+            id: i.id,
+            product_id: i.product_id,
+            custom_name: i.custom_name ?? "",
+            qty: i.qty,
+            price: i.price,
+            details: parseDetailsFromBackend(i.details),
+          }))
         );
       }
     } else if (!open) {
@@ -882,9 +1002,10 @@ export function UpdateOrderDialog({
 
       await Promise.all(
         body.items.map((it: any) => {
-          const details = buildItemDetails(it, isQuotation);
+          const details = buildItemDetails(it);
           const itemBody = {
             product_id: it.product_id,
+            custom_name: it.custom_name || undefined,
             qty: it.qty,
             price: it.price,
             details: details || undefined,
@@ -938,16 +1059,19 @@ export function UpdateOrderDialog({
       sales_id: order.sales_id || "",
       items: items
         .filter((i) => i.product_id && i.qty > 0)
-        .map((i) => {
-          const details = buildItemDetails(i, isQuotation);
-          return {
-            id: i.id,
-            product_id: i.product_id,
-            qty: i.qty,
-            price: i.price,
-            details: details || {},
-          };
-        }),
+        .map((i) => ({
+          id: i.id,
+          product_id: i.product_id,
+          custom_name: i.custom_name || undefined,
+          qty: i.qty,
+          price: i.price,
+          details: {
+            parts: buildItemDetails(i) || [],
+            bordir: i.bordir,
+            benang: i.benang,
+            jahitan: i.jahitan
+          },
+        })),
       courier_name: form.courier_name || undefined,
       shipping_cost: Number(form.shipping_cost) || 0,
       shipping_address: form.shipping_address || undefined,
@@ -978,7 +1102,7 @@ export function UpdateOrderDialog({
                     type="button"
                     variant="outline"
                     size="sm"
-                    onClick={() => setItems((arr) => [...arr, { product_id: "", qty: 1, price: 0 }])}
+                    onClick={() => setItems((arr) => [...arr, { product_id: "", qty: 1, price: 0, details: [] }])}
                   >
                     <Plus className="h-4 w-4 mr-1" /> Add item
                   </Button>

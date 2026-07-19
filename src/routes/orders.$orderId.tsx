@@ -56,7 +56,7 @@ import {
 import { formatIDR, formatDate, formatDateISO, datetimeLocalToISO } from "@/lib/format";
 import { generateInvoicePDF, generateKwitansiPDF } from "@/lib/invoice";
 import { QuotationPdfDialog } from "@/components/QuotationPdfDialog";
-import { Item, buildItemDetails, ItemDetailsFields } from "@/routes/orders.index";
+import { Item, buildItemDetails, ItemDetailsFields, parseDetailsFromBackend } from "@/routes/orders.index";
 export const Route = createFileRoute("/orders/$orderId")({
   head: () => ({
     meta: [
@@ -444,25 +444,17 @@ function UpdateQuotationDialog({
       if (order.items) {
         setItems(
           order.items.map((i: any) => {
-            const d = (i.details || {}) as Record<string, any>;
-            const b = (d.bahan && typeof d.bahan === "object") ? d.bahan : (d.Bahan && typeof d.Bahan === "object" ? d.Bahan : {});
-            const bahanName = b.name ?? b.Name ?? (typeof d.bahan === "string" ? d.bahan : (typeof d.Bahan === "string" ? d.Bahan : "")) ?? "";
-            const matchedTemplate = specTemplates.data?.data?.find(
-              (t: any) => t.name?.trim().toLowerCase() === bahanName.trim().toLowerCase(),
-            );
             return {
               id: i.id,
               product_id: i.product_id,
               product_name: i.product_name || i.product?.name || "—",
+              custom_name: i.custom_name ?? "",
               qty: i.qty,
               price: i.price,
-              template_id: matchedTemplate?.id,
-              bahan_name: bahanName,
-              bahan_color: b.color ?? b.Color ?? d.warna ?? d.Warna ?? "",
-              bahan_spec: b.spec ?? b.Spec ?? d["Bahan Kemeja"] ?? "",
-              benang: d.benang ?? d.Benang ?? "",
-              bordir: d.bordir ?? d.Bordir ?? "",
-              jahitan: d.jahitan ?? d.Jahitan ?? "",
+              details: parseDetailsFromBackend(i.details),
+              benang: i.details?.benang ?? i.details?.Benang ?? "",
+              bordir: i.details?.bordir ?? i.details?.Bordir ?? "",
+              jahitan: i.details?.jahitan ?? i.details?.Jahitan ?? "",
             };
           }),
         );
@@ -472,38 +464,25 @@ function UpdateQuotationDialog({
     }
   }, [order, open, specTemplates.data?.data]);
 
-  useEffect(() => {
-    if (!open || !specTemplates.data?.data) return;
-    setItems((arr) =>
-      arr.map((it) => {
-        if (it.template_id || !it.bahan_name) return it;
-        const match = specTemplates.data?.data?.find(
-          (t: any) => t.name?.trim().toLowerCase() === it.bahan_name.trim().toLowerCase(),
-        );
-        if (!match) return it;
-        return {
-          ...it,
-          template_id: match.id,
-          bahan_name: match.name,
-          bahan_spec: it.bahan_spec || match.spec,
-        };
-      }),
-    );
-  }, [open, specTemplates.data?.data]);
+
 
   const updateItem = (idx: number, patch: any) =>
     setItems((arr) => arr.map((it, i) => (i === idx ? { ...it, ...patch } : it)));
 
   const updateOrderMut = useMutation({
     mutationFn: async () => {
-      // 1. Update all items
       await Promise.all(
         items.map((it) =>
           ordersService.updateItem(order.id, it.id, {
             product_id: it.product_id,
+            custom_name: it.custom_name || undefined,
             qty: it.qty,
-            price: it.price,
-            details: buildItemDetails(it, true),
+            details: {
+              parts: buildItemDetails(it) || [],
+              bordir: it.bordir,
+              benang: it.benang,
+              jahitan: it.jahitan
+            },
           })
         )
       );
@@ -518,11 +497,17 @@ function UpdateQuotationDialog({
         notes: order.notes || undefined,
         terms_conditions: form.terms_conditions || undefined,
         valid_until: form.valid_until || undefined,
-        items: order.items.map((i: any) => ({
-          product_id: i.product_id,
-          qty: i.qty,
-          price: i.price,
-          details: i.details,
+        items: items.map((it: any) => ({
+          product_id: it.product_id,
+          custom_name: it.custom_name || undefined,
+          qty: it.qty,
+          price: it.price,
+          details: {
+            parts: buildItemDetails(it) || [],
+            bordir: it.bordir,
+            benang: it.benang,
+            jahitan: it.jahitan
+          },
         })),
       });
     },
@@ -899,7 +884,7 @@ function OrderItemDialog({
   const qc = useQueryClient();
   const isEditing = !!item;
 
-  const [it, setIt] = useState<Item>({ product_id: "", qty: 1, price: 0 });
+  const [it, setIt] = useState<Item>({ product_id: "", qty: 1, price: 0, details: [] });
 
   const productsQ = useQuery({
     queryKey: ["products", "all"],
@@ -916,53 +901,28 @@ function OrderItemDialog({
   useEffect(() => {
     if (open) {
       if (item) {
-        const d = (item.details || {}) as Record<string, any>;
-        const b = d.Bahan && typeof d.Bahan === "object" ? d.Bahan : (d.bahan && typeof d.bahan === "object" ? d.bahan : {});
-        const bahanName = b.Name ?? b.name ?? (typeof d.Bahan === "string" ? d.Bahan : (typeof d.bahan === "string" ? d.bahan : "")) ?? "";
-        const matchedTemplate = specTemplates.data?.data?.find(
-          (t: any) => t.name?.trim().toLowerCase() === bahanName.trim().toLowerCase(),
-        );
         setIt({
           product_id: item.product_id || item.product?.id || "",
+          custom_name: item.custom_name ?? "",
           qty: item.qty || 1,
           price: item.price || 0,
-          template_id: matchedTemplate?.id,
-          bahan_name: bahanName,
-          bahan_color: b.Color ?? b.color ?? d.Warna ?? d.warna ?? "",
-          bahan_spec: b.Spec ?? b.spec ?? d["Bahan Kemeja"] ?? "",
-          benang: d.Benang ?? d.benang ?? "",
-          bordir: d.Bordir ?? d.bordir ?? "",
-          jahitan: d.Jahitan ?? d.jahitan ?? "",
+          details: parseDetailsFromBackend(item.details),
+          benang: item.details?.benang ?? item.details?.Benang ?? "",
+          bordir: item.details?.bordir ?? item.details?.Bordir ?? "",
+          jahitan: item.details?.jahitan ?? item.details?.Jahitan ?? "",
         });
       } else {
-        setIt({ product_id: "", qty: 1, price: 0 });
+        setIt({ product_id: "", qty: 1, price: 0, details: [] });
       }
     }
-  }, [open, item, specTemplates.data?.data]);
-
-  useEffect(() => {
-    if (!open || !item || !specTemplates.data?.data) return;
-    setIt((prev) => {
-      const bahanName = prev.bahan_name?.trim().toLowerCase();
-      if (prev.template_id || !bahanName) return prev;
-      const match = specTemplates.data?.data?.find(
-        (t: any) => t.name?.trim().toLowerCase() === bahanName,
-      );
-      if (!match) return prev;
-      return {
-        ...prev,
-        template_id: match.id,
-        bahan_name: match.name,
-        bahan_spec: prev.bahan_spec || match.spec,
-      };
-    });
-  }, [open, item, specTemplates.data?.data]);
+  }, [open, item]);
 
   const mut = useMutation({
     mutationFn: async () => {
-      const details = buildItemDetails(it, isQuotation);
+      const details = buildItemDetails(it);
       const body = {
         product_id: it.product_id,
+        custom_name: it.custom_name || undefined,
         qty: Number(it.qty),
         price: Number(it.price),
         details: details || {},
@@ -991,40 +951,62 @@ function OrderItemDialog({
 
   return (
     <Dialog open={open} onOpenChange={(v) => (v ? null : onClose())}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-3xl">
         <DialogHeader>
           <DialogTitle>{isEditing ? "Edit Item" : "Add Item"}</DialogTitle>
         </DialogHeader>
         <form id="item-form" onSubmit={handleSubmit} className="space-y-4 py-2">
-          <div className="space-y-2">
-            <Label>Product</Label>
-            <Select value={it.product_id} onValueChange={(val) => {
-               const p = productsQ.data?.data?.find((x: any) => x.id === val);
-               setIt(prev => ({ ...prev, product_id: val, price: p && !isEditing ? (p.base_price ?? 0) : prev.price }));
-            }} disabled={productsQ.isLoading}>
-              <SelectTrigger><SelectValue placeholder="Select a product" /></SelectTrigger>
-              <SelectContent>
-                {productsQ.data?.data?.map((p: any) => (
-                  <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Quantity</Label>
-              <Input type="number" min={1} value={it.qty} onChange={(e) => setIt(prev => ({...prev, qty: Number(e.target.value)}))} />
+          <div className="grid md:grid-cols-2 gap-6">
+            {/* Left Side: Product Details */}
+            <div className="space-y-4 pt-2">
+              <div className="space-y-2">
+                <Label>Product</Label>
+                <Select value={it.product_id} onValueChange={(val) => {
+                   const p = productsQ.data?.data?.find((x: any) => x.id === val);
+                   setIt(prev => ({ ...prev, product_id: val, price: p && !isEditing ? (p.base_price ?? 0) : prev.price }));
+                }} disabled={productsQ.isLoading}>
+                  <SelectTrigger><SelectValue placeholder="Select a product" /></SelectTrigger>
+                  <SelectContent>
+                    {productsQ.data?.data?.map((p: any) => (
+                      <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs">Custom Product Name <span className="text-muted-foreground font-normal">(Optional)</span></Label>
+                <Input
+                  placeholder="e.g., Seragam PDH Bank Mandiri"
+                  value={it.custom_name ?? ""}
+                  onChange={(e) => setIt(prev => ({...prev, custom_name: e.target.value}))}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Quantity</Label>
+                  <Input type="number" min={1} value={it.qty} onChange={(e) => setIt(prev => ({...prev, qty: Number(e.target.value)}))} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Price</Label>
+                  <Input type="number" min={0} value={it.price} onChange={(e) => setIt(prev => ({...prev, price: Number(e.target.value)}))} />
+                </div>
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label>Price</Label>
-              <Input type="number" min={0} value={it.price} onChange={(e) => setIt(prev => ({...prev, price: Number(e.target.value)}))} />
+
+            {/* Right Side: Material & Specification */}
+            <div>
+              <ItemDetailsFields
+                item={it}
+                isQuotation={false}
+                hideSpec={true}
+                hideCustomName={true}
+                onChange={(patch) => setIt(prev => ({...prev, ...patch}))}
+              />
             </div>
           </div>
-          <ItemDetailsFields
-            item={it}
-            isQuotation={false}
-            onChange={(patch) => setIt(prev => ({...prev, ...patch}))}
-          />
+
           <div className="flex items-center justify-between rounded-md border bg-muted/30 p-3 mt-4 text-sm">
             <span className="font-semibold text-muted-foreground">Item Subtotal</span>
             <span className="font-semibold text-primary">{formatIDR((Number(it.qty) || 0) * (Number(it.price) || 0))}</span>
