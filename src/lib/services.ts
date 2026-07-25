@@ -251,6 +251,27 @@ export const dailyReportService = {
     api.get<DailyReportResponse>("/reports/daily/generate", date ? { date } : undefined),
 };
 
+// Reports — Receivables
+export interface ReceivableRow {
+  order_id: string;
+  order_number: string;
+  po_name: string;
+  po_status: string;        // "active" | "closed" | string
+  customer_name: string;
+  sales_name: string;
+  total_amount: number;
+  total_paid: number;
+  outstanding_amount: number;
+}
+
+export const reportsService = {
+  /**
+   * Laporan detail piutang — GET /reports/receivables.
+   * Returns an array of ReceivableRow sorted by outstanding_amount DESC on the server.
+   */
+  receivables: () => api.get<ApiSuccess<ReceivableRow[]>>("/reports/receivables"),
+};
+
 // Batch POs
 export interface BatchPOsListParams extends PageParams {
   search?: string;
