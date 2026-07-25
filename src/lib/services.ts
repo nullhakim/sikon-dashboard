@@ -243,9 +243,12 @@ export const dashboardService = {
 import type { DailyReportResponse } from "./types/daily-report";
 
 export const dailyReportService = {
-  /** Fetch daily report snapshot. Omit `date` to use today. */
+  /**
+   * Fetch daily report analytics from /reports/daily/generate.
+   * Omit `date` to use today's date.
+   */
   get: (date?: string) =>
-    api.get<DailyReportResponse>("/reports/daily", date ? { date } : undefined),
+    api.get<DailyReportResponse>("/reports/daily/generate", date ? { date } : undefined),
 };
 
 // Batch POs
