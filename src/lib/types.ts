@@ -128,6 +128,8 @@ export interface Order {
   notes?: string;
   valid_until?: string;
   terms_conditions?: string;
+  /** Tanggal order resmi disetujui/deal. Diisi otomatis oleh backend saat DP dibayar. */
+  approved_at?: string | null;
   items?: OrderItem[];
   payments?: Payment[];
   created_at?: string;

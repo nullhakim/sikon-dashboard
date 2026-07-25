@@ -52,8 +52,13 @@ const master = [
 
 export function AppSidebar() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const isActive = (url: string) =>
-    url === "/" ? pathname === "/" : pathname === url || pathname.startsWith(url + "/");
+  const isActive = (url: string) => {
+    if (url === "/") return pathname === "/";
+    // Untuk "/reports", kita hanya ingin aktif jika path tepat "/reports" atau "/reports/"
+    // agar "/reports/daily" tidak membuat tab ini ikut aktif.
+    if (url === "/reports") return pathname === "/reports" || pathname === "/reports/";
+    return pathname === url || pathname.startsWith(url + "/");
+  };
 
   const renderGroup = (label: string, items: typeof main) => (
     <SidebarGroup>

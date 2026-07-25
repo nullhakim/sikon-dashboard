@@ -8,6 +8,7 @@ import {
   FileDown,
   Printer,
   Trash2,
+  Info,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -1228,8 +1229,13 @@ function OrderDetailPage() {
             <Badge value={order.order_status} map={statusVariant} />
             <Badge value={order.payment_status} map={paymentBadge} />
             <span className="text-xs text-muted-foreground">
-              Created {formatDate(order.created_at)}
+              Dibuat {formatDate(order.created_at)}
             </span>
+            {order.approved_at && (
+              <span className="text-xs font-medium text-emerald-700">
+                · Disetujui {formatDate(order.approved_at)}
+              </span>
+            )}
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -1316,6 +1322,18 @@ function OrderDetailPage() {
               <span className="text-muted-foreground">Shipping cost:</span>{" "}
               {formatIDR(shipping)}
             </p>
+            {order.batch_po && (
+              <p className="flex items-center gap-1.5">
+                <span className="text-muted-foreground">Batch PO:</span>{" "}
+                <span className="font-medium">{order.batch_po.name}</span>
+                <span
+                  title="PO dapat berubah otomatis ke periode aktif saat pelanggan membayar DP (Auto Re-allocate PO)."
+                  className="inline-flex cursor-help text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <Info className="h-3.5 w-3.5" />
+                </span>
+              </p>
+            )}
             {order.shipping_address && (
               <p className="text-muted-foreground pt-1">{order.shipping_address}</p>
             )}

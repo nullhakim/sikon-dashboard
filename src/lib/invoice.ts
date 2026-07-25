@@ -170,6 +170,13 @@ export async function generateInvoicePDF({
 }: InvoiceData): Promise<jsPDF> {
   const { withStamp = false, withSignature = false } = options || {};
 
+  // === INVOICE DATE LOGIC ===
+  // Gunakan approved_at sebagai tanggal invoice resmi.
+  // Jika kosong (order masih quotation), gunakan created_at sebagai fallback
+  // dan ubah judul menjadi "PROFORMA INVOICE".
+  const isProforma = !options?.isNota && !order.approved_at;
+  const invoiceDate = order.approved_at ? order.approved_at : order.created_at;
+
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -203,9 +210,10 @@ export async function generateInvoicePDF({
   doc.text(`Tel: ${COMPANY.phone} | ${COMPANY.email}`, headerRightX, 28, { align: "right" });
   doc.text(`${COMPANY.website} | IG: ${COMPANY.instagram}`, headerRightX, 33, { align: "right" });
 
-  doc.setFontSize(28);
+  // Judul dokumen: NOTA / PROFORMA INVOICE / INVOICE
+  const title = options?.isNota ? "NOTA" : isProforma ? "PROFORMA INVOICE" : "INVOICE";
+  doc.setFontSize(isProforma ? 18 : 28);
   doc.setFont("helvetica", "bold");
-  const title = options?.isNota ? "NOTA" : "INVOICE";
   doc.text(title, pageWidth - margin, 46, { align: "right" });
 
   doc.setTextColor(30, 41, 59);
@@ -235,14 +243,27 @@ export async function generateInvoicePDF({
   const invNumber = order.order_number
     ? `${prefix}${order.order_number}`
     : `${prefix}${order.id.slice(0, 8).toUpperCase()}`;
-  const infoLabels = [options?.isNota ? "No. Nota" : "No. Invoice", "Tanggal"];
-  // const infoLabels = ["No. Invoice", "Tanggal", "Status Order", "Status Bayar"];
+  const invoiceDateLabel = options?.isNota
+    ? "No. Nota"
+    : isProforma
+    ? "No. Penawaran"
+    : "No. Invoice";
+  const infoLabels = [invoiceDateLabel, "Tanggal"];
+  // Tanggal: untuk nota gunakan created_at order, untuk invoice gunakan approved_at (atau created_at jika proforma)
   const infoValues = [
     invNumber,
-    formatDate(order.created_at),
+    options?.isNota ? formatDate(order.created_at) : formatDate(invoiceDate),
     (order.order_status || "pending").toUpperCase(),
     (order.payment_status || "unpaid").toUpperCase(),
   ];
+  // Tambahkan label PROFORMA di bawah judul jika perlu
+  if (isProforma) {
+    doc.setTextColor(200, 100, 0);
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "italic");
+    doc.text("(Dokumen Penawaran — Belum Disetujui)", pageWidth - margin, 50, { align: "right" });
+    doc.setTextColor(30, 41, 59);
+  }
 
   infoLabels.forEach((label, i) => {
     const ly = y + i * 8;
@@ -607,7 +628,10 @@ export async function generateKwitansiPDF({
 
   doc.setFontSize(10);
   doc.setFont("helvetica", "normal");
-  doc.text(`Tasikmalaya, ${formatDate(payment.payment_date || payment.created_at)}`, sigX, sigY, {
+  // Tanggal kwitansi: selalu gunakan payment.created_at (tanggal aktual uang diterima)
+  // payment.payment_date digunakan hanya jika created_at tidak tersedia
+  const kwitansiDate = payment.created_at || payment.payment_date;
+  doc.text(`Tasikmalaya, ${formatDate(kwitansiDate)}`, sigX, sigY, {
     align: "center",
   });
   doc.text("Penerima,", sigX, sigY + 5, { align: "center" });

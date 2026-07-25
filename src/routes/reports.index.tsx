@@ -14,6 +14,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { ReceivablesTable } from "@/components/ReceivablesTable";
 
 export const Route = createFileRoute("/reports/")({
   head: () => ({
@@ -29,11 +30,6 @@ function ReportsPage() {
   const [salesStartDate, setSalesStartDate] = useState("");
   const [salesEndDate, setSalesEndDate] = useState("");
 
-  const receivables = useQuery({
-    queryKey: ["receivables-report"],
-    queryFn: () => dashboardService.receivablesReport(),
-  });
-
   const sales = useQuery({
     queryKey: ["sales-report", salesStartDate, salesEndDate],
     queryFn: () => dashboardService.salesReport({ start_date: salesStartDate, end_date: salesEndDate }),
@@ -48,10 +44,10 @@ function ReportsPage() {
         </p>
       </div>
 
-      <Tabs defaultValue="sales" className="w-full">
+      <Tabs defaultValue="receivables" className="w-full">
         <TabsList>
           <TabsTrigger value="sales">Sales Report</TabsTrigger>
-          <TabsTrigger value="receivables">Receivables</TabsTrigger>
+          <TabsTrigger value="receivables">Laporan Piutang</TabsTrigger>
         </TabsList>
 
         <TabsContent value="sales" className="mt-4">
@@ -117,50 +113,14 @@ function ReportsPage() {
         <TabsContent value="receivables" className="mt-4">
           <Card>
             <CardHeader>
-              <CardTitle>Receivables Report</CardTitle>
-              <CardDescription>Track unpaid balances from customers.</CardDescription>
+              <CardTitle>Laporan Detail Piutang</CardTitle>
+              <CardDescription>
+                Daftar tagihan yang belum terbayar lunas, diurutkan dari sisa piutang terbesar.
+                Gunakan data ini untuk penagihan ke pelanggan.
+              </CardDescription>
             </CardHeader>
-            <CardContent className="p-0">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Order No.</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Customer</TableHead>
-                    <TableHead>Sales</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Total Amount</TableHead>
-                    <TableHead className="text-right">Paid</TableHead>
-                    <TableHead className="text-right">Remaining</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {receivables.isLoading && (
-                    <TableRow>
-                      <TableCell colSpan={8} className="text-center py-6 text-muted-foreground">Loading...</TableCell>
-                    </TableRow>
-                  )}
-                  {receivables.data?.data?.map((row: any, i: number) => (
-                    <TableRow key={i}>
-                      <TableCell className="font-mono text-xs">{row.order_number}</TableCell>
-                      <TableCell>{formatDate(row.order_date)}</TableCell>
-                      <TableCell>{row.customer_name}</TableCell>
-                      <TableCell>{row.sales_name}</TableCell>
-                      <TableCell className="capitalize">{row.order_status}</TableCell>
-                      <TableCell className="text-right">{formatIDR(row.total_amount)}</TableCell>
-                      <TableCell className="text-right">{formatIDR(row.total_paid)}</TableCell>
-                      <TableCell className="text-right font-medium text-destructive">
-                        {formatIDR(row.remaining_bill)}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                  {!receivables.isLoading && (!receivables.data?.data || receivables.data.data.length === 0) && (
-                    <TableRow>
-                      <TableCell colSpan={8} className="text-center py-6 text-muted-foreground">No receivables found</TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
+            <CardContent>
+              <ReceivablesTable />
             </CardContent>
           </Card>
         </TabsContent>
