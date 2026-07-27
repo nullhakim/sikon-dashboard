@@ -241,6 +241,7 @@ export const dashboardService = {
 
 // Daily Report
 import type { DailyReportResponse } from "./types/daily-report";
+import type { MonthlyReportResponse } from "./types/monthly-report";
 
 export const dailyReportService = {
   /**
@@ -249,6 +250,20 @@ export const dailyReportService = {
    */
   get: (date?: string) =>
     api.get<DailyReportResponse>("/reports/daily/generate", date ? { date } : undefined),
+};
+
+// Monthly Report
+export const monthlyReportService = {
+  /**
+   * Fetch monthly report analytics from /reports/monthly.
+   * `month` is 1-12, `year` is YYYY.
+   */
+  get: (month?: number, year?: number) => {
+    const q: Record<string, number> = {};
+    if (month) q.month = month;
+    if (year) q.year = year;
+    return api.get<MonthlyReportResponse>("/reports/monthly", Object.keys(q).length > 0 ? q : undefined);
+  },
 };
 
 // Reports — Receivables
