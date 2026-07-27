@@ -12,6 +12,7 @@ import {
   PieChart,
   Layers,
   ClipboardList,
+  CalendarDays,
 } from "lucide-react";
 
 import {
@@ -30,6 +31,7 @@ const main = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
   { title: "Reports", url: "/reports", icon: PieChart },
   { title: "Daily Report", url: "/reports/daily", icon: ClipboardList },
+  { title: "Monthly Report", url: "/reports/monthly", icon: CalendarDays },
 ];
 
 const transactions = [
