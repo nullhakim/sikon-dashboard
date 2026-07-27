@@ -102,6 +102,8 @@ export interface Payment {
 export interface BatchPO {
   id: string;
   name: string;
+  target_month?: number;
+  target_year?: number;
   start_date: string;
   end_date: string;
   quota: number;
