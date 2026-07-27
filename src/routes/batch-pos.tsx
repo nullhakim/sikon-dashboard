@@ -80,12 +80,14 @@ function BatchStatusBadge({ status }: { status: string }) {
 
 interface BatchPOForm {
   name: string;
+  target_month: number | "";
+  target_year: number | "";
   start_date: string;
   end_date: string;
   quota: number | "";
 }
 
-const emptyForm: BatchPOForm = { name: "", start_date: "", end_date: "", quota: "" };
+const emptyForm: BatchPOForm = { name: "", target_month: "", target_year: "", start_date: "", end_date: "", quota: "" };
 
 function BatchPODialog({
   open,
@@ -104,6 +106,8 @@ function BatchPODialog({
     if (editing) {
       setForm({
         name: editing.name,
+        target_month: editing.target_month ?? "",
+        target_year: editing.target_year ?? "",
         start_date: editing.start_date ? editing.start_date.slice(0, 10) : "",
         end_date: editing.end_date ? editing.end_date.slice(0, 10) : "",
         quota: editing.quota,
@@ -114,7 +118,7 @@ function BatchPODialog({
   }, [editing, open]);
 
   const createMut = useMutation({
-    mutationFn: (body: { name: string; start_date: string; end_date: string; quota: number }) =>
+    mutationFn: (body: { name: string; target_month: number; target_year: number; start_date: string; end_date: string; quota: number }) =>
       batchPosService.create(body),
     onSuccess: () => {
       toast.success("Batch PO created");
@@ -129,7 +133,7 @@ function BatchPODialog({
   // workaround by directly calling api.put via the same pattern. 
   // We expose an `update` method via the service, and add it inline here.
   const updateMut = useMutation({
-    mutationFn: async (body: { name: string; start_date: string; end_date: string; quota: number }) => {
+    mutationFn: async (body: { name: string; target_month: number; target_year: number; start_date: string; end_date: string; quota: number }) => {
       const { api } = await import("@/lib/api");
       return api.put(`/batch-pos/${editing!.id}`, body);
     },
@@ -146,12 +150,16 @@ function BatchPODialog({
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!form.name.trim()) return toast.error("Name is required");
+    if (!form.target_month) return toast.error("Target Month is required");
+    if (!form.target_year) return toast.error("Target Year is required");
     if (!form.start_date) return toast.error("Start date is required");
     if (!form.end_date) return toast.error("End date is required");
     if (!form.quota || Number(form.quota) <= 0) return toast.error("Quota must be greater than 0");
 
     const body = {
       name: form.name.trim(),
+      target_month: Number(form.target_month),
+      target_year: Number(form.target_year),
       start_date: new Date(form.start_date).toISOString(),
       end_date: new Date(form.end_date).toISOString(),
       quota: Number(form.quota),
@@ -191,6 +199,47 @@ function BatchPODialog({
                 onChange={set("name")}
                 autoFocus
               />
+            </div>
+
+            {/* Target Month & Year */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="bpo-target-month">
+                  Target Month <span className="text-destructive">*</span>
+                </Label>
+                <Select
+                  value={form.target_month ? form.target_month.toString() : ""}
+                  onValueChange={(val) => setForm((p) => ({ ...p, target_month: Number(val) }))}
+                >
+                  <SelectTrigger id="bpo-target-month">
+                    <SelectValue placeholder="Select Month" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Array.from({ length: 12 }).map((_, i) => (
+                      <SelectItem key={i + 1} value={(i + 1).toString()}>
+                        {new Date(2000, i, 1).toLocaleString("id-ID", { month: "long" })}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="bpo-target-year">
+                  Target Year <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="bpo-target-year"
+                  type="number"
+                  placeholder="e.g. 2026"
+                  value={form.target_year}
+                  onChange={(e) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      target_year: e.target.value ? Number(e.target.value) : "",
+                    }))
+                  }
+                />
+              </div>
             </div>
 
             {/* Quota */}
@@ -419,6 +468,7 @@ function BatchPOsPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Name</TableHead>
+                <TableHead>Edisi</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Quota</TableHead>
                 <TableHead>Start Date</TableHead>
@@ -431,7 +481,7 @@ function BatchPOsPage() {
               {isLoading &&
                 Array.from({ length: 5 }).map((_, i) => (
                   <TableRow key={`sk-${i}`}>
-                    {Array.from({ length: 6 }).map((_, j) => (
+                    {Array.from({ length: 7 }).map((_, j) => (
                       <TableCell key={j}>
                         <Skeleton className="h-4 w-full" />
                       </TableCell>
@@ -440,14 +490,14 @@ function BatchPOsPage() {
                 ))}
               {isError && !isLoading && (
                 <TableRow>
-                  <TableCell colSpan={7} className="py-8 text-center text-destructive">
+                  <TableCell colSpan={8} className="py-8 text-center text-destructive">
                     {(error as Error)?.message ?? "Failed to load Batch POs"}
                   </TableCell>
                 </TableRow>
               )}
               {!isLoading && !isError && batches.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={7} className="py-10 text-center text-muted-foreground">
+                  <TableCell colSpan={8} className="py-10 text-center text-muted-foreground">
                     <div className="space-y-1">
                       <p className="font-medium">No Batch POs found</p>
                       <p className="text-xs">Create your first batch to start accepting orders.</p>
@@ -458,6 +508,11 @@ function BatchPOsPage() {
               {batches.map((b) => (
                 <TableRow key={b.id}>
                   <TableCell className="font-medium">{b.name}</TableCell>
+                  <TableCell>
+                    {b.target_month && b.target_year
+                      ? `${new Date(2000, b.target_month - 1, 1).toLocaleString("id-ID", { month: "long" })} ${b.target_year}`
+                      : "—"}
+                  </TableCell>
                   <TableCell>
                     <BatchStatusBadge status={b.status} />
                   </TableCell>
