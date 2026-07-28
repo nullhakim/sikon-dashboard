@@ -10,7 +10,7 @@ import {
   ResponsiveContainer,
   Legend,
 } from "recharts";
-import type { DailyTrendPoint } from "@/lib/types/monthly-report";
+import type { AccountingDailyTrend } from "@/lib/types/accounting-report";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import {
   ChartContainer,
@@ -22,7 +22,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { AreaChart as AreaChartIcon, BarChart2, TrendingUp } from "lucide-react";
 
 interface DailyTrendChartProps {
-  data: DailyTrendPoint[];
+  data: AccountingDailyTrend[];
   isLoading: boolean;
 }
 
@@ -79,7 +79,7 @@ export function DailyTrendChart({ data, isLoading }: DailyTrendChartProps) {
               Tren Harian — Omset vs Cash-In
             </CardTitle>
             <CardDescription className="mt-0.5">
-              Perbandingan omset dan uang masuk per hari dalam bulan ini
+              Perbandingan omset dan uang masuk per hari dalam rentang waktu yang dipilih
             </CardDescription>
           </div>
           {/* Chart type toggle */}
@@ -124,7 +124,7 @@ export function DailyTrendChart({ data, isLoading }: DailyTrendChartProps) {
           <div className="flex flex-col items-center justify-center h-56 gap-3">
             <BarChart2 className="h-10 w-10 text-muted-foreground/30" />
             <p className="text-sm text-muted-foreground text-center">
-              Belum ada data tren harian untuk bulan ini.
+              Belum ada data tren harian untuk periode ini.
             </p>
           </div>
         ) : (

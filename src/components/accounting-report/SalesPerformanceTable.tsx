@@ -1,4 +1,4 @@
-import type { SalesDetailItem } from "@/lib/types/daily-report";
+import type { AccountingSalesPerformance } from "@/lib/types/accounting-report";
 import {
   Table,
   TableBody,
@@ -11,27 +11,25 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Trophy, Users } from "lucide-react";
+import { formatIDR } from "@/lib/format";
 
 interface SalesPerformanceTableProps {
-  data: SalesDetailItem[];
+  data: AccountingSalesPerformance[];
   isLoading: boolean;
 }
 
 /**
- * Dynamic matrix table: Nama Sales | [Category cols...] | Total Qty
- * - Derives category columns from data at runtime
- * - Highlights top sales with a trophy badge
+ * Sales performance table for accounting report.
+ * Shows each sales' total omset and total orders, with TOP badge for highest performer.
  */
 export function SalesPerformanceTable({ data, isLoading }: SalesPerformanceTableProps) {
-  // Derive unique category columns from all rows
-  const categories = Array.from(
-    new Set(data.flatMap((row) => Object.keys(row.categories ?? {})))
-  ).sort();
+  // Sort by total_omset descending for display
+  const sorted = [...data].sort((a, b) => b.total_omset - a.total_omset);
 
-  const colSpan = 2 + categories.length; // "Nama Sales" + categories + "Total Qty"
+  const maxOmset = sorted.reduce((max, row) => Math.max(max, row.total_omset), 0);
 
-  // Find the top sales person by total qty
-  const maxQty = data.reduce((max, row) => Math.max(max, row.total_qty ?? 0), 0);
+  const totalOmset = sorted.reduce((sum, row) => sum + row.total_omset, 0);
+  const totalOrders = sorted.reduce((sum, row) => sum + row.total_orders, 0);
 
   return (
     <Card className="border-border/60 transition-shadow hover:shadow-md">
@@ -40,10 +38,10 @@ export function SalesPerformanceTable({ data, isLoading }: SalesPerformanceTable
           <div>
             <CardTitle className="text-base flex items-center gap-2">
               <Users className="h-4 w-4 text-primary" />
-              Sales Performance — Matrix Kategori
+              Kinerja Sales — Accounting Period
             </CardTitle>
             <CardDescription className="mt-0.5">
-              Rincian qty per sales dan per kategori produk
+              Kontribusi omset dan jumlah order per sales dalam periode ini
             </CardDescription>
           </div>
           {!isLoading && data.length > 0 && (
@@ -58,16 +56,17 @@ export function SalesPerformanceTable({ data, isLoading }: SalesPerformanceTable
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/30 hover:bg-muted/30">
-              <TableHead className="font-semibold whitespace-nowrap pl-5 py-3">
+              <TableHead className="font-semibold whitespace-nowrap pl-5 py-3 w-12">
+                #
+              </TableHead>
+              <TableHead className="font-semibold whitespace-nowrap py-3">
                 Nama Sales
               </TableHead>
-              {categories.map((cat) => (
-                <TableHead key={cat} className="text-center font-semibold whitespace-nowrap">
-                  {cat}
-                </TableHead>
-              ))}
-              <TableHead className="text-right font-semibold pr-5 whitespace-nowrap">
-                Total Qty
+              <TableHead className="text-right font-semibold whitespace-nowrap py-3">
+                Total Omset
+              </TableHead>
+              <TableHead className="text-right font-semibold whitespace-nowrap pr-5 py-3">
+                Total Order
               </TableHead>
             </TableRow>
           </TableHeader>
@@ -78,29 +77,30 @@ export function SalesPerformanceTable({ data, isLoading }: SalesPerformanceTable
               Array.from({ length: 4 }).map((_, i) => (
                 <TableRow key={i}>
                   <TableCell className="pl-5">
+                    <Skeleton className="h-4 w-6" />
+                  </TableCell>
+                  <TableCell>
                     <Skeleton className="h-4 w-28" />
                   </TableCell>
-                  {Array.from({ length: 3 }).map((_, j) => (
-                    <TableCell key={j} className="text-center">
-                      <Skeleton className="h-4 w-10 mx-auto" />
-                    </TableCell>
-                  ))}
+                  <TableCell className="text-right">
+                    <Skeleton className="h-4 w-24 ml-auto" />
+                  </TableCell>
                   <TableCell className="pr-5">
-                    <Skeleton className="h-4 w-14 ml-auto" />
+                    <Skeleton className="h-4 w-10 ml-auto" />
                   </TableCell>
                 </TableRow>
               ))}
 
             {/* Empty state */}
-            {!isLoading && data.length === 0 && (
+            {!isLoading && sorted.length === 0 && (
               <TableRow>
                 <TableCell
-                  colSpan={colSpan}
+                  colSpan={4}
                   className="text-center py-12 text-muted-foreground"
                 >
                   <div className="flex flex-col items-center gap-2">
                     <Users className="h-8 w-8 text-muted-foreground/30" />
-                    <span>Belum ada data sales untuk tanggal ini.</span>
+                    <span>Belum ada data kinerja sales untuk periode ini.</span>
                   </div>
                 </TableCell>
               </TableRow>
@@ -108,18 +108,21 @@ export function SalesPerformanceTable({ data, isLoading }: SalesPerformanceTable
 
             {/* Data rows */}
             {!isLoading &&
-              data.map((row, idx) => {
-                const isTopSales = maxQty > 0 && row.total_qty === maxQty;
+              sorted.map((row, idx) => {
+                const isTopSales = maxOmset > 0 && row.total_omset === maxOmset;
                 return (
                   <TableRow
-                    key={idx}
+                    key={row.sales_name}
                     className={
                       isTopSales
                         ? "bg-amber-50/60 dark:bg-amber-900/10 hover:bg-amber-50 dark:hover:bg-amber-900/20"
                         : undefined
                     }
                   >
-                    <TableCell className="font-medium pl-5 whitespace-nowrap">
+                    <TableCell className="pl-5 tabular-nums text-muted-foreground">
+                      {idx + 1}
+                    </TableCell>
+                    <TableCell className="font-medium whitespace-nowrap">
                       <div className="flex items-center gap-2">
                         {isTopSales && (
                           <Trophy className="h-3.5 w-3.5 text-amber-500 shrink-0" />
@@ -132,37 +135,30 @@ export function SalesPerformanceTable({ data, isLoading }: SalesPerformanceTable
                         )}
                       </div>
                     </TableCell>
-                    {categories.map((cat) => (
-                      <TableCell key={cat} className="text-center tabular-nums">
-                        {(row.categories?.[cat] ?? 0).toLocaleString("id-ID")}
-                      </TableCell>
-                    ))}
                     <TableCell
-                      className={`text-right font-semibold tabular-nums pr-5 ${
+                      className={`text-right font-semibold tabular-nums ${
                         isTopSales ? "text-amber-700 dark:text-amber-400" : ""
                       }`}
                     >
-                      {(row.total_qty ?? 0).toLocaleString("id-ID")}
+                      {formatIDR(row.total_omset)}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums pr-5">
+                      {row.total_orders.toLocaleString("id-ID")}
                     </TableCell>
                   </TableRow>
                 );
               })}
 
             {/* Totals footer row */}
-            {!isLoading && data.length > 0 && (
+            {!isLoading && sorted.length > 0 && (
               <TableRow className="border-t-2 bg-muted/20 font-semibold hover:bg-muted/30">
-                <TableCell className="pl-5 text-sm font-bold">TOTAL</TableCell>
-                {categories.map((cat) => (
-                  <TableCell key={cat} className="text-center tabular-nums text-sm font-bold">
-                    {data
-                      .reduce((sum, row) => sum + (row.categories?.[cat] ?? 0), 0)
-                      .toLocaleString("id-ID")}
-                  </TableCell>
-                ))}
+                <TableCell className="pl-5" />
+                <TableCell className="text-sm font-bold">TOTAL</TableCell>
+                <TableCell className="text-right tabular-nums text-sm font-bold">
+                  {formatIDR(totalOmset)}
+                </TableCell>
                 <TableCell className="text-right tabular-nums text-sm font-bold pr-5">
-                  {data
-                    .reduce((sum, row) => sum + (row.total_qty ?? 0), 0)
-                    .toLocaleString("id-ID")}
+                  {totalOrders.toLocaleString("id-ID")}
                 </TableCell>
               </TableRow>
             )}

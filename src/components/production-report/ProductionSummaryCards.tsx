@@ -1,17 +1,18 @@
-import type { MonthlySummary } from "@/lib/types/monthly-report";
+import type { ProductionReportData } from "@/lib/types/production-report";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatIDR } from "@/lib/format";
 import {
+  Target,
+  ShoppingCart,
+  PackageMinus,
   TrendingUp,
   Wallet,
   AlertCircle,
-  ShoppingCart,
-  Package,
 } from "lucide-react";
 
-interface SummaryCardsProps {
-  data: MonthlySummary | null | undefined;
+interface ProductionSummaryCardsProps {
+  data: ProductionReportData | null | undefined;
   isLoading: boolean;
 }
 
@@ -64,63 +65,72 @@ function MetricCard({
 }
 
 /**
- * Grid of 5 summary metric cards for monthly report.
- * Displays: Omset, Cash-In, Piutang, Total Order, Total Qty.
+ * Grid of 6 summary metric cards for production report.
+ * Displays: Total Kuota, Qty Ordered, Sisa Kuota, Total Revenue, Total Paid, Total Outstanding.
  */
-export function SummaryCards({ data, isLoading }: SummaryCardsProps) {
+export function ProductionSummaryCards({ data, isLoading }: ProductionSummaryCardsProps) {
   const d = data ?? {
-    total_omset: 0,
-    total_cash_in: 0,
-    total_receivable: 0,
-    total_order_count: 0,
-    total_item_qty: 0,
+    total_quota: 0,
+    total_qty_ordered: 0,
+    remaining_quota: 0,
+    total_revenue: 0,
+    total_paid: 0,
+    total_outstanding: 0,
   };
 
   const metrics: MetricCardProps[] = [
     {
-      label: "Total Omset",
-      value: formatIDR(d.total_omset),
-      icon: <TrendingUp className="h-4 w-4 text-blue-600 dark:text-blue-400" />,
+      label: "Total Kuota",
+      value: `${d.total_quota.toLocaleString("id-ID")} pcs`,
+      icon: <Target className="h-4 w-4 text-blue-600 dark:text-blue-400" />,
       iconBg: "bg-blue-100 dark:bg-blue-900/40",
       valueColor: "text-blue-700 dark:text-blue-300",
-      description: "Order yang sudah approved",
+      description: "Kuota edisi PO ini",
     },
     {
-      label: "Cash-In (Uang Masuk)",
-      value: formatIDR(d.total_cash_in),
-      icon: <Wallet className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />,
-      iconBg: "bg-emerald-100 dark:bg-emerald-900/40",
-      valueColor: "text-emerald-700 dark:text-emerald-300",
-      description: "Pembayaran aktual yang diterima",
-    },
-    {
-      label: "Piutang Baru",
-      value: formatIDR(d.total_receivable),
-      icon: <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400" />,
-      iconBg: "bg-amber-100 dark:bg-amber-900/40",
-      valueColor: "text-amber-700 dark:text-amber-300",
-      description: "Sisa tagihan belum terbayar",
-    },
-    {
-      label: "Total Order",
-      value: d.total_order_count.toLocaleString("id-ID"),
+      label: "Qty Ordered",
+      value: `${d.total_qty_ordered.toLocaleString("id-ID")} pcs`,
       icon: <ShoppingCart className="h-4 w-4 text-violet-600 dark:text-violet-400" />,
       iconBg: "bg-violet-100 dark:bg-violet-900/40",
       valueColor: "text-violet-700 dark:text-violet-300",
-      description: "Jumlah order bulan ini",
+      description: "Total qty yang sudah di-order",
     },
     {
-      label: "Total Qty Item",
-      value: `${d.total_item_qty.toLocaleString("id-ID")} pcs`,
-      icon: <Package className="h-4 w-4 text-rose-600 dark:text-rose-400" />,
-      iconBg: "bg-rose-100 dark:bg-rose-900/40",
-      valueColor: "text-rose-700 dark:text-rose-300",
-      description: "Kuantitas item terproduksi",
+      label: "Sisa Kuota",
+      value: `${d.remaining_quota.toLocaleString("id-ID")} pcs`,
+      icon: <PackageMinus className="h-4 w-4 text-cyan-600 dark:text-cyan-400" />,
+      iconBg: "bg-cyan-100 dark:bg-cyan-900/40",
+      valueColor: "text-cyan-700 dark:text-cyan-300",
+      description: "Kuota yang masih tersedia",
+    },
+    {
+      label: "Total Revenue",
+      value: formatIDR(d.total_revenue),
+      icon: <TrendingUp className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />,
+      iconBg: "bg-emerald-100 dark:bg-emerald-900/40",
+      valueColor: "text-emerald-700 dark:text-emerald-300",
+      description: "Pendapatan total edisi ini",
+    },
+    {
+      label: "Total Paid",
+      value: formatIDR(d.total_paid),
+      icon: <Wallet className="h-4 w-4 text-teal-600 dark:text-teal-400" />,
+      iconBg: "bg-teal-100 dark:bg-teal-900/40",
+      valueColor: "text-teal-700 dark:text-teal-300",
+      description: "Pembayaran yang sudah diterima",
+    },
+    {
+      label: "Total Outstanding",
+      value: formatIDR(d.total_outstanding),
+      icon: <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400" />,
+      iconBg: "bg-amber-100 dark:bg-amber-900/40",
+      valueColor: "text-amber-700 dark:text-amber-300",
+      description: "Sisa piutang belum terbayar",
     },
   ];
 
   return (
-    <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+    <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
       {metrics.map((m) => (
         <MetricCard key={m.label} {...m} isLoading={isLoading} />
       ))}

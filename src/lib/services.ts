@@ -239,31 +239,33 @@ export const dashboardService = {
     api.get<ApiSuccess<any>>("/dashboard/summary", p as any),
 };
 
-// Daily Report
-import type { DailyReportResponse } from "./types/daily-report";
-import type { MonthlyReportResponse } from "./types/monthly-report";
+// Accounting Report
+import type { AccountingReportResponse } from "./types/accounting-report";
+import type { ProductionReportResponse } from "./types/production-report";
 
-export const dailyReportService = {
+export const accountingReportService = {
   /**
-   * Fetch daily report analytics from /reports/daily/generate.
-   * Omit `date` to use today's date.
+   * Fetch accounting report from /reports/accounting.
+   * `startDate` and `endDate` are YYYY-MM-DD strings.
    */
-  get: (date?: string) =>
-    api.get<DailyReportResponse>("/reports/daily/generate", date ? { date } : undefined),
+  get: (startDate: string, endDate: string) =>
+    api.get<AccountingReportResponse>("/reports/accounting", {
+      start_date: startDate,
+      end_date: endDate,
+    }),
 };
 
-// Monthly Report
-export const monthlyReportService = {
+// Production Report
+export const productionReportService = {
   /**
-   * Fetch monthly report analytics from /reports/monthly.
+   * Fetch production report from /reports/production.
    * `month` is 1-12, `year` is YYYY.
    */
-  get: (month?: number, year?: number) => {
-    const q: Record<string, number> = {};
-    if (month) q.month = month;
-    if (year) q.year = year;
-    return api.get<MonthlyReportResponse>("/reports/monthly", Object.keys(q).length > 0 ? q : undefined);
-  },
+  get: (month: number, year: number) =>
+    api.get<ProductionReportResponse>("/reports/production", {
+      month,
+      year,
+    }),
 };
 
 // Reports — Receivables

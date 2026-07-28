@@ -6,117 +6,108 @@ import {
   RefreshCw,
   AlertTriangle,
   FileX,
-  ClipboardList,
 } from "lucide-react";
 
-import { monthlyReportService } from "@/lib/services";
+import { accountingReportService } from "@/lib/services";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 
-import { SummaryCards } from "@/components/monthly-report/SummaryCards";
-import { DailyTrendChart } from "@/components/monthly-report/DailyTrendChart";
-import { MonthlySalesTable } from "@/components/monthly-report/MonthlySalesTable";
+import { SummaryCards } from "@/components/accounting-report/SummaryCards";
+import { DailyTrendChart } from "@/components/accounting-report/DailyTrendChart";
+import { SalesPerformanceTable } from "@/components/accounting-report/SalesPerformanceTable";
 
 // ─── Route Definition ────────────────────────────────────────────────────────
 
-export const Route = createFileRoute("/reports/monthly")({
+export const Route = createFileRoute("/reports/accounting")({
   head: () => ({
     meta: [
-      { title: "Monthly Report & Analytics — SIKOn ERP" },
+      { title: "Accounting Report — SIKOn ERP" },
       {
         name: "description",
         content:
-          "Monitor performa bulanan: Omset, Cash-In, Piutang Baru, dan Kinerja Sales.",
+          "Laporan keuangan: omset, cash-in, piutang, dan kinerja sales berdasarkan rentang tanggal.",
       },
     ],
   }),
-  component: MonthlyReportDashboard,
+  component: AccountingReportDashboard,
 });
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-const MONTHS = [
-  { value: 1, label: "Januari" },
-  { value: 2, label: "Februari" },
-  { value: 3, label: "Maret" },
-  { value: 4, label: "April" },
-  { value: 5, label: "Mei" },
-  { value: 6, label: "Juni" },
-  { value: 7, label: "Juli" },
-  { value: 8, label: "Agustus" },
-  { value: 9, label: "September" },
-  { value: 10, label: "Oktober" },
-  { value: 11, label: "November" },
-  { value: 12, label: "Desember" },
-];
-
-function getCurrentMonth(): number {
-  return new Date().getMonth() + 1;
+function getFirstDayOfMonth(): string {
+  const d = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-01`;
 }
 
-function getCurrentYear(): number {
-  return new Date().getFullYear();
+function getTodayString(): string {
+  const d = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
-function getAvailableYears(): number[] {
-  const currentYear = getCurrentYear();
-  const years = [];
-  for (let i = currentYear - 5; i <= currentYear + 1; i++) {
-    years.push(i);
+function formatDateLabel(dateStr: string): string {
+  try {
+    const d = new Date(dateStr + "T00:00:00");
+    return d.toLocaleDateString("id-ID", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    });
+  } catch {
+    return dateStr;
   }
-  return years;
 }
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-function MonthlyReportDashboard() {
-  const currentMonth = getCurrentMonth();
-  const currentYear = getCurrentYear();
+function AccountingReportDashboard() {
+  const today = getTodayString();
+  const firstDay = getFirstDayOfMonth();
 
-  const [selectedMonth, setSelectedMonth] = useState<number>(currentMonth);
-  const [selectedYear, setSelectedYear] = useState<number>(currentYear);
+  const [startDate, setStartDate] = useState<string>(firstDay);
+  const [endDate, setEndDate] = useState<string>(today);
 
   const { data, isLoading, isFetching, isError, refetch } = useQuery({
-    queryKey: ["monthly-report", selectedMonth, selectedYear],
-    queryFn: () => monthlyReportService.get(selectedMonth, selectedYear),
+    queryKey: ["accounting-report", startDate, endDate],
+    queryFn: () => accountingReportService.get(startDate, endDate),
     retry: 1,
   });
 
   const report = data?.data ?? null;
-
   const summary = report?.summary;
   const dailyTrends = report?.daily_trends ?? [];
   const salesPerformances = report?.sales_performances ?? [];
-  const periodName = report?.period_name ?? `${MONTHS.find(m => m.value === selectedMonth)?.label} ${selectedYear}`;
 
-  const isCurrentPeriod = selectedMonth === currentMonth && selectedYear === currentYear;
-  
+  const isDefaultRange = startDate === firstDay && endDate === today;
+
   // Consider empty if we successfully fetched, but there are no daily trends AND no sales performances
-  const isEmpty = !isLoading && !isError && dailyTrends.length === 0 && salesPerformances.length === 0 && summary?.total_omset === 0;
+  const isEmpty =
+    !isLoading &&
+    !isError &&
+    dailyTrends.length === 0 &&
+    salesPerformances.length === 0 &&
+    summary?.total_omset === 0;
 
   // ── Error State ────────────────────────────────────────────────────────────
   if (isError && !isLoading) {
     return (
       <div className="space-y-6">
         <PageHeader
-          selectedMonth={selectedMonth}
-          setSelectedMonth={setSelectedMonth}
-          selectedYear={selectedYear}
-          setSelectedYear={setSelectedYear}
+          startDate={startDate}
+          setStartDate={setStartDate}
+          endDate={endDate}
+          setEndDate={setEndDate}
           isFetching={isFetching}
           refetch={refetch}
-          isCurrentPeriod={isCurrentPeriod}
-          currentMonth={currentMonth}
-          currentYear={currentYear}
+          isDefaultRange={isDefaultRange}
+          resetToDefault={() => {
+            setStartDate(firstDay);
+            setEndDate(today);
+          }}
         />
         <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-20 gap-4">
           <div className="rounded-full bg-destructive/10 p-4">
@@ -141,15 +132,17 @@ function MonthlyReportDashboard() {
     <div className="space-y-6">
       {/* ── Page Header ── */}
       <PageHeader
-        selectedMonth={selectedMonth}
-        setSelectedMonth={setSelectedMonth}
-        selectedYear={selectedYear}
-        setSelectedYear={setSelectedYear}
+        startDate={startDate}
+        setStartDate={setStartDate}
+        endDate={endDate}
+        setEndDate={setEndDate}
         isFetching={isFetching}
         refetch={refetch}
-        isCurrentPeriod={isCurrentPeriod}
-        currentMonth={currentMonth}
-        currentYear={currentYear}
+        isDefaultRange={isDefaultRange}
+        resetToDefault={() => {
+          setStartDate(firstDay);
+          setEndDate(today);
+        }}
       />
 
       {/* ── Date Context Badge ── */}
@@ -157,10 +150,10 @@ function MonthlyReportDashboard() {
         <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-muted/30 px-3 py-1.5">
           <CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />
           <span className="text-xs text-muted-foreground font-medium">
-            {periodName}
+            {formatDateLabel(startDate)} — {formatDateLabel(endDate)}
           </span>
         </div>
-        {isCurrentPeriod && (
+        {isDefaultRange && (
           <Badge className="text-xs bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800 font-semibold">
             Bulan Ini
           </Badge>
@@ -184,13 +177,13 @@ function MonthlyReportDashboard() {
             <p className="text-sm text-muted-foreground mt-1">
               Belum ada transaksi yang tercatat pada periode ini.
               <br />
-              Pilih bulan/tahun lain.
+              Coba ubah rentang tanggal.
             </p>
           </div>
         </div>
       )}
 
-      {/* ── Main Dashboard Content (show when loading OR when data exists) ── */}
+      {/* ── Main Dashboard Content ── */}
       {(isLoading || !isEmpty) && (
         <>
           {/* ── Section 1: Summary Cards ── */}
@@ -204,7 +197,7 @@ function MonthlyReportDashboard() {
           <Separator className="my-2" />
 
           {/* ── Section 3: Sales Performance ── */}
-          <MonthlySalesTable data={salesPerformances} isLoading={isLoading} />
+          <SalesPerformanceTable data={salesPerformances} isLoading={isLoading} />
         </>
       )}
     </div>
@@ -214,84 +207,69 @@ function MonthlyReportDashboard() {
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 interface PageHeaderProps {
-  selectedMonth: number;
-  setSelectedMonth: (m: number) => void;
-  selectedYear: number;
-  setSelectedYear: (y: number) => void;
+  startDate: string;
+  setStartDate: (d: string) => void;
+  endDate: string;
+  setEndDate: (d: string) => void;
   isFetching: boolean;
   refetch: () => void;
-  isCurrentPeriod: boolean;
-  currentMonth: number;
-  currentYear: number;
+  isDefaultRange: boolean;
+  resetToDefault: () => void;
 }
 
 function PageHeader({
-  selectedMonth,
-  setSelectedMonth,
-  selectedYear,
-  setSelectedYear,
+  startDate,
+  setStartDate,
+  endDate,
+  setEndDate,
   isFetching,
   refetch,
-  isCurrentPeriod,
-  currentMonth,
-  currentYear,
+  isDefaultRange,
+  resetToDefault,
 }: PageHeaderProps) {
-  const years = getAvailableYears();
-
   return (
     <div className="flex flex-wrap items-end justify-between gap-4">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">
-          Monthly Report & Analytics
+          Accounting Report
         </h1>
         <p className="text-sm text-muted-foreground mt-0.5">
-          Monitor performa bulanan — Omset, cash-in, piutang, dan kinerja sales.
+          Laporan keuangan — Omset, cash-in, piutang, dan kinerja sales.
         </p>
       </div>
       <div className="flex items-end gap-2 flex-wrap">
         <div className="space-y-1">
           <Label
-            htmlFor="month-select"
+            htmlFor="acc-start-date"
             className="flex items-center gap-1.5 text-xs text-muted-foreground"
           >
             <CalendarDays className="h-3.5 w-3.5" />
-            Pilih Bulan
+            Dari Tanggal
           </Label>
-          <div className="flex items-center gap-2">
-            <Select
-              value={selectedMonth.toString()}
-              onValueChange={(val) => setSelectedMonth(Number(val))}
-            >
-              <SelectTrigger id="month-select" className="w-[140px]">
-                <SelectValue placeholder="Pilih Bulan" />
-              </SelectTrigger>
-              <SelectContent>
-                {MONTHS.map((m) => (
-                  <SelectItem key={m.value} value={m.value.toString()}>
-                    {m.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Select
-              value={selectedYear.toString()}
-              onValueChange={(val) => setSelectedYear(Number(val))}
-            >
-              <SelectTrigger id="year-select" className="w-[100px]">
-                <SelectValue placeholder="Tahun" />
-              </SelectTrigger>
-              <SelectContent>
-                {years.map((y) => (
-                  <SelectItem key={y} value={y.toString()}>
-                    {y}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          <Input
+            id="acc-start-date"
+            type="date"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+            className="w-40"
+          />
         </div>
-
+        <div className="space-y-1">
+          <Label
+            htmlFor="acc-end-date"
+            className="flex items-center gap-1.5 text-xs text-muted-foreground"
+          >
+            <CalendarDays className="h-3.5 w-3.5" />
+            Sampai Tanggal
+          </Label>
+          <Input
+            id="acc-end-date"
+            type="date"
+            value={endDate}
+            onChange={(e) => setEndDate(e.target.value)}
+            className="w-40"
+          />
+        </div>
         <Button
           variant="outline"
           size="icon"
@@ -302,17 +280,14 @@ function PageHeader({
         >
           <RefreshCw className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`} />
         </Button>
-        {!isCurrentPeriod && (
+        {!isDefaultRange && (
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => {
-              setSelectedMonth(currentMonth);
-              setSelectedYear(currentYear);
-            }}
+            onClick={resetToDefault}
             className="text-xs text-primary hover:text-primary"
           >
-            Kembali ke Bulan Ini
+            Reset ke Bulan Ini
           </Button>
         )}
       </div>
