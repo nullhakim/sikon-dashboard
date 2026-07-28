@@ -21,8 +21,8 @@ import { Route as BankAccountsRouteImport } from './routes/bank-accounts'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ReportsIndexRouteImport } from './routes/reports.index'
 import { Route as OrdersIndexRouteImport } from './routes/orders.index'
-import { Route as ReportsMonthlyRouteImport } from './routes/reports.monthly'
-import { Route as ReportsDailyRouteImport } from './routes/reports.daily'
+import { Route as ReportsProductionRouteImport } from './routes/reports.production'
+import { Route as ReportsAccountingRouteImport } from './routes/reports.accounting'
 import { Route as OrdersOrderIdRouteImport } from './routes/orders.$orderId'
 
 const UsersRoute = UsersRouteImport.update({
@@ -85,14 +85,14 @@ const OrdersIndexRoute = OrdersIndexRouteImport.update({
   path: '/orders/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ReportsMonthlyRoute = ReportsMonthlyRouteImport.update({
-  id: '/monthly',
-  path: '/monthly',
+const ReportsProductionRoute = ReportsProductionRouteImport.update({
+  id: '/production',
+  path: '/production',
   getParentRoute: () => ReportsRoute,
 } as any)
-const ReportsDailyRoute = ReportsDailyRouteImport.update({
-  id: '/daily',
-  path: '/daily',
+const ReportsAccountingRoute = ReportsAccountingRouteImport.update({
+  id: '/accounting',
+  path: '/accounting',
   getParentRoute: () => ReportsRoute,
 } as any)
 const OrdersOrderIdRoute = OrdersOrderIdRouteImport.update({
@@ -113,8 +113,8 @@ export interface FileRoutesByFullPath {
   '/reports': typeof ReportsRouteWithChildren
   '/users': typeof UsersRoute
   '/orders/$orderId': typeof OrdersOrderIdRoute
-  '/reports/daily': typeof ReportsDailyRoute
-  '/reports/monthly': typeof ReportsMonthlyRoute
+  '/reports/accounting': typeof ReportsAccountingRoute
+  '/reports/production': typeof ReportsProductionRoute
   '/orders/': typeof OrdersIndexRoute
   '/reports/': typeof ReportsIndexRoute
 }
@@ -129,8 +129,8 @@ export interface FileRoutesByTo {
   '/products': typeof ProductsRoute
   '/users': typeof UsersRoute
   '/orders/$orderId': typeof OrdersOrderIdRoute
-  '/reports/daily': typeof ReportsDailyRoute
-  '/reports/monthly': typeof ReportsMonthlyRoute
+  '/reports/accounting': typeof ReportsAccountingRoute
+  '/reports/production': typeof ReportsProductionRoute
   '/orders': typeof OrdersIndexRoute
   '/reports': typeof ReportsIndexRoute
 }
@@ -147,8 +147,8 @@ export interface FileRoutesById {
   '/reports': typeof ReportsRouteWithChildren
   '/users': typeof UsersRoute
   '/orders/$orderId': typeof OrdersOrderIdRoute
-  '/reports/daily': typeof ReportsDailyRoute
-  '/reports/monthly': typeof ReportsMonthlyRoute
+  '/reports/accounting': typeof ReportsAccountingRoute
+  '/reports/production': typeof ReportsProductionRoute
   '/orders/': typeof OrdersIndexRoute
   '/reports/': typeof ReportsIndexRoute
 }
@@ -166,8 +166,8 @@ export interface FileRouteTypes {
     | '/reports'
     | '/users'
     | '/orders/$orderId'
-    | '/reports/daily'
-    | '/reports/monthly'
+    | '/reports/accounting'
+    | '/reports/production'
     | '/orders/'
     | '/reports/'
   fileRoutesByTo: FileRoutesByTo
@@ -182,8 +182,8 @@ export interface FileRouteTypes {
     | '/products'
     | '/users'
     | '/orders/$orderId'
-    | '/reports/daily'
-    | '/reports/monthly'
+    | '/reports/accounting'
+    | '/reports/production'
     | '/orders'
     | '/reports'
   id:
@@ -199,8 +199,8 @@ export interface FileRouteTypes {
     | '/reports'
     | '/users'
     | '/orders/$orderId'
-    | '/reports/daily'
-    | '/reports/monthly'
+    | '/reports/accounting'
+    | '/reports/production'
     | '/orders/'
     | '/reports/'
   fileRoutesById: FileRoutesById
@@ -306,18 +306,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OrdersIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/reports/monthly': {
-      id: '/reports/monthly'
-      path: '/monthly'
-      fullPath: '/reports/monthly'
-      preLoaderRoute: typeof ReportsMonthlyRouteImport
+    '/reports/production': {
+      id: '/reports/production'
+      path: '/production'
+      fullPath: '/reports/production'
+      preLoaderRoute: typeof ReportsProductionRouteImport
       parentRoute: typeof ReportsRoute
     }
-    '/reports/daily': {
-      id: '/reports/daily'
-      path: '/daily'
-      fullPath: '/reports/daily'
-      preLoaderRoute: typeof ReportsDailyRouteImport
+    '/reports/accounting': {
+      id: '/reports/accounting'
+      path: '/accounting'
+      fullPath: '/reports/accounting'
+      preLoaderRoute: typeof ReportsAccountingRouteImport
       parentRoute: typeof ReportsRoute
     }
     '/orders/$orderId': {
@@ -331,14 +331,14 @@ declare module '@tanstack/react-router' {
 }
 
 interface ReportsRouteChildren {
-  ReportsDailyRoute: typeof ReportsDailyRoute
-  ReportsMonthlyRoute: typeof ReportsMonthlyRoute
+  ReportsAccountingRoute: typeof ReportsAccountingRoute
+  ReportsProductionRoute: typeof ReportsProductionRoute
   ReportsIndexRoute: typeof ReportsIndexRoute
 }
 
 const ReportsRouteChildren: ReportsRouteChildren = {
-  ReportsDailyRoute: ReportsDailyRoute,
-  ReportsMonthlyRoute: ReportsMonthlyRoute,
+  ReportsAccountingRoute: ReportsAccountingRoute,
+  ReportsProductionRoute: ReportsProductionRoute,
   ReportsIndexRoute: ReportsIndexRoute,
 }
 

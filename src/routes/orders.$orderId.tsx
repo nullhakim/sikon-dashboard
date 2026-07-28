@@ -478,6 +478,7 @@ function UpdateQuotationDialog({
             product_id: it.product_id,
             custom_name: it.custom_name || undefined,
             qty: it.qty,
+            price: it.price,
             details: {
               parts: buildItemDetails(it) || [],
               bordir: it.bordir,
@@ -1402,7 +1403,8 @@ function OrderDetailPage() {
                 </TableRow>
               ) : (
                 items.map((it, idx) => {
-                  const bahan = (it.details?.Bahan ?? it.details?.bahan) as
+                  const detailsMap = (it.details || {}) as Record<string, any>;
+                  const bahan = (detailsMap.Bahan ?? detailsMap.bahan) as
                     | { Name?: string; Color?: string; name?: string; color?: string }
                     | string
                     | undefined;
@@ -1410,7 +1412,7 @@ function OrderDetailPage() {
                   let warna = "";
                   if (typeof bahan === "string") {
                     bahanName = bahan;
-                    warna = (it.details?.Warna ?? it.details?.warna ?? "") as string;
+                    warna = (detailsMap.Warna ?? detailsMap.warna ?? "") as string;
                   } else if (bahan && typeof bahan === "object") {
                     bahanName = bahan.Name ?? bahan.name ?? "";
                     warna = bahan.Color ?? bahan.color ?? "";
