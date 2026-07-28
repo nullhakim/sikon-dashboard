@@ -13,6 +13,8 @@ import {
   Layers,
   ClipboardList,
   Factory,
+  Wallet,
+  FolderOpen,
 } from "lucide-react";
 
 import {
@@ -38,6 +40,7 @@ const transactions = [
   { title: "Orders", url: "/orders", icon: ShoppingCart },
   { title: "Batch PO", url: "/batch-pos", icon: Layers },
   { title: "Payments", url: "/payments", icon: CreditCard },
+  { title: "Expenses", url: "/expenses", icon: Wallet },
 ];
 
 const people = [
@@ -48,6 +51,7 @@ const people = [
 const master = [
   { title: "Products", url: "/products", icon: Package },
   { title: "Categories", url: "/categories", icon: Tags },
+  { title: "Expense Categories", url: "/expense-categories", icon: FolderOpen },
   { title: "Material Catalogs", url: "/material-catalogs", icon: BookOpen },
   { title: "Bank Accounts", url: "/bank-accounts", icon: Landmark },
 ];

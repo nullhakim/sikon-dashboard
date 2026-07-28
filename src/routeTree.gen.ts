@@ -14,6 +14,8 @@ import { Route as ReportsRouteImport } from './routes/reports'
 import { Route as ProductsRouteImport } from './routes/products'
 import { Route as PaymentsRouteImport } from './routes/payments'
 import { Route as MaterialCatalogsRouteImport } from './routes/material-catalogs'
+import { Route as ExpensesRouteImport } from './routes/expenses'
+import { Route as ExpenseCategoriesRouteImport } from './routes/expense-categories'
 import { Route as CustomersRouteImport } from './routes/customers'
 import { Route as CategoriesRouteImport } from './routes/categories'
 import { Route as BatchPosRouteImport } from './routes/batch-pos'
@@ -48,6 +50,16 @@ const PaymentsRoute = PaymentsRouteImport.update({
 const MaterialCatalogsRoute = MaterialCatalogsRouteImport.update({
   id: '/material-catalogs',
   path: '/material-catalogs',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ExpensesRoute = ExpensesRouteImport.update({
+  id: '/expenses',
+  path: '/expenses',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ExpenseCategoriesRoute = ExpenseCategoriesRouteImport.update({
+  id: '/expense-categories',
+  path: '/expense-categories',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CustomersRoute = CustomersRouteImport.update({
@@ -107,6 +119,8 @@ export interface FileRoutesByFullPath {
   '/batch-pos': typeof BatchPosRoute
   '/categories': typeof CategoriesRoute
   '/customers': typeof CustomersRoute
+  '/expense-categories': typeof ExpenseCategoriesRoute
+  '/expenses': typeof ExpensesRoute
   '/material-catalogs': typeof MaterialCatalogsRoute
   '/payments': typeof PaymentsRoute
   '/products': typeof ProductsRoute
@@ -124,6 +138,8 @@ export interface FileRoutesByTo {
   '/batch-pos': typeof BatchPosRoute
   '/categories': typeof CategoriesRoute
   '/customers': typeof CustomersRoute
+  '/expense-categories': typeof ExpenseCategoriesRoute
+  '/expenses': typeof ExpensesRoute
   '/material-catalogs': typeof MaterialCatalogsRoute
   '/payments': typeof PaymentsRoute
   '/products': typeof ProductsRoute
@@ -141,6 +157,8 @@ export interface FileRoutesById {
   '/batch-pos': typeof BatchPosRoute
   '/categories': typeof CategoriesRoute
   '/customers': typeof CustomersRoute
+  '/expense-categories': typeof ExpenseCategoriesRoute
+  '/expenses': typeof ExpensesRoute
   '/material-catalogs': typeof MaterialCatalogsRoute
   '/payments': typeof PaymentsRoute
   '/products': typeof ProductsRoute
@@ -160,6 +178,8 @@ export interface FileRouteTypes {
     | '/batch-pos'
     | '/categories'
     | '/customers'
+    | '/expense-categories'
+    | '/expenses'
     | '/material-catalogs'
     | '/payments'
     | '/products'
@@ -177,6 +197,8 @@ export interface FileRouteTypes {
     | '/batch-pos'
     | '/categories'
     | '/customers'
+    | '/expense-categories'
+    | '/expenses'
     | '/material-catalogs'
     | '/payments'
     | '/products'
@@ -193,6 +215,8 @@ export interface FileRouteTypes {
     | '/batch-pos'
     | '/categories'
     | '/customers'
+    | '/expense-categories'
+    | '/expenses'
     | '/material-catalogs'
     | '/payments'
     | '/products'
@@ -211,6 +235,8 @@ export interface RootRouteChildren {
   BatchPosRoute: typeof BatchPosRoute
   CategoriesRoute: typeof CategoriesRoute
   CustomersRoute: typeof CustomersRoute
+  ExpenseCategoriesRoute: typeof ExpenseCategoriesRoute
+  ExpensesRoute: typeof ExpensesRoute
   MaterialCatalogsRoute: typeof MaterialCatalogsRoute
   PaymentsRoute: typeof PaymentsRoute
   ProductsRoute: typeof ProductsRoute
@@ -255,6 +281,20 @@ declare module '@tanstack/react-router' {
       path: '/material-catalogs'
       fullPath: '/material-catalogs'
       preLoaderRoute: typeof MaterialCatalogsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/expenses': {
+      id: '/expenses'
+      path: '/expenses'
+      fullPath: '/expenses'
+      preLoaderRoute: typeof ExpensesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/expense-categories': {
+      id: '/expense-categories'
+      path: '/expense-categories'
+      fullPath: '/expense-categories'
+      preLoaderRoute: typeof ExpenseCategoriesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/customers': {
@@ -351,6 +391,8 @@ const rootRouteChildren: RootRouteChildren = {
   BatchPosRoute: BatchPosRoute,
   CategoriesRoute: CategoriesRoute,
   CustomersRoute: CustomersRoute,
+  ExpenseCategoriesRoute: ExpenseCategoriesRoute,
+  ExpensesRoute: ExpensesRoute,
   MaterialCatalogsRoute: MaterialCatalogsRoute,
   PaymentsRoute: PaymentsRoute,
   ProductsRoute: ProductsRoute,
