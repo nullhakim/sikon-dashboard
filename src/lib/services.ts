@@ -343,3 +343,43 @@ export const uploadService = {
     return payload as ApiSuccess<{ url: string }>;
   },
 };
+
+// Expense Categories
+import type { ExpenseCategory, Expense } from "./types/expense";
+
+export const expenseCategoriesService = {
+  list: () =>
+    api.get<ApiSuccess<ExpenseCategory[]>>("/expenses/categories"),
+  create: (body: { name: string; type: string; description?: string }) =>
+    api.post<ApiSuccess<ExpenseCategory>>("/expenses/categories", body),
+};
+
+// Expenses
+export interface ExpensesListParams extends PageParams {
+  start_date?: string;
+  end_date?: string;
+  po_id?: string;
+}
+
+export const expensesService = {
+  list: (p: ExpensesListParams = {}) => {
+    const q: Record<string, string | number> = {
+      page: p.page ?? 1,
+      limit: p.limit ?? 10,
+    };
+    if (p.start_date) q.start_date = p.start_date;
+    if (p.end_date) q.end_date = p.end_date;
+    if (p.po_id) q.po_id = p.po_id;
+    return api.get<ApiPaginated<Expense>>("/expenses", q);
+  },
+  create: (body: {
+    title: string;
+    amount: number;
+    expense_date: string;
+    expense_category_id: string;
+    batch_po_id?: string;
+    created_by_id: string;
+    notes?: string;
+  }) => api.post<ApiSuccess<Expense>>("/expenses", body),
+  delete: (id: string) => api.delete<ApiSuccess<unknown>>(`/expenses/${id}`),
+};
