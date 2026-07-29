@@ -7,6 +7,9 @@ export interface AccountingSummary {
   total_receivable: number;
   total_order_count: number;
   total_item_qty: number;
+  total_expense: number;
+  net_profit: number;
+  net_cashflow: number;
 }
 
 /** Single day data point for the daily trend chart. */

@@ -8,6 +8,9 @@ import {
   AlertCircle,
   ShoppingCart,
   Package,
+  TrendingDown,
+  Activity,
+  ArrowRightLeft,
 } from "lucide-react";
 
 interface SummaryCardsProps {
@@ -74,6 +77,9 @@ export function SummaryCards({ data, isLoading }: SummaryCardsProps) {
     total_receivable: 0,
     total_order_count: 0,
     total_item_qty: 0,
+    total_expense: 0,
+    net_profit: 0,
+    net_cashflow: 0,
   };
 
   const metrics: MetricCardProps[] = [
@@ -102,6 +108,30 @@ export function SummaryCards({ data, isLoading }: SummaryCardsProps) {
       description: "Sisa tagihan belum terbayar",
     },
     {
+      label: "Total Expense",
+      value: formatIDR(d.total_expense),
+      icon: <TrendingDown className="h-4 w-4 text-red-600 dark:text-red-400" />,
+      iconBg: "bg-red-100 dark:bg-red-900/40",
+      valueColor: "text-red-700 dark:text-red-300",
+      description: "Total pengeluaran (HPP & OPEX)",
+    },
+    {
+      label: "Net Profit",
+      value: formatIDR(d.net_profit),
+      icon: <Activity className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />,
+      iconBg: "bg-indigo-100 dark:bg-indigo-900/40",
+      valueColor: "text-indigo-700 dark:text-indigo-300",
+      description: "Total Omset - Total Expense",
+    },
+    {
+      label: "Net Cashflow",
+      value: formatIDR(d.net_cashflow),
+      icon: <ArrowRightLeft className="h-4 w-4 text-cyan-600 dark:text-cyan-400" />,
+      iconBg: "bg-cyan-100 dark:bg-cyan-900/40",
+      valueColor: "text-cyan-700 dark:text-cyan-300",
+      description: "Cash In - Total Expense",
+    },
+    {
       label: "Total Order",
       value: d.total_order_count.toLocaleString("id-ID"),
       icon: <ShoppingCart className="h-4 w-4 text-violet-600 dark:text-violet-400" />,
@@ -120,7 +150,7 @@ export function SummaryCards({ data, isLoading }: SummaryCardsProps) {
   ];
 
   return (
-    <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+    <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
       {metrics.map((m) => (
         <MetricCard key={m.label} {...m} isLoading={isLoading} />
       ))}
