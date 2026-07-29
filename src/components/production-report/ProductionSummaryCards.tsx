@@ -9,6 +9,8 @@ import {
   TrendingUp,
   Wallet,
   AlertCircle,
+  TrendingDown,
+  Activity,
 } from "lucide-react";
 
 interface ProductionSummaryCardsProps {
@@ -76,6 +78,8 @@ export function ProductionSummaryCards({ data, isLoading }: ProductionSummaryCar
     total_revenue: 0,
     total_paid: 0,
     total_outstanding: 0,
+    total_hpp: 0,
+    net_profit: 0,
   };
 
   const metrics: MetricCardProps[] = [
@@ -127,10 +131,26 @@ export function ProductionSummaryCards({ data, isLoading }: ProductionSummaryCar
       valueColor: "text-amber-700 dark:text-amber-300",
       description: "Sisa piutang belum terbayar",
     },
+    {
+      label: "Total HPP",
+      value: formatIDR(d.total_hpp),
+      icon: <TrendingDown className="h-4 w-4 text-red-600 dark:text-red-400" />,
+      iconBg: "bg-red-100 dark:bg-red-900/40",
+      valueColor: "text-red-700 dark:text-red-300",
+      description: "Total pengeluaran edisi ini",
+    },
+    {
+      label: "Net Profit",
+      value: formatIDR(d.net_profit),
+      icon: <Activity className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />,
+      iconBg: "bg-indigo-100 dark:bg-indigo-900/40",
+      valueColor: "text-indigo-700 dark:text-indigo-300",
+      description: "Total Revenue - Total HPP",
+    },
   ];
 
   return (
-    <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
       {metrics.map((m) => (
         <MetricCard key={m.label} {...m} isLoading={isLoading} />
       ))}

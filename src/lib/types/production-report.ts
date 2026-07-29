@@ -29,6 +29,8 @@ export interface ProductionReportData {
   total_revenue: number;
   total_paid: number;
   total_outstanding: number;
+  total_hpp: number;
+  net_profit: number;
   active_batch_pos: ActiveBatchPO[];
   product_summary: ProductSummaryRow[];
   sales_summary: ProductionSalesRow[];
