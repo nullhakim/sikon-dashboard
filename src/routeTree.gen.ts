@@ -24,8 +24,12 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as ReportsIndexRouteImport } from './routes/reports.index'
 import { Route as OrdersIndexRouteImport } from './routes/orders.index'
 import { Route as ReportsProductionRouteImport } from './routes/reports.production'
+import { Route as ReportsPoSummaryRouteImport } from './routes/reports.po-summary'
+import { Route as ReportsDailyRouteImport } from './routes/reports.daily'
 import { Route as ReportsAccountingRouteImport } from './routes/reports.accounting'
 import { Route as OrdersOrderIdRouteImport } from './routes/orders.$orderId'
+import { Route as ReportsPoSummaryIndexRouteImport } from './routes/reports.po-summary.index'
+import { Route as ReportsPoSummaryPoIdRouteImport } from './routes/reports.po-summary.$poId'
 
 const UsersRoute = UsersRouteImport.update({
   id: '/users',
@@ -102,6 +106,16 @@ const ReportsProductionRoute = ReportsProductionRouteImport.update({
   path: '/production',
   getParentRoute: () => ReportsRoute,
 } as any)
+const ReportsPoSummaryRoute = ReportsPoSummaryRouteImport.update({
+  id: '/po-summary',
+  path: '/po-summary',
+  getParentRoute: () => ReportsRoute,
+} as any)
+const ReportsDailyRoute = ReportsDailyRouteImport.update({
+  id: '/daily',
+  path: '/daily',
+  getParentRoute: () => ReportsRoute,
+} as any)
 const ReportsAccountingRoute = ReportsAccountingRouteImport.update({
   id: '/accounting',
   path: '/accounting',
@@ -111,6 +125,16 @@ const OrdersOrderIdRoute = OrdersOrderIdRouteImport.update({
   id: '/orders/$orderId',
   path: '/orders/$orderId',
   getParentRoute: () => rootRouteImport,
+} as any)
+const ReportsPoSummaryIndexRoute = ReportsPoSummaryIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => ReportsPoSummaryRoute,
+} as any)
+const ReportsPoSummaryPoIdRoute = ReportsPoSummaryPoIdRouteImport.update({
+  id: '/$poId',
+  path: '/$poId',
+  getParentRoute: () => ReportsPoSummaryRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
@@ -128,9 +152,13 @@ export interface FileRoutesByFullPath {
   '/users': typeof UsersRoute
   '/orders/$orderId': typeof OrdersOrderIdRoute
   '/reports/accounting': typeof ReportsAccountingRoute
+  '/reports/daily': typeof ReportsDailyRoute
+  '/reports/po-summary': typeof ReportsPoSummaryRouteWithChildren
   '/reports/production': typeof ReportsProductionRoute
   '/orders/': typeof OrdersIndexRoute
   '/reports/': typeof ReportsIndexRoute
+  '/reports/po-summary/$poId': typeof ReportsPoSummaryPoIdRoute
+  '/reports/po-summary/': typeof ReportsPoSummaryIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -146,9 +174,12 @@ export interface FileRoutesByTo {
   '/users': typeof UsersRoute
   '/orders/$orderId': typeof OrdersOrderIdRoute
   '/reports/accounting': typeof ReportsAccountingRoute
+  '/reports/daily': typeof ReportsDailyRoute
   '/reports/production': typeof ReportsProductionRoute
   '/orders': typeof OrdersIndexRoute
   '/reports': typeof ReportsIndexRoute
+  '/reports/po-summary/$poId': typeof ReportsPoSummaryPoIdRoute
+  '/reports/po-summary': typeof ReportsPoSummaryIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -166,9 +197,13 @@ export interface FileRoutesById {
   '/users': typeof UsersRoute
   '/orders/$orderId': typeof OrdersOrderIdRoute
   '/reports/accounting': typeof ReportsAccountingRoute
+  '/reports/daily': typeof ReportsDailyRoute
+  '/reports/po-summary': typeof ReportsPoSummaryRouteWithChildren
   '/reports/production': typeof ReportsProductionRoute
   '/orders/': typeof OrdersIndexRoute
   '/reports/': typeof ReportsIndexRoute
+  '/reports/po-summary/$poId': typeof ReportsPoSummaryPoIdRoute
+  '/reports/po-summary/': typeof ReportsPoSummaryIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -187,9 +222,13 @@ export interface FileRouteTypes {
     | '/users'
     | '/orders/$orderId'
     | '/reports/accounting'
+    | '/reports/daily'
+    | '/reports/po-summary'
     | '/reports/production'
     | '/orders/'
     | '/reports/'
+    | '/reports/po-summary/$poId'
+    | '/reports/po-summary/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -205,9 +244,12 @@ export interface FileRouteTypes {
     | '/users'
     | '/orders/$orderId'
     | '/reports/accounting'
+    | '/reports/daily'
     | '/reports/production'
     | '/orders'
     | '/reports'
+    | '/reports/po-summary/$poId'
+    | '/reports/po-summary'
   id:
     | '__root__'
     | '/'
@@ -224,9 +266,13 @@ export interface FileRouteTypes {
     | '/users'
     | '/orders/$orderId'
     | '/reports/accounting'
+    | '/reports/daily'
+    | '/reports/po-summary'
     | '/reports/production'
     | '/orders/'
     | '/reports/'
+    | '/reports/po-summary/$poId'
+    | '/reports/po-summary/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -353,6 +399,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ReportsProductionRouteImport
       parentRoute: typeof ReportsRoute
     }
+    '/reports/po-summary': {
+      id: '/reports/po-summary'
+      path: '/po-summary'
+      fullPath: '/reports/po-summary'
+      preLoaderRoute: typeof ReportsPoSummaryRouteImport
+      parentRoute: typeof ReportsRoute
+    }
+    '/reports/daily': {
+      id: '/reports/daily'
+      path: '/daily'
+      fullPath: '/reports/daily'
+      preLoaderRoute: typeof ReportsDailyRouteImport
+      parentRoute: typeof ReportsRoute
+    }
     '/reports/accounting': {
       id: '/reports/accounting'
       path: '/accounting'
@@ -367,17 +427,48 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OrdersOrderIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/reports/po-summary/': {
+      id: '/reports/po-summary/'
+      path: '/'
+      fullPath: '/reports/po-summary/'
+      preLoaderRoute: typeof ReportsPoSummaryIndexRouteImport
+      parentRoute: typeof ReportsPoSummaryRoute
+    }
+    '/reports/po-summary/$poId': {
+      id: '/reports/po-summary/$poId'
+      path: '/$poId'
+      fullPath: '/reports/po-summary/$poId'
+      preLoaderRoute: typeof ReportsPoSummaryPoIdRouteImport
+      parentRoute: typeof ReportsPoSummaryRoute
+    }
   }
 }
 
+interface ReportsPoSummaryRouteChildren {
+  ReportsPoSummaryPoIdRoute: typeof ReportsPoSummaryPoIdRoute
+  ReportsPoSummaryIndexRoute: typeof ReportsPoSummaryIndexRoute
+}
+
+const ReportsPoSummaryRouteChildren: ReportsPoSummaryRouteChildren = {
+  ReportsPoSummaryPoIdRoute: ReportsPoSummaryPoIdRoute,
+  ReportsPoSummaryIndexRoute: ReportsPoSummaryIndexRoute,
+}
+
+const ReportsPoSummaryRouteWithChildren =
+  ReportsPoSummaryRoute._addFileChildren(ReportsPoSummaryRouteChildren)
+
 interface ReportsRouteChildren {
   ReportsAccountingRoute: typeof ReportsAccountingRoute
+  ReportsDailyRoute: typeof ReportsDailyRoute
+  ReportsPoSummaryRoute: typeof ReportsPoSummaryRouteWithChildren
   ReportsProductionRoute: typeof ReportsProductionRoute
   ReportsIndexRoute: typeof ReportsIndexRoute
 }
 
 const ReportsRouteChildren: ReportsRouteChildren = {
   ReportsAccountingRoute: ReportsAccountingRoute,
+  ReportsDailyRoute: ReportsDailyRoute,
+  ReportsPoSummaryRoute: ReportsPoSummaryRouteWithChildren,
   ReportsProductionRoute: ReportsProductionRoute,
   ReportsIndexRoute: ReportsIndexRoute,
 }

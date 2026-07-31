@@ -383,3 +383,26 @@ export const expensesService = {
   }) => api.post<ApiSuccess<Expense>>("/expenses", body),
   delete: (id: string) => api.delete<ApiSuccess<unknown>>(`/expenses/${id}`),
 };
+
+// Daily Report
+import type { DailyReportResponse } from "./types/daily-report";
+
+export const dailyReportService = {
+  /**
+   * Fetch daily report from /reports/daily.
+   * `date` is an optional YYYY-MM-DD string (defaults to today on the server).
+   */
+  get: (date?: string) =>
+    api.get<DailyReportResponse>("/reports/daily", date ? { date } : {}),
+};
+
+// PO Summary Report
+import type { POSummaryResponse } from "./types/po-summary";
+
+export const poSummaryService = {
+  /**
+   * Fetch PO summary / closing report from /reports/po/{po_id}/summary.
+   */
+  get: (poId: string) =>
+    api.get<POSummaryResponse>(`/reports/po/${poId}/summary`),
+};
