@@ -15,6 +15,8 @@ import {
   Factory,
   Wallet,
   FolderOpen,
+  CalendarDays,
+  FileBarChart,
 } from "lucide-react";
 
 import {
@@ -32,8 +34,10 @@ import {
 const main = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
   { title: "Reports", url: "/reports", icon: PieChart },
+  { title: "Daily Report", url: "/reports/daily", icon: CalendarDays },
   { title: "Accounting Report", url: "/reports/accounting", icon: ClipboardList },
   { title: "Production Report", url: "/reports/production", icon: Factory },
+  { title: "PO Summary", url: "/reports/po-summary", icon: FileBarChart },
 ];
 
 const transactions = [
