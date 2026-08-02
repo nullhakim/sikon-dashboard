@@ -1,4 +1,5 @@
 import type { ActiveBatchPO } from "@/lib/types/production-report";
+import { Link } from "@tanstack/react-router";
 import {
   Table,
   TableBody,
@@ -10,7 +11,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Layers } from "lucide-react";
+import { Layers, ExternalLink } from "lucide-react";
 
 interface ActiveBatchPOTableProps {
   data: ActiveBatchPO[];
@@ -33,6 +34,7 @@ function statusBadgeClass(status: string): string {
 
 /**
  * Table of active Batch POs for a production edition.
+ * Each PO name is clickable and navigates to its PO Summary detail page.
  */
 export function ActiveBatchPOTable({ data, isLoading }: ActiveBatchPOTableProps) {
   return (
@@ -45,7 +47,7 @@ export function ActiveBatchPOTable({ data, isLoading }: ActiveBatchPOTableProps)
               Daftar Batch PO Aktif
             </CardTitle>
             <CardDescription className="mt-0.5">
-              Purchase Order yang berjalan di edisi ini
+              Purchase Order yang berjalan di edisi ini — klik nama PO untuk melihat detail
             </CardDescription>
           </div>
           {!isLoading && data.length > 0 && (
@@ -113,12 +115,22 @@ export function ActiveBatchPOTable({ data, isLoading }: ActiveBatchPOTableProps)
             {/* Data rows */}
             {!isLoading &&
               data.map((row, idx) => (
-                <TableRow key={row.id}>
+                <TableRow
+                  key={row.id}
+                  className="group hover:bg-muted/40 transition-colors"
+                >
                   <TableCell className="pl-5 tabular-nums text-muted-foreground">
                     {idx + 1}
                   </TableCell>
                   <TableCell className="font-medium whitespace-nowrap">
-                    {row.name}
+                    <Link
+                      to="/reports/po-summary/$poId"
+                      params={{ poId: row.id }}
+                      className="inline-flex items-center gap-1.5 text-primary hover:text-primary/80 hover:underline underline-offset-2 transition-colors"
+                    >
+                      <span>{row.name}</span>
+                      <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                    </Link>
                   </TableCell>
                   <TableCell className="text-center">
                     <Badge

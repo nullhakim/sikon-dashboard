@@ -14,11 +14,18 @@ export interface ProductSummaryRow {
   total_qty: number;
 }
 
-/** Sales summary row for production. */
+/** Single data point in the monthly trend chart. */
+export interface ProductionTrendPoint {
+  date: string; // YYYY-MM-DD
+  qty: number;
+}
+
+/** Sales summary row for production (with category breakdown). */
 export interface ProductionSalesRow {
   sales_name: string;
   total_qty: number;
   total_revenue: number;
+  categories?: Record<string, number>; // map<category_name, qty>
 }
 
 /** Main data body from /reports/production */
@@ -34,6 +41,7 @@ export interface ProductionReportData {
   active_batch_pos: ActiveBatchPO[];
   product_summary: ProductSummaryRow[];
   sales_summary: ProductionSalesRow[];
+  trend_data?: ProductionTrendPoint[];
 }
 
 export interface ProductionReportResponse {
