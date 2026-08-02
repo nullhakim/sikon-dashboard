@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/select";
 
 import { ProductionSummaryCards } from "@/components/production-report/ProductionSummaryCards";
+import { ProductionTrendChart } from "@/components/production-report/ProductionTrendChart";
 import { ActiveBatchPOTable } from "@/components/production-report/ActiveBatchPOTable";
 import { ProductSummaryTable } from "@/components/production-report/ProductSummaryTable";
 import { ProductionSalesTable } from "@/components/production-report/ProductionSalesTable";
@@ -96,6 +97,7 @@ function ProductionReportDashboard() {
   const activeBatchPos = report?.active_batch_pos ?? [];
   const productSummary = report?.product_summary ?? [];
   const salesSummary = report?.sales_summary ?? [];
+  const trendData = report?.trend_data ?? [];
 
   const isCurrentPeriod =
     selectedMonth === currentMonth && selectedYear === currentYear;
@@ -206,7 +208,12 @@ function ProductionReportDashboard() {
 
           <Separator className="my-2" />
 
-          {/* ── Section 2: Active Batch POs ── */}
+          {/* ── Section 2: Trend Chart ── */}
+          <ProductionTrendChart data={trendData} isLoading={isLoading} />
+
+          <Separator className="my-2" />
+
+          {/* ── Section 3: Active Batch POs ── */}
           <ActiveBatchPOTable data={activeBatchPos} isLoading={isLoading} />
 
           <Separator className="my-2" />

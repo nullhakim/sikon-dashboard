@@ -1,4 +1,4 @@
-import type { ProductionSalesRow } from "@/lib/types/production-report";
+import type { POSummarySalesRow } from "@/lib/types/po-summary";
 import {
   Table,
   TableBody,
@@ -13,17 +13,17 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Trophy, Users } from "lucide-react";
 import { formatIDR } from "@/lib/format";
 
-interface ProductionSalesTableProps {
-  data: ProductionSalesRow[];
+interface POSalesDetailTableProps {
+  data: POSummarySalesRow[];
   isLoading: boolean;
 }
 
 /**
- * Sales summary table for production report with dynamic category columns.
+ * Sales detail matrix table for PO Summary/Closing Report.
  * Shows each sales' qty per product category, total qty, and total revenue.
- * TOP badge for highest performer by revenue.
+ * Dynamic columns built from the `categories` map across all sales rows.
  */
-export function ProductionSalesTable({ data, isLoading }: ProductionSalesTableProps) {
+export function POSalesDetailTable({ data, isLoading }: POSalesDetailTableProps) {
   // Collect all unique category names across all sales for dynamic columns
   const categorySet = new Set<string>();
   for (const row of data) {
@@ -36,6 +36,7 @@ export function ProductionSalesTable({ data, isLoading }: ProductionSalesTablePr
   const categories = Array.from(categorySet).sort();
   const hasCategories = categories.length > 0;
 
+  // Sort by total_revenue descending
   const sorted = [...data].sort((a, b) => b.total_revenue - a.total_revenue);
 
   const maxRevenue = sorted.reduce((max, row) => Math.max(max, row.total_revenue), 0);
@@ -61,11 +62,10 @@ export function ProductionSalesTable({ data, isLoading }: ProductionSalesTablePr
           <div>
             <CardTitle className="text-base flex items-center gap-2">
               <Users className="h-4 w-4 text-primary" />
-              Kinerja Sales — Produksi
+              Detail Performa Sales — PO
             </CardTitle>
             <CardDescription className="mt-0.5">
-              Kontribusi qty dan revenue per sales di edisi ini
-              {hasCategories && " — dengan rincian per kategori"}
+              Rincian pencapaian sales untuk PO ini — per kategori produk
             </CardDescription>
           </div>
           {!isLoading && data.length > 0 && (
@@ -139,7 +139,7 @@ export function ProductionSalesTable({ data, isLoading }: ProductionSalesTablePr
                 >
                   <div className="flex flex-col items-center gap-2">
                     <Users className="h-8 w-8 text-muted-foreground/30" />
-                    <span>Belum ada data kinerja sales untuk edisi ini.</span>
+                    <span>Belum ada data performa sales untuk PO ini.</span>
                   </div>
                 </TableCell>
               </TableRow>

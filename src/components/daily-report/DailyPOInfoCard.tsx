@@ -1,16 +1,27 @@
 import type { DailyReportPOInfo } from "@/lib/types/daily-report";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Layers, Target, PackageMinus } from "lucide-react";
+import { Layers, Target, PackageMinus, CalendarRange } from "lucide-react";
 
 interface DailyPOInfoCardProps {
   data: DailyReportPOInfo | null | undefined;
   isLoading: boolean;
 }
 
+/** Formats YYYY-MM-DD → "1 Jul 2026" */
+function formatShortDate(dateStr: string | undefined): string {
+  if (!dateStr) return "—";
+  try {
+    const d = new Date(dateStr + "T00:00:00");
+    return d.toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" });
+  } catch {
+    return dateStr;
+  }
+}
+
 /**
  * Active PO information card with quota progress bar.
- * Shows PO name, total quota, and remaining quota at a glance.
+ * Shows PO name, date range, total quota, and remaining quota at a glance.
  */
 export function DailyPOInfoCard({ data, isLoading }: DailyPOInfoCardProps) {
   const d = data ?? {} as DailyReportPOInfo;
@@ -19,6 +30,8 @@ export function DailyPOInfoCard({ data, isLoading }: DailyPOInfoCardProps) {
   const po_name = d.po_name ?? "-";
   const used = quota - remaining_quota;
   const pct = quota > 0 ? Math.round((used / quota) * 100) : 0;
+
+  const hasDateRange = d.start_date || d.end_date;
 
   // Color based on usage
   const progressColor =
@@ -33,6 +46,7 @@ export function DailyPOInfoCard({ data, isLoading }: DailyPOInfoCardProps) {
       <Card className="border-border/60">
         <CardContent className="pt-5 pb-4 px-5 space-y-4">
           <Skeleton className="h-5 w-48" />
+          <Skeleton className="h-3 w-36" />
           <div className="grid grid-cols-3 gap-4">
             {Array.from({ length: 3 }).map((_, i) => (
               <div key={i} className="space-y-2">
@@ -50,16 +64,24 @@ export function DailyPOInfoCard({ data, isLoading }: DailyPOInfoCardProps) {
   return (
     <Card className="border-border/60 transition-shadow hover:shadow-md">
       <CardContent className="pt-5 pb-4 px-5 space-y-4">
-        {/* PO Name */}
-        <div className="flex items-center gap-2.5">
+        {/* PO Name + Date Range */}
+        <div className="flex items-start gap-2.5">
           <div className="rounded-xl p-2.5 shrink-0 bg-indigo-100 dark:bg-indigo-900/40">
             <Layers className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
           </div>
-          <div>
+          <div className="flex-1 min-w-0">
             <p className="text-xs text-muted-foreground font-medium">PO Aktif</p>
             <p className="text-lg font-bold tracking-tight text-foreground">
               {po_name}
             </p>
+            {hasDateRange && (
+              <div className="flex items-center gap-1.5 mt-1">
+                <CalendarRange className="h-3 w-3 text-muted-foreground shrink-0" />
+                <span className="text-xs text-muted-foreground">
+                  {formatShortDate(d.start_date)} — {formatShortDate(d.end_date)}
+                </span>
+              </div>
+            )}
           </div>
         </div>
 

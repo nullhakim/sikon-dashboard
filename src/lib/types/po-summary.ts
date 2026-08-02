@@ -14,15 +14,26 @@ export interface POSummaryProductRow {
   total_qty: number;
 }
 
-/** Sales summary within a PO. */
+/** Single data point in the PO trend chart. */
+export interface POSummaryTrendPoint {
+  date: string; // YYYY-MM-DD
+  qty: number;
+}
+
+/** Sales summary within a PO (with category breakdown). */
 export interface POSummarySalesRow {
   sales_name: string;
   total_qty: number;
   total_revenue: number;
+  categories?: Record<string, number>; // map<category_name, qty>
 }
 
 /** Main data body from /reports/po/{po_id}/summary */
 export interface POSummaryData {
+  // PO identity
+  po_name?: string;
+  start_date?: string; // YYYY-MM-DD
+  end_date?: string;   // YYYY-MM-DD
   // Financial
   total_revenue: number;
   total_paid: number;
@@ -38,6 +49,8 @@ export interface POSummaryData {
   sales_summary: POSummarySalesRow[];
   // Customer-level receivables
   customer_receivables: POSummaryCustomerReceivable[];
+  // Trend data
+  trend_data?: POSummaryTrendPoint[];
 }
 
 export interface POSummaryResponse {

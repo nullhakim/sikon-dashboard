@@ -6,6 +6,8 @@ export interface DailyReportPOInfo {
   po_name: string;
   quota: number;
   remaining_quota: number;
+  start_date?: string; // YYYY-MM-DD
+  end_date?: string;   // YYYY-MM-DD
 }
 
 /** Single data point in the order qty trend chart. */
@@ -37,6 +39,13 @@ export interface DailyReportSalesDetail {
   total_qty: number;
 }
 
+/** Per-sales cumulative PO detail row with category breakdown. */
+export interface DailyPOSalesDetail {
+  sales_name: string;
+  categories: Record<string, number>; // map<category_name, qty>
+  total_qty: number;
+}
+
 /** Main data body from /reports/daily */
 export interface DailyReportData {
   report_date: string; // YYYY-MM-DD
@@ -44,6 +53,7 @@ export interface DailyReportData {
   order_summary: DailyReportOrderSummary;
   financial_summary: DailyReportFinancialSummary;
   sales_details: DailyReportSalesDetail[];
+  po_sales_details?: DailyPOSalesDetail[];
 }
 
 export interface DailyReportResponse {

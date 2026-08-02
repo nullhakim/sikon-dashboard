@@ -19,6 +19,7 @@ import { DailyPOInfoCard } from "@/components/daily-report/DailyPOInfoCard";
 import { DailyOrderSummaryCard } from "@/components/daily-report/DailyOrderSummaryCard";
 import { DailyFinancialCards } from "@/components/daily-report/DailyFinancialCards";
 import { DailySalesDetailTable } from "@/components/daily-report/DailySalesDetailTable";
+import { DailyPOSalesDetailTable } from "@/components/daily-report/DailyPOSalesDetailTable";
 
 // ─── Route Definition ────────────────────────────────────────────────────────
 
@@ -180,6 +181,14 @@ function DailyReportDashboard() {
           {/* ── Section 3: Sales Detail Table ── */}
           <DailySalesDetailTable
             data={report?.sales_details ?? []}
+            isLoading={isLoading}
+          />
+
+          <Separator className="my-2" />
+
+          {/* ── Section 4: PO Sales Detail (Kumulatif) ── */}
+          <DailyPOSalesDetailTable
+            data={report?.po_sales_details ?? []}
             isLoading={isLoading}
           />
         </>
