@@ -281,12 +281,24 @@ export interface ReceivableRow {
   outstanding_amount: number;
 }
 
+export interface ReceivablesListParams {
+  batch_po_id?: string;
+  order_status?: string;
+  sort_by?: string;
+}
+
 export const reportsService = {
   /**
    * Laporan detail piutang — GET /reports/receivables.
-   * Returns an array of ReceivableRow sorted by outstanding_amount DESC on the server.
+   * Returns an array of ReceivableRow.
    */
-  receivables: () => api.get<ApiSuccess<ReceivableRow[]>>("/reports/receivables"),
+  receivables: (p: ReceivablesListParams = {}) => {
+    const q: Record<string, string> = {};
+    if (p.batch_po_id) q.batch_po_id = p.batch_po_id;
+    if (p.order_status) q.order_status = p.order_status;
+    if (p.sort_by) q.sort_by = p.sort_by;
+    return api.get<ApiSuccess<ReceivableRow[]>>("/reports/receivables", q);
+  },
 };
 
 // Batch POs

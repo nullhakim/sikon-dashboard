@@ -36,6 +36,8 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  SelectGroup,
+  SelectLabel,
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -121,6 +123,12 @@ function AddPaymentDialog({
     enabled: open && !!salesId,
   });
 
+  const globalBankAccounts = useQuery({
+    queryKey: ["bank-accounts", "global"],
+    queryFn: () => bankAccountsService.global(),
+    enabled: open,
+  });
+
   const [bankAccountId, setBankAccountId] = useState("");
   const [amount, setAmount] = useState<number | "">("");
   const [paymentType, setPaymentType] = useState("");
@@ -197,28 +205,42 @@ function AddPaymentDialog({
             <Select
               value={bankAccountId}
               onValueChange={setBankAccountId}
-              disabled={!salesId || bankAccounts.isLoading}
+              disabled={(bankAccounts.isLoading || globalBankAccounts.isLoading)}
             >
               <SelectTrigger>
                 <SelectValue
                   placeholder={
-                    !salesId
-                      ? "No sales assigned"
-                      : bankAccounts.isLoading
-                        ? "Loading…"
-                        : "Select bank account"
+                    bankAccounts.isLoading || globalBankAccounts.isLoading
+                      ? "Loading…"
+                      : "Select bank account"
                   }
                 />
               </SelectTrigger>
               <SelectContent>
-                {bankAccounts.data?.data?.map((ba) => (
-                  <SelectItem key={ba.id} value={ba.id}>
-                    {ba.bank_name} — {ba.account_number} ({ba.account_name})
-                  </SelectItem>
-                ))}
-                {bankAccounts.data?.data?.length === 0 && (
+                {globalBankAccounts.data?.data && globalBankAccounts.data.data.length > 0 && (
+                  <SelectGroup>
+                    <SelectLabel>Global / Perusahaan</SelectLabel>
+                    {globalBankAccounts.data.data.map((ba) => (
+                      <SelectItem key={ba.id} value={ba.id}>
+                        {ba.bank_name} — {ba.account_number} ({ba.account_name})
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                )}
+                {bankAccounts.data?.data && bankAccounts.data.data.length > 0 && (
+                  <SelectGroup>
+                    <SelectLabel>Sales</SelectLabel>
+                    {bankAccounts.data.data.map((ba) => (
+                      <SelectItem key={ba.id} value={ba.id}>
+                        {ba.bank_name} — {ba.account_number} ({ba.account_name})
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                )}
+                {(!globalBankAccounts.data?.data || globalBankAccounts.data.data.length === 0) &&
+                 (!bankAccounts.data?.data || bankAccounts.data.data.length === 0) && (
                   <div className="px-3 py-2 text-xs text-muted-foreground">
-                    No bank accounts for this sales user.
+                    No bank accounts available.
                   </div>
                 )}
               </SelectContent>
