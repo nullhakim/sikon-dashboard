@@ -100,6 +100,8 @@ function Dashboard() {
       iconColor: "text-amber-600 dark:text-amber-400",
       valueColor: "text-amber-700 dark:text-amber-300",
       hint: "Unpaid remaining balances",
+      to: "/reports",
+      search: { tab: "receivables" },
     },
     {
       label: "Completed Orders",
@@ -129,33 +131,44 @@ function Dashboard() {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {stats.map((s) => (
-          <Card key={s.label} className="border-border/60 transition-shadow hover:shadow-md">
-            <CardContent className="pt-5 pb-4 px-5">
-              <div className="flex items-start gap-3.5">
-                <div className={`rounded-xl p-2.5 shrink-0 ${s.iconBg}`}>
-                  <s.icon className={`h-4 w-4 ${s.iconColor}`} />
+        {stats.map((s) => {
+          const cardContent = (
+            <Card className={`border-border/60 transition-shadow hover:shadow-md h-full ${s.to ? 'hover:border-primary/50 cursor-pointer' : ''}`}>
+              <CardContent className="pt-5 pb-4 px-5">
+                <div className="flex items-start gap-3.5">
+                  <div className={`rounded-xl p-2.5 shrink-0 ${s.iconBg}`}>
+                    <s.icon className={`h-4 w-4 ${s.iconColor}`} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    {summary.isLoading ? (
+                      <div className="space-y-2 pt-1">
+                        <Skeleton className="h-5 w-3/4" />
+                        <Skeleton className="h-3 w-1/2" />
+                      </div>
+                    ) : (
+                      <>
+                        <p className="text-xs text-muted-foreground font-medium mb-0.5">{s.label}</p>
+                        <p className={`text-xl font-bold tabular-nums leading-tight ${s.valueColor}`}>
+                          {s.value}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">{s.hint}</p>
+                      </>
+                    )}
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  {summary.isLoading ? (
-                    <div className="space-y-2 pt-1">
-                      <Skeleton className="h-5 w-3/4" />
-                      <Skeleton className="h-3 w-1/2" />
-                    </div>
-                  ) : (
-                    <>
-                      <p className="text-xs text-muted-foreground font-medium mb-0.5">{s.label}</p>
-                      <p className={`text-xl font-bold tabular-nums leading-tight ${s.valueColor}`}>
-                        {s.value}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">{s.hint}</p>
-                    </>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+              </CardContent>
+            </Card>
+          );
+
+          if (s.to) {
+            return (
+              <Link key={s.label} to={s.to as any} search={s.search as any} className="block outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-xl">
+                {cardContent}
+              </Link>
+            );
+          }
+          return <div key={s.label}>{cardContent}</div>;
+        })}
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">

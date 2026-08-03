@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Search, TrendingDown, Receipt, AlertCircle, Loader2 } from "lucide-react";
 
-import { reportsService, type ReceivableRow } from "@/lib/services";
+import { reportsService, batchPosService, type ReceivableRow } from "@/lib/services";
 import { formatIDR } from "@/lib/format";
 import {
   Table,
@@ -14,6 +14,14 @@ import {
 } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 
 // ─── Badge Warna PO Status ──────────────────────────────────────────────────
 
@@ -130,7 +138,7 @@ function EmptyState({ filtered }: { filtered: boolean }) {
             </p>
             <p className="text-sm">
               {filtered
-                ? "Coba ubah kata kunci pencarian."
+                ? "Coba ubah kata kunci pencarian atau filter."
                 : "Semua tagihan sudah terbayar lunas."}
             </p>
           </div>
@@ -144,17 +152,38 @@ function EmptyState({ filtered }: { filtered: boolean }) {
 
 export function ReceivablesTable() {
   const [search, setSearch] = useState("");
+  const [batchPoId, setBatchPoId] = useState("all");
+  const [orderStatus, setOrderStatus] = useState("all");
+  const [sortBy, setSortBy] = useState("amount_desc");
+
+  const queryParams = {
+    ...(batchPoId !== "all" ? { batch_po_id: batchPoId } : {}),
+    ...(orderStatus !== "all" ? { order_status: orderStatus } : {}),
+    ...(sortBy ? { sort_by: sortBy } : {}),
+  };
 
   const { data, isLoading, isError, error } = useQuery({
-    queryKey: ["reports-receivables"],
-    queryFn: () => reportsService.receivables(),
+    queryKey: ["reports-receivables", queryParams],
+    queryFn: () => reportsService.receivables(queryParams),
     staleTime: 60_000, // 1 minute cache
   });
 
+  const { data: batchPOsData } = useQuery({
+    queryKey: ["batch-pos", "list", { limit: 100 }],
+    queryFn: () => batchPosService.list({ limit: 100 }),
+  });
+  const batchPOs = batchPOsData?.data ?? [];
+
   const rows: ReceivableRow[] = useMemo(() => {
     const raw: ReceivableRow[] = data?.data ?? [];
-    // Sorted by outstanding_amount DESC (server should already do this, but ensure on client too)
-    const sorted = [...raw].sort((a, b) => b.outstanding_amount - a.outstanding_amount);
+    
+    // Sort client-side as fallback just in case, but trust backend sorting primarily.
+    let sorted = [...raw];
+    if (sortBy === "amount_desc") {
+      sorted.sort((a, b) => b.outstanding_amount - a.outstanding_amount);
+    } else if (sortBy === "amount_asc") {
+      sorted.sort((a, b) => a.outstanding_amount - b.outstanding_amount);
+    }
 
     if (!search.trim()) return sorted;
 
@@ -166,7 +195,7 @@ export function ReceivablesTable() {
         r.sales_name?.toLowerCase().includes(q) ||
         r.po_name?.toLowerCase().includes(q),
     );
-  }, [data, search]);
+  }, [data, search, sortBy]);
 
   // Summary metrics
   const totalOutstanding = useMemo(
@@ -180,7 +209,7 @@ export function ReceivablesTable() {
   const totalOrders = data?.data?.length ?? 0;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {/* Summary Cards */}
       <div className="grid gap-3 sm:grid-cols-3">
         <SummaryCard
@@ -203,16 +232,70 @@ export function ReceivablesTable() {
         />
       </div>
 
-      {/* Search Bar */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          id="receivables-search"
-          placeholder="Cari pelanggan, no. order, nama PO, atau sales..."
-          className="pl-9"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
+      {/* Filters and Search Bar */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 sm:w-auto w-full">
+          <div className="space-y-1.5">
+            <Label className="text-xs">Batch PO</Label>
+            <Select value={batchPoId} onValueChange={setBatchPoId}>
+              <SelectTrigger className="h-9">
+                <SelectValue placeholder="Semua Batch PO" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Semua Batch PO</SelectItem>
+                {batchPOs.map((b) => (
+                  <SelectItem key={b.id} value={b.id}>
+                    {b.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          
+          <div className="space-y-1.5">
+            <Label className="text-xs">Status Order</Label>
+            <Select value={orderStatus} onValueChange={setOrderStatus}>
+              <SelectTrigger className="h-9">
+                <SelectValue placeholder="Semua Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Semua Status</SelectItem>
+                <SelectItem value="quotation">Quotation</SelectItem>
+                <SelectItem value="pending">Pending</SelectItem>
+                <SelectItem value="production">Production</SelectItem>
+                <SelectItem value="ready">Ready</SelectItem>
+                <SelectItem value="completed">Completed</SelectItem>
+                <SelectItem value="canceled">Canceled</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          
+          <div className="space-y-1.5 col-span-2 sm:col-span-1">
+            <Label className="text-xs">Urutkan</Label>
+            <Select value={sortBy} onValueChange={setSortBy}>
+              <SelectTrigger className="h-9">
+                <SelectValue placeholder="Tagihan Terbesar" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="amount_desc">Tagihan Terbesar (Default)</SelectItem>
+                <SelectItem value="amount_asc">Tagihan Terkecil</SelectItem>
+                <SelectItem value="date_desc">Pesanan Terbaru</SelectItem>
+                <SelectItem value="date_asc">Pesanan Terlama</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            id="receivables-search"
+            placeholder="Cari pelanggan, no. order, nama PO, atau sales..."
+            className="pl-9 h-9"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
       </div>
 
       {/* Error State */}
@@ -238,7 +321,7 @@ export function ReceivablesTable() {
               <TableHead className="text-right">Total Tagihan</TableHead>
               <TableHead className="text-right">Sudah Dibayar</TableHead>
               <TableHead className="text-right font-semibold text-orange-700">
-                Sisa Piutang ↓
+                Sisa Piutang
               </TableHead>
             </TableRow>
           </TableHeader>
@@ -312,8 +395,7 @@ export function ReceivablesTable() {
       {/* Footer info */}
       {!isLoading && rows.length > 0 && (
         <p className="text-xs text-muted-foreground text-right">
-          Menampilkan {rows.length} dari {data?.data?.length ?? 0} data, diurutkan berdasarkan sisa piutang terbesar.
-          {isLoading && <Loader2 className="ml-1 inline h-3 w-3 animate-spin" />}
+          Menampilkan {rows.length} dari {data?.data?.length ?? 0} data.
         </p>
       )}
     </div>

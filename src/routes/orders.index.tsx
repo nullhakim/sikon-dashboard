@@ -25,6 +25,8 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  SelectGroup,
+  SelectLabel,
 } from "@/components/ui/select";
 import {
   Dialog,
@@ -492,6 +494,12 @@ function CreateOrderDialog({ open, onClose }: { open: boolean; onClose: () => vo
     enabled: open && !!salesId,
   });
 
+  const globalBankAccounts = useQuery({
+    queryKey: ["bank-accounts", "global"],
+    queryFn: () => bankAccountsService.global(),
+    enabled: open,
+  });
+
   useEffect(() => {
     if (!open) {
       setCustomerId("");
@@ -864,28 +872,44 @@ function CreateOrderDialog({ open, onClose }: { open: boolean; onClose: () => vo
                     <Select
                       value={paymentBankId}
                       onValueChange={setPaymentBankId}
-                      disabled={!salesId || bankAccounts.isLoading}
+                      disabled={(!salesId && !globalBankAccounts.data?.data?.length) || bankAccounts.isLoading || globalBankAccounts.isLoading}
                     >
                       <SelectTrigger>
                         <SelectValue
                           placeholder={
-                            !salesId
+                            (!salesId && !globalBankAccounts.data?.data?.length)
                               ? "Select sales first"
-                              : bankAccounts.isLoading
+                              : bankAccounts.isLoading || globalBankAccounts.isLoading
                                 ? "Loading…"
                                 : "Select bank account"
                           }
                         />
                       </SelectTrigger>
                       <SelectContent>
-                        {bankAccounts.data?.data?.map((ba) => (
-                          <SelectItem key={ba.id} value={ba.id}>
-                            {ba.bank_name} — {ba.account_number} ({ba.account_name})
-                          </SelectItem>
-                        ))}
-                        {bankAccounts.data?.data?.length === 0 && (
+                        {globalBankAccounts.data?.data && globalBankAccounts.data.data.length > 0 && (
+                          <SelectGroup>
+                            <SelectLabel>Global / Perusahaan</SelectLabel>
+                            {globalBankAccounts.data.data.map((ba) => (
+                              <SelectItem key={ba.id} value={ba.id}>
+                                {ba.bank_name} — {ba.account_number} ({ba.account_name})
+                              </SelectItem>
+                            ))}
+                          </SelectGroup>
+                        )}
+                        {bankAccounts.data?.data && bankAccounts.data.data.length > 0 && (
+                          <SelectGroup>
+                            <SelectLabel>Sales</SelectLabel>
+                            {bankAccounts.data.data.map((ba) => (
+                              <SelectItem key={ba.id} value={ba.id}>
+                                {ba.bank_name} — {ba.account_number} ({ba.account_name})
+                              </SelectItem>
+                            ))}
+                          </SelectGroup>
+                        )}
+                        {(!globalBankAccounts.data?.data || globalBankAccounts.data.data.length === 0) &&
+                         (!bankAccounts.data?.data || bankAccounts.data.data.length === 0) && (
                           <div className="px-3 py-2 text-xs text-muted-foreground">
-                            No bank accounts for this sales user.
+                            No bank accounts available.
                           </div>
                         )}
                       </SelectContent>
@@ -995,6 +1019,12 @@ export function UpdateOrderDialog({
     queryKey: ["bank-accounts", "user", order?.sales_id],
     queryFn: () => bankAccountsService.byUser(order!.sales_id!),
     enabled: open && !!order?.sales_id && !isQuotation,
+  });
+
+  const globalBankAccounts = useQuery({
+    queryKey: ["bank-accounts", "global"],
+    queryFn: () => bankAccountsService.global(),
+    enabled: open && !isQuotation,
   });
 
   useEffect(() => {
@@ -1259,28 +1289,44 @@ export function UpdateOrderDialog({
                       <Select
                         value={paymentBankId}
                         onValueChange={setPaymentBankId}
-                        disabled={!order?.sales_id || bankAccounts.isLoading}
+                        disabled={(!order?.sales_id && !globalBankAccounts.data?.data?.length) || bankAccounts.isLoading || globalBankAccounts.isLoading}
                       >
                         <SelectTrigger>
                           <SelectValue
                             placeholder={
-                              !order?.sales_id
+                              (!order?.sales_id && !globalBankAccounts.data?.data?.length)
                                 ? "Select sales first"
-                                : bankAccounts.isLoading
+                                : bankAccounts.isLoading || globalBankAccounts.isLoading
                                   ? "Loading…"
                                   : "Select bank account"
                             }
                           />
                         </SelectTrigger>
                         <SelectContent>
-                          {bankAccounts.data?.data?.map((ba) => (
-                            <SelectItem key={ba.id} value={ba.id}>
-                              {ba.bank_name} — {ba.account_number} ({ba.account_name})
-                            </SelectItem>
-                          ))}
-                          {bankAccounts.data?.data?.length === 0 && (
+                          {globalBankAccounts.data?.data && globalBankAccounts.data.data.length > 0 && (
+                            <SelectGroup>
+                              <SelectLabel>Global / Perusahaan</SelectLabel>
+                              {globalBankAccounts.data.data.map((ba) => (
+                                <SelectItem key={ba.id} value={ba.id}>
+                                  {ba.bank_name} — {ba.account_number} ({ba.account_name})
+                                </SelectItem>
+                              ))}
+                            </SelectGroup>
+                          )}
+                          {bankAccounts.data?.data && bankAccounts.data.data.length > 0 && (
+                            <SelectGroup>
+                              <SelectLabel>Sales</SelectLabel>
+                              {bankAccounts.data.data.map((ba) => (
+                                <SelectItem key={ba.id} value={ba.id}>
+                                  {ba.bank_name} — {ba.account_number} ({ba.account_name})
+                                </SelectItem>
+                              ))}
+                            </SelectGroup>
+                          )}
+                          {(!globalBankAccounts.data?.data || globalBankAccounts.data.data.length === 0) &&
+                           (!bankAccounts.data?.data || bankAccounts.data.data.length === 0) && (
                             <div className="px-3 py-2 text-xs text-muted-foreground">
-                              No bank accounts for this sales user.
+                              No bank accounts available.
                             </div>
                           )}
                         </SelectContent>

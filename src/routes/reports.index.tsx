@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { dashboardService } from "@/lib/services";
@@ -23,10 +23,15 @@ export const Route = createFileRoute("/reports/")({
       { name: "description", content: "View sales and receivables reports." },
     ],
   }),
+  validateSearch: (search: Record<string, unknown>) => ({
+    tab: typeof search.tab === "string" ? search.tab : "receivables",
+  }),
   component: ReportsPage,
 });
 
 function ReportsPage() {
+  const { tab } = Route.useSearch();
+  const navigate = useNavigate({ from: Route.fullPath });
   const [salesStartDate, setSalesStartDate] = useState("");
   const [salesEndDate, setSalesEndDate] = useState("");
 
@@ -34,6 +39,10 @@ function ReportsPage() {
     queryKey: ["sales-report", salesStartDate, salesEndDate],
     queryFn: () => dashboardService.salesReport({ start_date: salesStartDate, end_date: salesEndDate }),
   });
+
+  const handleTabChange = (val: string) => {
+    navigate({ search: { tab: val }, replace: true });
+  };
 
   return (
     <div className="space-y-6">
@@ -44,7 +53,7 @@ function ReportsPage() {
         </p>
       </div>
 
-      <Tabs defaultValue="receivables" className="w-full">
+      <Tabs value={tab} onValueChange={handleTabChange} className="w-full">
         <TabsList>
           <TabsTrigger value="sales">Sales Report</TabsTrigger>
           <TabsTrigger value="receivables">Laporan Piutang</TabsTrigger>
