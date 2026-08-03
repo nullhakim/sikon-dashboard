@@ -205,13 +205,34 @@ export function ItemDetailsFields({
 
   const details = item.details ?? [{ part: "", material_name: "", warna: "", spec: "" }];
 
-  const updatePart = (idx: number, patch: Partial<DetailPartForm>) =>
-    onChange({
-      details: details.map((d, i) => (i === idx ? { ...d, ...patch } : d)),
-    });
+  const [modalOpen, setModalOpen] = useState(false);
+  const [currentPart, setCurrentPart] = useState<DetailPartForm>({ part: "", material_name: "", warna: "", spec: "" });
+  const [editIndex, setEditIndex] = useState<number | null>(null);
 
-  const addPart = () =>
-    onChange({ details: [...details, { part: "", material_name: "", warna: "", spec: "" }] });
+  const openAddModal = () => {
+    setCurrentPart({ part: "", material_name: "", warna: "", spec: "" });
+    setEditIndex(null);
+    setModalOpen(true);
+  };
+
+  const openEditModal = (idx: number) => {
+    setCurrentPart(details[idx]);
+    setEditIndex(idx);
+    setModalOpen(true);
+  };
+
+  const savePart = () => {
+    if (editIndex !== null) {
+      onChange({
+        details: details.map((d, i) => (i === editIndex ? currentPart : d)),
+      });
+    } else {
+      onChange({
+        details: [...details, currentPart],
+      });
+    }
+    setModalOpen(false);
+  };
 
   const removePart = (idx: number) =>
     onChange({ details: details.filter((_, i) => i !== idx) });
@@ -239,7 +260,7 @@ export function ItemDetailsFields({
             variant="outline"
             size="sm"
             className="h-7 px-2 text-xs"
-            onClick={addPart}
+            onClick={openAddModal}
           >
             <Plus className="h-3 w-3 mr-1" /> Add Material Part
           </Button>
@@ -248,47 +269,70 @@ export function ItemDetailsFields({
         {details.map((part, idx) => (
           <div
             key={idx}
-            className="rounded-md border bg-muted/20 p-3 space-y-2"
+            className="rounded-md border bg-muted/20 p-3 flex items-center justify-between gap-4"
           >
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-muted-foreground">
-                Part {idx + 1}
-              </span>
-              {details.length > 1 && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 px-2 text-xs text-muted-foreground hover:text-destructive"
-                  onClick={() => removePart(idx)}
-                >
-                  <Trash2 className="h-3 w-3" />
-                </Button>
-              )}
+            <div className="space-y-1 overflow-hidden">
+               <div className="text-xs font-medium truncate">{part.part || `Part ${idx + 1}`}</div>
+               <div className="text-xs text-muted-foreground truncate">
+                 {part.material_name || "-"} {part.warna ? `(${part.warna})` : ''}
+               </div>
+               {!hideSpec && part.spec && (
+                 <div className="text-xs text-muted-foreground truncate">
+                   {part.spec}
+                 </div>
+               )}
             </div>
+            <div className="flex gap-1 shrink-0">
+               <Button
+                 type="button"
+                 variant="ghost"
+                 size="sm"
+                 className="h-6 px-2 text-xs"
+                 onClick={() => openEditModal(idx)}
+               >
+                 <Pencil className="h-3 w-3" />
+               </Button>
+               {details.length > 1 && (
+                 <Button
+                   type="button"
+                   variant="ghost"
+                   size="sm"
+                   className="h-6 px-2 text-xs text-muted-foreground hover:text-destructive"
+                   onClick={() => removePart(idx)}
+                 >
+                   <Trash2 className="h-3 w-3" />
+                 </Button>
+               )}
+            </div>
+          </div>
+        ))}
+      </div>
 
-            {/* Part Name */}
+      <Dialog open={modalOpen} onOpenChange={setModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{editIndex !== null ? "Edit Material Part" : "Add Material Part"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
             <div className="space-y-1">
               <Label className="text-xs">Part Name</Label>
               <Input
                 placeholder="e.g., Kemeja, Celana, Topi"
-                value={part.part}
-                onChange={(e) => updatePart(idx, { part: e.target.value })}
+                value={currentPart.part}
+                onChange={(e) => setCurrentPart(prev => ({ ...prev, part: e.target.value }))}
               />
             </div>
-
-            {/* Material Name (dropdown from spec templates) */}
             <div className="space-y-1">
               <Label className="text-xs">Material Name</Label>
               <Select
-                value={part.material_name}
+                value={currentPart.material_name}
                 onValueChange={(v) => {
                   const t = specs.data?.data?.find((x) => x.name === v);
-                  updatePart(idx, {
+                  setCurrentPart(prev => ({
+                    ...prev,
                     material_name: v,
-                    // Auto-fill spec only if the current spec is blank
-                    ...(t && !part.spec ? { spec: t.spec } : {}),
-                  });
+                    ...(t && !prev.spec ? { spec: t.spec } : {}),
+                  }));
                 }}
               >
                 <SelectTrigger className="h-8 text-xs">
@@ -305,41 +349,40 @@ export function ItemDetailsFields({
                   ))}
                 </SelectContent>
               </Select>
-              {/* Allow free-text override */}
               <Input
                 className="mt-1 h-7 text-xs"
                 placeholder="Or type a custom material name…"
-                value={part.material_name}
-                onChange={(e) => updatePart(idx, { material_name: e.target.value })}
+                value={currentPart.material_name}
+                onChange={(e) => setCurrentPart(prev => ({ ...prev, material_name: e.target.value }))}
               />
             </div>
-
-            {/* Warna */}
             <div className="space-y-1">
               <Label className="text-xs">Warna</Label>
               <Input
                 className="h-7 text-xs"
                 placeholder="e.g., Navy Blue, Hitam"
-                value={part.warna ?? ""}
-                onChange={(e) => updatePart(idx, { warna: e.target.value })}
+                value={currentPart.warna ?? ""}
+                onChange={(e) => setCurrentPart(prev => ({ ...prev, warna: e.target.value }))}
               />
             </div>
-
-            {/* Specification */}
             {!hideSpec && (
               <div className="space-y-1">
                 <Label className="text-xs">Specification</Label>
                 <Textarea
                   rows={2}
                   placeholder="e.g., Warna Navy Blue, Bordir Logo Dada Kiri"
-                  value={part.spec}
-                  onChange={(e) => updatePart(idx, { spec: e.target.value })}
+                  value={currentPart.spec}
+                  onChange={(e) => setCurrentPart(prev => ({ ...prev, spec: e.target.value }))}
                 />
               </div>
             )}
           </div>
-        ))}
-      </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" size="sm" onClick={() => setModalOpen(false)}>Cancel</Button>
+            <Button type="button" size="sm" onClick={savePart}>Save Part</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Quotation-only legacy fields */}
       {isQuotation && (
