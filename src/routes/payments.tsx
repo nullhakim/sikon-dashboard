@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, ChevronLeft, ChevronRight, Trash2, Pencil, Search, Filter, X, CalendarIcon } from "lucide-react";
+import { Plus, ChevronLeft, ChevronRight, Trash2, Pencil, Search, Filter, X, CalendarIcon, CheckCircle2 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -84,6 +84,22 @@ function TypeBadge({ type }: { type: string }) {
   return (
     <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium uppercase ${cls}`}>
       {type ?? "—"}
+    </span>
+  );
+}
+
+const statusVariantMap: Record<string, string> = {
+  pending: "bg-amber-100 text-amber-800 border-amber-200",
+  verified: "bg-emerald-100 text-emerald-800 border-emerald-200",
+  rejected: "bg-rose-100 text-rose-800 border-rose-200",
+};
+
+export function StatusBadge({ status }: { status?: string }) {
+  const s = (status || "pending").toLowerCase();
+  const cls = statusVariantMap[s] ?? "bg-muted text-foreground";
+  return (
+    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium capitalize ${cls}`}>
+      {s}
     </span>
   );
 }
@@ -343,6 +359,71 @@ function EditPaymentDialog({
   );
 }
 
+// ─── Verify Payment Dialog ──────────────────────────────────────────────
+
+function VerifyPaymentDialog({
+  payment,
+  open,
+  onClose,
+}: {
+  payment: Payment | null;
+  open: boolean;
+  onClose: () => void;
+}) {
+  const qc = useQueryClient();
+
+  const verifyMut = useMutation({
+    mutationFn: (status: "verified" | "rejected") =>
+      paymentsService.verify(payment!.id, status),
+    onSuccess: () => {
+      toast.success("Payment verification updated");
+      qc.invalidateQueries({ queryKey: ["payments"] });
+      qc.invalidateQueries({ queryKey: ["orders"] }); // May affect order paid status
+      onClose();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => (v ? null : onClose())}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Verify Payment</DialogTitle>
+          <DialogDescription>
+            Finance approval for payment {payment?.reference_number || "—"}. 
+            Amount: {formatIDR(payment?.amount || 0)}.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="flex flex-col gap-3 py-4">
+          <Button
+            variant="default"
+            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
+            onClick={() => verifyMut.mutate("verified")}
+            disabled={verifyMut.isPending}
+          >
+            Approve & Verify
+          </Button>
+          <Button
+            variant="destructive"
+            className="w-full"
+            onClick={() => verifyMut.mutate("rejected")}
+            disabled={verifyMut.isPending}
+          >
+            Reject Payment
+          </Button>
+        </div>
+
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={onClose} disabled={verifyMut.isPending}>
+            Cancel
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ─── Main Page ──────────────────────────────────────────────────────────
 
 function PaymentsPage() {
@@ -352,6 +433,7 @@ function PaymentsPage() {
 
   const [createOpen, setCreateOpen] = useState(false);
   const [editPayment, setEditPayment] = useState<Payment | null>(null);
+  const [verifyPayment, setVerifyPayment] = useState<Payment | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [searchInput, setSearchInput] = useState(searchParams.search || "");
 
@@ -550,6 +632,7 @@ function PaymentsPage() {
                 <TableHead>Reference</TableHead>
                 <TableHead>Order</TableHead>
                 <TableHead>Type</TableHead>
+                <TableHead>Status</TableHead>
                 <TableHead className="text-right">Amount</TableHead>
                 <TableHead>Bank Account</TableHead>
                 <TableHead className="text-right w-[100px]">Actions</TableHead>
@@ -589,6 +672,9 @@ function PaymentsPage() {
                     <TableCell>
                       <TypeBadge type={p.payment_type} />
                     </TableCell>
+                    <TableCell>
+                      <StatusBadge status={p.status} />
+                    </TableCell>
                     <TableCell className="text-right font-medium">
                       {formatIDR(p.amount)}
                     </TableCell>
@@ -599,6 +685,17 @@ function PaymentsPage() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">
+                        {(p.status || "pending").toLowerCase() === "pending" && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-amber-600 hover:text-amber-700 hover:bg-amber-100/50"
+                            onClick={() => setVerifyPayment(p)}
+                            title="Verify Payment"
+                          >
+                            <CheckCircle2 className="h-4 w-4" />
+                          </Button>
+                        )}
                         <Button
                           variant="ghost"
                           size="icon"
@@ -653,6 +750,11 @@ function PaymentsPage() {
         payment={editPayment}
         open={!!editPayment}
         onClose={() => setEditPayment(null)}
+      />
+      <VerifyPaymentDialog
+        payment={verifyPayment}
+        open={!!verifyPayment}
+        onClose={() => setVerifyPayment(null)}
       />
 
       {/* Delete Confirmation */}
