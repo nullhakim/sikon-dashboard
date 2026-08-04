@@ -85,9 +85,9 @@ export async function apiRequest<T>(
 }
 
 export const api = {
-  get: <T>(path: string, query?: Query) => apiRequest<T>(path, { query }),
-  post: <T>(path: string, body?: unknown) => apiRequest<T>(path, { method: "POST", body }),
-  put: <T>(path: string, body?: unknown) => apiRequest<T>(path, { method: "PUT", body }),
-  patch: <T>(path: string, body?: unknown) => apiRequest<T>(path, { method: "PATCH", body }),
-  delete: <T>(path: string) => apiRequest<T>(path, { method: "DELETE" }),
+  get: <T>(path: string, query?: Query, headers?: Record<string, string>) => apiRequest<T>(path, { query, headers }),
+  post: <T>(path: string, body?: unknown, headers?: Record<string, string>) => apiRequest<T>(path, { method: "POST", body, headers }),
+  put: <T>(path: string, body?: unknown, headers?: Record<string, string>) => apiRequest<T>(path, { method: "PUT", body, headers }),
+  patch: <T>(path: string, body?: unknown, headers?: Record<string, string>) => apiRequest<T>(path, { method: "PATCH", body, headers }),
+  delete: <T>(path: string, headers?: Record<string, string>) => apiRequest<T>(path, { method: "DELETE", headers }),
 };

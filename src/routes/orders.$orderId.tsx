@@ -60,6 +60,7 @@ import { formatIDR, formatDate, formatDateISO, datetimeLocalToISO } from "@/lib/
 import { generateInvoicePDF, generateKwitansiPDF } from "@/lib/invoice";
 import { QuotationPdfDialog } from "@/components/QuotationPdfDialog";
 import { Item, buildItemDetails, ItemDetailsFields, parseDetailsFromBackend } from "@/routes/orders.index";
+import { StatusBadge } from "./payments";
 export const Route = createFileRoute("/orders/$orderId")({
   head: () => ({
     meta: [
@@ -1132,7 +1133,9 @@ function OrderDetailPage() {
   );
   const shipping = order?.shipping_cost ?? 0;
   const total = subtotal + shipping;
-  const paid = payments.reduce((s, p) => s + (p.amount || 0), 0);
+  const paid = payments
+    .filter((p) => (p.status || "pending").toLowerCase() === "verified")
+    .reduce((s, p) => s + (p.amount || 0), 0);
   const remaining = Math.max(0, total - paid);
 
   useEffect(() => {
@@ -1538,6 +1541,7 @@ function OrderDetailPage() {
                 <TableHead>Date</TableHead>
                 <TableHead>Reference</TableHead>
                 <TableHead>Type</TableHead>
+                <TableHead>Status</TableHead>
                 <TableHead>Bank Account</TableHead>
                 <TableHead className="text-right">Amount</TableHead>
                 <TableHead className="w-[1%]" />
@@ -1566,6 +1570,9 @@ function OrderDetailPage() {
                       {p.reference_number || "—"}
                     </TableCell>
                     <TableCell className="capitalize">{p.payment_type}</TableCell>
+                    <TableCell>
+                      <StatusBadge status={p.status} />
+                    </TableCell>
                     <TableCell className="text-sm">
                       {p.bank_account
                         ? `${p.bank_account.bank_name} · ${p.bank_account.account_number}`

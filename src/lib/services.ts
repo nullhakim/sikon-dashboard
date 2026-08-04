@@ -227,6 +227,8 @@ export const paymentsService = {
       payment_type?: string;
     },
   ) => api.put<ApiSuccess<unknown>>(`/payments/${id}`, body),
+  verify: (id: string, status: "verified" | "rejected") =>
+    api.patch<ApiSuccess<unknown>>(`/payments/${id}/verify`, { status }, { "X-User-Id": "finance-admin-123" }),
   delete: (id: string) => api.delete<ApiSuccess<unknown>>(`/payments/${id}`),
 };
 

@@ -90,6 +90,7 @@ export interface Payment {
   order_id: string;
   amount: number;
   payment_type: PaymentType | string;
+  status?: "pending" | "verified" | "rejected" | string;
   bank_account_id?: string;
   bank_account?: BankAccount;
   reference_number?: string;
