@@ -11,7 +11,6 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as UsersRouteImport } from './routes/users'
 import { Route as ReportsRouteImport } from './routes/reports'
-import { Route as ProductsRouteImport } from './routes/products'
 import { Route as PaymentsRouteImport } from './routes/payments'
 import { Route as MaterialCatalogsRouteImport } from './routes/material-catalogs'
 import { Route as ExpensesRouteImport } from './routes/expenses'
@@ -22,11 +21,13 @@ import { Route as BatchPosRouteImport } from './routes/batch-pos'
 import { Route as BankAccountsRouteImport } from './routes/bank-accounts'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ReportsIndexRouteImport } from './routes/reports.index'
+import { Route as ProductsIndexRouteImport } from './routes/products.index'
 import { Route as OrdersIndexRouteImport } from './routes/orders.index'
 import { Route as ReportsProductionRouteImport } from './routes/reports.production'
 import { Route as ReportsPoSummaryRouteImport } from './routes/reports.po-summary'
 import { Route as ReportsDailyRouteImport } from './routes/reports.daily'
 import { Route as ReportsAccountingRouteImport } from './routes/reports.accounting'
+import { Route as ProductsProductIdRouteImport } from './routes/products.$productId'
 import { Route as OrdersOrderIdRouteImport } from './routes/orders.$orderId'
 import { Route as ReportsPoSummaryIndexRouteImport } from './routes/reports.po-summary.index'
 import { Route as ReportsPoSummaryPoIdRouteImport } from './routes/reports.po-summary.$poId'
@@ -39,11 +40,6 @@ const UsersRoute = UsersRouteImport.update({
 const ReportsRoute = ReportsRouteImport.update({
   id: '/reports',
   path: '/reports',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ProductsRoute = ProductsRouteImport.update({
-  id: '/products',
-  path: '/products',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PaymentsRoute = PaymentsRouteImport.update({
@@ -96,6 +92,11 @@ const ReportsIndexRoute = ReportsIndexRouteImport.update({
   path: '/',
   getParentRoute: () => ReportsRoute,
 } as any)
+const ProductsIndexRoute = ProductsIndexRouteImport.update({
+  id: '/products/',
+  path: '/products/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const OrdersIndexRoute = OrdersIndexRouteImport.update({
   id: '/orders/',
   path: '/orders/',
@@ -120,6 +121,11 @@ const ReportsAccountingRoute = ReportsAccountingRouteImport.update({
   id: '/accounting',
   path: '/accounting',
   getParentRoute: () => ReportsRoute,
+} as any)
+const ProductsProductIdRoute = ProductsProductIdRouteImport.update({
+  id: '/products/$productId',
+  path: '/products/$productId',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const OrdersOrderIdRoute = OrdersOrderIdRouteImport.update({
   id: '/orders/$orderId',
@@ -147,15 +153,16 @@ export interface FileRoutesByFullPath {
   '/expenses': typeof ExpensesRoute
   '/material-catalogs': typeof MaterialCatalogsRoute
   '/payments': typeof PaymentsRoute
-  '/products': typeof ProductsRoute
   '/reports': typeof ReportsRouteWithChildren
   '/users': typeof UsersRoute
   '/orders/$orderId': typeof OrdersOrderIdRoute
+  '/products/$productId': typeof ProductsProductIdRoute
   '/reports/accounting': typeof ReportsAccountingRoute
   '/reports/daily': typeof ReportsDailyRoute
   '/reports/po-summary': typeof ReportsPoSummaryRouteWithChildren
   '/reports/production': typeof ReportsProductionRoute
   '/orders/': typeof OrdersIndexRoute
+  '/products/': typeof ProductsIndexRoute
   '/reports/': typeof ReportsIndexRoute
   '/reports/po-summary/$poId': typeof ReportsPoSummaryPoIdRoute
   '/reports/po-summary/': typeof ReportsPoSummaryIndexRoute
@@ -170,13 +177,14 @@ export interface FileRoutesByTo {
   '/expenses': typeof ExpensesRoute
   '/material-catalogs': typeof MaterialCatalogsRoute
   '/payments': typeof PaymentsRoute
-  '/products': typeof ProductsRoute
   '/users': typeof UsersRoute
   '/orders/$orderId': typeof OrdersOrderIdRoute
+  '/products/$productId': typeof ProductsProductIdRoute
   '/reports/accounting': typeof ReportsAccountingRoute
   '/reports/daily': typeof ReportsDailyRoute
   '/reports/production': typeof ReportsProductionRoute
   '/orders': typeof OrdersIndexRoute
+  '/products': typeof ProductsIndexRoute
   '/reports': typeof ReportsIndexRoute
   '/reports/po-summary/$poId': typeof ReportsPoSummaryPoIdRoute
   '/reports/po-summary': typeof ReportsPoSummaryIndexRoute
@@ -192,15 +200,16 @@ export interface FileRoutesById {
   '/expenses': typeof ExpensesRoute
   '/material-catalogs': typeof MaterialCatalogsRoute
   '/payments': typeof PaymentsRoute
-  '/products': typeof ProductsRoute
   '/reports': typeof ReportsRouteWithChildren
   '/users': typeof UsersRoute
   '/orders/$orderId': typeof OrdersOrderIdRoute
+  '/products/$productId': typeof ProductsProductIdRoute
   '/reports/accounting': typeof ReportsAccountingRoute
   '/reports/daily': typeof ReportsDailyRoute
   '/reports/po-summary': typeof ReportsPoSummaryRouteWithChildren
   '/reports/production': typeof ReportsProductionRoute
   '/orders/': typeof OrdersIndexRoute
+  '/products/': typeof ProductsIndexRoute
   '/reports/': typeof ReportsIndexRoute
   '/reports/po-summary/$poId': typeof ReportsPoSummaryPoIdRoute
   '/reports/po-summary/': typeof ReportsPoSummaryIndexRoute
@@ -217,15 +226,16 @@ export interface FileRouteTypes {
     | '/expenses'
     | '/material-catalogs'
     | '/payments'
-    | '/products'
     | '/reports'
     | '/users'
     | '/orders/$orderId'
+    | '/products/$productId'
     | '/reports/accounting'
     | '/reports/daily'
     | '/reports/po-summary'
     | '/reports/production'
     | '/orders/'
+    | '/products/'
     | '/reports/'
     | '/reports/po-summary/$poId'
     | '/reports/po-summary/'
@@ -240,13 +250,14 @@ export interface FileRouteTypes {
     | '/expenses'
     | '/material-catalogs'
     | '/payments'
-    | '/products'
     | '/users'
     | '/orders/$orderId'
+    | '/products/$productId'
     | '/reports/accounting'
     | '/reports/daily'
     | '/reports/production'
     | '/orders'
+    | '/products'
     | '/reports'
     | '/reports/po-summary/$poId'
     | '/reports/po-summary'
@@ -261,15 +272,16 @@ export interface FileRouteTypes {
     | '/expenses'
     | '/material-catalogs'
     | '/payments'
-    | '/products'
     | '/reports'
     | '/users'
     | '/orders/$orderId'
+    | '/products/$productId'
     | '/reports/accounting'
     | '/reports/daily'
     | '/reports/po-summary'
     | '/reports/production'
     | '/orders/'
+    | '/products/'
     | '/reports/'
     | '/reports/po-summary/$poId'
     | '/reports/po-summary/'
@@ -285,11 +297,12 @@ export interface RootRouteChildren {
   ExpensesRoute: typeof ExpensesRoute
   MaterialCatalogsRoute: typeof MaterialCatalogsRoute
   PaymentsRoute: typeof PaymentsRoute
-  ProductsRoute: typeof ProductsRoute
   ReportsRoute: typeof ReportsRouteWithChildren
   UsersRoute: typeof UsersRoute
   OrdersOrderIdRoute: typeof OrdersOrderIdRoute
+  ProductsProductIdRoute: typeof ProductsProductIdRoute
   OrdersIndexRoute: typeof OrdersIndexRoute
+  ProductsIndexRoute: typeof ProductsIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -306,13 +319,6 @@ declare module '@tanstack/react-router' {
       path: '/reports'
       fullPath: '/reports'
       preLoaderRoute: typeof ReportsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/products': {
-      id: '/products'
-      path: '/products'
-      fullPath: '/products'
-      preLoaderRoute: typeof ProductsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/payments': {
@@ -385,6 +391,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ReportsIndexRouteImport
       parentRoute: typeof ReportsRoute
     }
+    '/products/': {
+      id: '/products/'
+      path: '/products'
+      fullPath: '/products/'
+      preLoaderRoute: typeof ProductsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/orders/': {
       id: '/orders/'
       path: '/orders'
@@ -419,6 +432,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/reports/accounting'
       preLoaderRoute: typeof ReportsAccountingRouteImport
       parentRoute: typeof ReportsRoute
+    }
+    '/products/$productId': {
+      id: '/products/$productId'
+      path: '/products/$productId'
+      fullPath: '/products/$productId'
+      preLoaderRoute: typeof ProductsProductIdRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/orders/$orderId': {
       id: '/orders/$orderId'
@@ -486,11 +506,12 @@ const rootRouteChildren: RootRouteChildren = {
   ExpensesRoute: ExpensesRoute,
   MaterialCatalogsRoute: MaterialCatalogsRoute,
   PaymentsRoute: PaymentsRoute,
-  ProductsRoute: ProductsRoute,
   ReportsRoute: ReportsRouteWithChildren,
   UsersRoute: UsersRoute,
   OrdersOrderIdRoute: OrdersOrderIdRoute,
+  ProductsProductIdRoute: ProductsProductIdRoute,
   OrdersIndexRoute: OrdersIndexRoute,
+  ProductsIndexRoute: ProductsIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

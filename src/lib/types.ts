@@ -1,4 +1,5 @@
 // Domain types derived from the SIKOn OpenAPI spec.
+export type { FabricColor, ProductFabric, WholesaleTier, DesignModelView, DesignModel, ProductPayload } from "./types/product";
 
 /** A single material/part block inside an order item's `details` array. */
 export interface DetailPart {
@@ -34,12 +35,19 @@ export interface ProductImage {
 export interface Product {
   id: string;
   name: string;
+  slug?: string;
   base_price: number;
   category_id?: string;
   category?: Category;
   description?: string;
+  gsm_info?: string;          // e.g. "210gsm"
+  fabric_summary?: string;    // e.g. "Ripstop Cotton"
+  key_features?: string[];
   images?: ProductImage[];
-  image_urls?: string[]; // Used for payload
+  image_urls?: string[];      // Used for payload
+  fabrics?: import('./types/product').ProductFabric[];
+  wholesale?: import('./types/product').WholesaleTier[];
+  design_model?: import('./types/product').DesignModel;
   created_at?: string;
 }
 
