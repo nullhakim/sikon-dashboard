@@ -56,8 +56,9 @@ export const productsService = {
     return api.get<ApiPaginated<Product>>("/products", q);
   },
   get: (id: string) => api.get<ApiSuccess<Product>>(`/products/${id}`),
-  create: (body: Partial<Product>) => api.post<ApiSuccess<Product>>("/products", body),
-  update: (id: string, body: Partial<Product>) =>
+  create: (body: import("./types/product").ProductPayload) =>
+    api.post<ApiSuccess<Product>>("/products", body),
+  update: (id: string, body: import("./types/product").ProductPayload) =>
     api.put<ApiSuccess<Product>>(`/products/${id}`, body),
   delete: (id: string) => api.delete<ApiSuccess<unknown>>(`/products/${id}`),
 };
