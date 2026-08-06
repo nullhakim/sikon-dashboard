@@ -78,6 +78,9 @@ export interface User {
   role?: string;
   phone?: string;
   image_url?: string;
+  status_text?: string;
+  is_active?: boolean;
+  sort_order?: number;
 }
 
 export interface OrderItem {
