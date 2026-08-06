@@ -115,7 +115,7 @@ export const usersService = {
   get: (id: string) => api.get<ApiSuccess<User>>(`/users/${id}`),
   create: (body: Partial<User> & { password?: string }) =>
     api.post<ApiSuccess<User>>("/users/register", body),
-  update: (id: string, body: { name?: string; role?: string }) =>
+  update: (id: string, body: Partial<User>) =>
     api.put<ApiSuccess<User>>(`/users/${id}`, body),
   delete: (id: string) => api.delete<ApiSuccess<unknown>>(`/users/${id}`),
 };
