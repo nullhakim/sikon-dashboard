@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus, Pencil, Trash2, ChevronLeft, ChevronRight, ImageIcon, Upload } from "lucide-react";
 import { toast } from "sonner";
@@ -35,6 +35,7 @@ import {
 import { usersService, uploadService } from "@/lib/services";
 import type { User } from "@/lib/types";
 import { Switch } from "@/components/ui/switch";
+import { useAuthStore } from "@/lib/auth-store";
 
 export const Route = createFileRoute("/users")({
   head: () => ({
@@ -43,6 +44,10 @@ export const Route = createFileRoute("/users")({
       { name: "description", content: "Register and manage sales users." },
     ],
   }),
+  beforeLoad: () => {
+    const { user } = useAuthStore.getState();
+    if (user?.role !== "owner") throw redirect({ to: "/forbidden" });
+  },
   component: UsersPage,
 });
 

@@ -13,6 +13,8 @@ import { Route as UsersRouteImport } from './routes/users'
 import { Route as ReportsRouteImport } from './routes/reports'
 import { Route as PaymentsRouteImport } from './routes/payments'
 import { Route as MaterialCatalogsRouteImport } from './routes/material-catalogs'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as ForbiddenRouteImport } from './routes/forbidden'
 import { Route as ExpensesRouteImport } from './routes/expenses'
 import { Route as ExpenseCategoriesRouteImport } from './routes/expense-categories'
 import { Route as CustomersRouteImport } from './routes/customers'
@@ -50,6 +52,16 @@ const PaymentsRoute = PaymentsRouteImport.update({
 const MaterialCatalogsRoute = MaterialCatalogsRouteImport.update({
   id: '/material-catalogs',
   path: '/material-catalogs',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ForbiddenRoute = ForbiddenRouteImport.update({
+  id: '/forbidden',
+  path: '/forbidden',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ExpensesRoute = ExpensesRouteImport.update({
@@ -151,6 +163,8 @@ export interface FileRoutesByFullPath {
   '/customers': typeof CustomersRoute
   '/expense-categories': typeof ExpenseCategoriesRoute
   '/expenses': typeof ExpensesRoute
+  '/forbidden': typeof ForbiddenRoute
+  '/login': typeof LoginRoute
   '/material-catalogs': typeof MaterialCatalogsRoute
   '/payments': typeof PaymentsRoute
   '/reports': typeof ReportsRouteWithChildren
@@ -175,6 +189,8 @@ export interface FileRoutesByTo {
   '/customers': typeof CustomersRoute
   '/expense-categories': typeof ExpenseCategoriesRoute
   '/expenses': typeof ExpensesRoute
+  '/forbidden': typeof ForbiddenRoute
+  '/login': typeof LoginRoute
   '/material-catalogs': typeof MaterialCatalogsRoute
   '/payments': typeof PaymentsRoute
   '/users': typeof UsersRoute
@@ -198,6 +214,8 @@ export interface FileRoutesById {
   '/customers': typeof CustomersRoute
   '/expense-categories': typeof ExpenseCategoriesRoute
   '/expenses': typeof ExpensesRoute
+  '/forbidden': typeof ForbiddenRoute
+  '/login': typeof LoginRoute
   '/material-catalogs': typeof MaterialCatalogsRoute
   '/payments': typeof PaymentsRoute
   '/reports': typeof ReportsRouteWithChildren
@@ -224,6 +242,8 @@ export interface FileRouteTypes {
     | '/customers'
     | '/expense-categories'
     | '/expenses'
+    | '/forbidden'
+    | '/login'
     | '/material-catalogs'
     | '/payments'
     | '/reports'
@@ -248,6 +268,8 @@ export interface FileRouteTypes {
     | '/customers'
     | '/expense-categories'
     | '/expenses'
+    | '/forbidden'
+    | '/login'
     | '/material-catalogs'
     | '/payments'
     | '/users'
@@ -270,6 +292,8 @@ export interface FileRouteTypes {
     | '/customers'
     | '/expense-categories'
     | '/expenses'
+    | '/forbidden'
+    | '/login'
     | '/material-catalogs'
     | '/payments'
     | '/reports'
@@ -295,6 +319,8 @@ export interface RootRouteChildren {
   CustomersRoute: typeof CustomersRoute
   ExpenseCategoriesRoute: typeof ExpenseCategoriesRoute
   ExpensesRoute: typeof ExpensesRoute
+  ForbiddenRoute: typeof ForbiddenRoute
+  LoginRoute: typeof LoginRoute
   MaterialCatalogsRoute: typeof MaterialCatalogsRoute
   PaymentsRoute: typeof PaymentsRoute
   ReportsRoute: typeof ReportsRouteWithChildren
@@ -333,6 +359,20 @@ declare module '@tanstack/react-router' {
       path: '/material-catalogs'
       fullPath: '/material-catalogs'
       preLoaderRoute: typeof MaterialCatalogsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/forbidden': {
+      id: '/forbidden'
+      path: '/forbidden'
+      fullPath: '/forbidden'
+      preLoaderRoute: typeof ForbiddenRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/expenses': {
@@ -504,6 +544,8 @@ const rootRouteChildren: RootRouteChildren = {
   CustomersRoute: CustomersRoute,
   ExpenseCategoriesRoute: ExpenseCategoriesRoute,
   ExpensesRoute: ExpensesRoute,
+  ForbiddenRoute: ForbiddenRoute,
+  LoginRoute: LoginRoute,
   MaterialCatalogsRoute: MaterialCatalogsRoute,
   PaymentsRoute: PaymentsRoute,
   ReportsRoute: ReportsRouteWithChildren,

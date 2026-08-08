@@ -4,14 +4,30 @@ import {
   Link,
   createRootRouteWithContext,
   useRouter,
+  useRouterState,
   HeadContent,
   Scripts,
+  redirect,
 } from "@tanstack/react-router";
 
 import appCss from "../styles.css?url";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { Toaster } from "@/components/ui/sonner";
+import { useAuthStore } from "@/lib/auth-store";
+import { canAccess } from "@/lib/types/auth";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { LogOut } from "lucide-react";
+
+// ─── Role badge styles ────────────────────────────────────────────────────────
+
+const ROLE_BADGE: Record<string, { label: string; className: string }> = {
+  owner: { label: "Owner", className: "bg-violet-100 text-violet-700 border-violet-200" },
+  accounting: { label: "Accounting", className: "bg-blue-100 text-blue-700 border-blue-200" },
+  sales: { label: "Sales", className: "bg-green-100 text-green-700 border-green-200" },
+};
 
 function NotFoundComponent() {
   return (
@@ -82,6 +98,22 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     ],
     links: [{ rel: "stylesheet", href: appCss }],
   }),
+  // Global auth guard — redirect to /login for any protected path
+  beforeLoad: ({ location }) => {
+    const pathname = location.pathname;
+    // Public paths — skip auth check
+    if (pathname === "/login" || pathname === "/forbidden") return;
+
+    const { isAuthenticated, user } = useAuthStore.getState();
+    if (!isAuthenticated()) {
+      throw redirect({ to: "/login" });
+    }
+
+    // Role-based access check
+    if (user && !canAccess(user.role, pathname)) {
+      throw redirect({ to: "/forbidden" });
+    }
+  },
   shellComponent: RootShell,
   component: RootComponent,
   notFoundComponent: NotFoundComponent,
@@ -104,6 +136,36 @@ function RootShell({ children }: { children: React.ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const { user, logout } = useAuthStore();
+  const router = useRouter();
+
+  // Login & forbidden pages render without sidebar/header
+  const isPublicRoute = pathname === "/login" || pathname === "/forbidden";
+
+  function handleLogout() {
+    logout();
+    router.navigate({ to: "/login" });
+  }
+
+  const roleBadge = user?.role ? ROLE_BADGE[user.role] : null;
+  const initials = user?.name
+    ? user.name
+        .split(" ")
+        .slice(0, 2)
+        .map((n) => n[0])
+        .join("")
+        .toUpperCase()
+    : "?";
+
+  if (isPublicRoute) {
+    return (
+      <QueryClientProvider client={queryClient}>
+        <Outlet />
+        <Toaster richColors position="top-right" closeButton />
+      </QueryClientProvider>
+    );
+  }
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -114,9 +176,37 @@ function RootComponent() {
             <header className="h-14 flex items-center gap-3 border-b bg-card/50 backdrop-blur px-4 sticky top-0 z-10">
               <SidebarTrigger />
               <div className="flex-1" />
-              <span className="text-xs text-muted-foreground hidden sm:block">
-                SIKOn ERP · MVP
-              </span>
+
+              {/* User info */}
+              {user && (
+                <div className="flex items-center gap-3">
+                  <div className="hidden sm:flex flex-col items-end leading-tight">
+                    <span className="text-xs font-semibold text-foreground">{user.name}</span>
+                    {roleBadge && (
+                      <Badge
+                        variant="outline"
+                        className={`h-4 px-1.5 text-[10px] font-medium ${roleBadge.className}`}
+                      >
+                        {roleBadge.label}
+                      </Badge>
+                    )}
+                  </div>
+                  <Avatar className="h-8 w-8">
+                    <AvatarImage src={user.image_url} alt={user.name} />
+                    <AvatarFallback className="text-xs font-bold">{initials}</AvatarFallback>
+                  </Avatar>
+                  <Button
+                    id="logout-btn"
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                    title="Logout"
+                    onClick={handleLogout}
+                  >
+                    <LogOut className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
             </header>
             <main className="flex-1 p-6">
               <Outlet />
@@ -128,4 +218,3 @@ function RootComponent() {
     </QueryClientProvider>
   );
 }
-

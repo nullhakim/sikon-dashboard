@@ -52,18 +52,42 @@ export async function apiRequest<T>(
     query?: Query;
     body?: unknown;
     headers?: Record<string, string>;
+    skipAuth?: boolean;
   } = {},
 ): Promise<T> {
-  const { method = "GET", query, body, headers } = opts;
+  const { method = "GET", query, body, headers, skipAuth = false } = opts;
+
+  // Auto-inject Authorization header from auth store
+  const authHeaders: Record<string, string> = {};
+  if (!skipAuth) {
+    // Import lazily to avoid circular dependencies
+    const { getAuthState } = await import("./auth-store");
+    const { token } = getAuthState();
+    if (token) {
+      authHeaders["Authorization"] = `Bearer ${token}`;
+    }
+  }
+
   const res = await fetch(buildUrl(path, query), {
     method,
     headers: {
       "Content-Type": "application/json",
       Accept: "application/json",
+      ...authHeaders,
       ...(headers ?? {}),
     },
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
+
+  // Handle 401 — auto logout and redirect to login
+  if (res.status === 401) {
+    const { getAuthState } = await import("./auth-store");
+    getAuthState().logout();
+    if (typeof window !== "undefined") {
+      window.location.href = "/login";
+    }
+    throw new ApiError("Sesi berakhir. Silakan login kembali.", 401, null);
+  }
 
   const text = await res.text();
   let payload: unknown = null;
@@ -90,4 +114,6 @@ export const api = {
   put: <T>(path: string, body?: unknown, headers?: Record<string, string>) => apiRequest<T>(path, { method: "PUT", body, headers }),
   patch: <T>(path: string, body?: unknown, headers?: Record<string, string>) => apiRequest<T>(path, { method: "PATCH", body, headers }),
   delete: <T>(path: string, headers?: Record<string, string>) => apiRequest<T>(path, { method: "DELETE", headers }),
+  /** Same as above but skips auth header injection (for login endpoint). */
+  postPublic: <T>(path: string, body?: unknown) => apiRequest<T>(path, { method: "POST", body, skipAuth: true }),
 };

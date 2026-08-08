@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
+import { useAuthStore } from "@/lib/auth-store";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus, Pencil, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
@@ -43,6 +44,10 @@ export const Route = createFileRoute("/bank-accounts")({
       { name: "description", content: "Manage company and sales bank accounts." },
     ],
   }),
+  beforeLoad: () => {
+    const { user } = useAuthStore.getState();
+    if (!user || !["owner", "accounting"].includes(user.role)) throw redirect({ to: "/forbidden" });
+  },
   component: BankAccountsPage,
 });
 

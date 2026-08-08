@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
+import { useAuthStore } from "@/lib/auth-store";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus, ChevronLeft, ChevronRight, Trash2, Pencil, Search, Filter, X, CalendarIcon, CheckCircle2 } from "lucide-react";
 import { format } from "date-fns";
@@ -68,6 +69,10 @@ export const Route = createFileRoute("/payments")({
       { name: "description", content: "Track payment history: DP, settlement, and installment records." },
     ],
   }),
+  beforeLoad: () => {
+    const { user } = useAuthStore.getState();
+    if (!user || !["owner", "accounting"].includes(user.role)) throw redirect({ to: "/forbidden" });
+  },
   component: PaymentsPage,
 });
 
