@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
+import { useAuthStore } from "@/lib/auth-store";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Plus,
@@ -54,6 +55,10 @@ export const Route = createFileRoute("/batch-pos")({
       { name: "description", content: "Manage production batch purchase orders." },
     ],
   }),
+  beforeLoad: () => {
+    const { user } = useAuthStore.getState();
+    if (!user || !["owner", "accounting"].includes(user.role)) throw redirect({ to: "/forbidden" });
+  },
   component: BatchPOsPage,
 });
 

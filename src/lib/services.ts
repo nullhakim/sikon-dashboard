@@ -1,5 +1,22 @@
 // Service layer mapping Swagger endpoints to typed functions.
 import { api, API_BASE_URL, type ApiPaginated, type ApiSuccess } from "./api";
+import type { AuthUser } from "./types/auth";
+
+// Auth
+export interface LoginResponse {
+  status: boolean;
+  message: string;
+  data: {
+    token: string;
+    expires_at: string;
+    user: AuthUser;
+  };
+}
+
+export const authService = {
+  login: (email: string, password: string) =>
+    api.postPublic<LoginResponse>("/auth/login", { email, password }),
+};
 import type {
   BankAccount,
   Category,

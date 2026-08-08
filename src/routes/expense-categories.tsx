@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
@@ -21,6 +21,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { expenseCategoriesService } from "@/lib/services";
+import { useAuthStore } from "@/lib/auth-store";
 
 export const Route = createFileRoute("/expense-categories")({
   head: () => ({
@@ -29,6 +30,10 @@ export const Route = createFileRoute("/expense-categories")({
       { name: "description", content: "Manage expense categories." },
     ],
   }),
+  beforeLoad: () => {
+    const { user } = useAuthStore.getState();
+    if (!user || !["owner", "accounting"].includes(user.role)) throw redirect({ to: "/forbidden" });
+  },
   component: ExpenseCategoriesPage,
 });
 
