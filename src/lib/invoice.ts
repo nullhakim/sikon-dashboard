@@ -106,12 +106,12 @@ function formatOrderDetails(details: unknown): string {
   const partsList: string[] = [];
 
   const extractParts = (arr: any[]) => {
-    arr.forEach(d => {
+    arr.forEach((d) => {
       if (!d.part && !d.material_name && !d.warna) return;
       const inner: string[] = [];
       if (d.material_name) inner.push(String(d.material_name));
       if (d.warna) inner.push(String(d.warna));
-      
+
       if (inner.length) partsList.push(`Bahan: ${inner.join(" - ")}`);
     });
   };
@@ -122,7 +122,7 @@ function formatOrderDetails(details: unknown): string {
   }
 
   const d = details as Record<string, any>;
-  
+
   if (Array.isArray(d.parts)) {
     extractParts(d.parts);
   } else {
@@ -211,7 +211,7 @@ export async function generateInvoicePDF({
   doc.text(`${COMPANY.website} | IG: ${COMPANY.instagram}`, headerRightX, 33, { align: "right" });
 
   // Judul dokumen: NOTA / PROFORMA INVOICE / INVOICE
-  const title = options?.isNota ? "NOTA" : isProforma ? "PROFORMA INVOICE" : "INVOICE";
+  const title = options?.isNota ? "NOTA" : isProforma ? "INVOICE" : "INVOICE";
   doc.setFontSize(isProforma ? 18 : 28);
   doc.setFont("helvetica", "bold");
   doc.text(title, pageWidth - margin, 46, { align: "right" });
@@ -246,8 +246,8 @@ export async function generateInvoicePDF({
   const invoiceDateLabel = options?.isNota
     ? "No. Nota"
     : isProforma
-    ? "No. Penawaran"
-    : "No. Invoice";
+      ? "No. Penawaran"
+      : "No. Invoice";
   const infoLabels = [invoiceDateLabel, "Tanggal"];
   // Tanggal: untuk nota gunakan created_at order, untuk invoice gunakan approved_at (atau created_at jika proforma)
   const infoValues = [
@@ -261,7 +261,7 @@ export async function generateInvoicePDF({
     doc.setTextColor(200, 100, 0);
     doc.setFontSize(8);
     doc.setFont("helvetica", "italic");
-    doc.text("(Dokumen Penawaran — Belum Disetujui)", pageWidth - margin, 50, { align: "right" });
+    // doc.text("(Dokumen Penawaran — Belum Disetujui)", pageWidth - margin, 50, { align: "right" });
     doc.setTextColor(30, 41, 59);
   }
 
@@ -281,7 +281,8 @@ export async function generateInvoicePDF({
     const detailStr = formatOrderDetails(item.details);
     return [
       String(idx + 1),
-      (item.custom_name || item.product_name || item.product?.name || "-") + (detailStr ? "\n" + detailStr : ""),
+      (item.custom_name || item.product_name || item.product?.name || "-") +
+        (detailStr ? "\n" + detailStr : ""),
       String(item.qty),
       formatCurrency(item.price),
       formatCurrency(subtotal),
@@ -396,7 +397,7 @@ export async function generateInvoicePDF({
     const bankLines = bankAccounts.length
       ? bankAccounts.map(formatBankLine)
       : ["(Belum ada rekening sales yang terdaftar)"];
-    
+
     currentLeftY += 6;
     bankLines.forEach((line) => {
       const splitLines = doc.splitTextToSize(line, 80);
@@ -416,7 +417,6 @@ export async function generateInvoicePDF({
     doc.setFontSize(12);
   }
 
-
   // === 6. SIGNATURE ===
   const sigY = ty + 20;
   doc.setTextColor(30, 41, 59);
@@ -431,7 +431,16 @@ export async function generateInvoicePDF({
     if (stempelData) {
       try {
         const size = 35;
-        doc.addImage(stempelData, "PNG", pageWidth - margin - 70, sigY + 5, size, size, undefined, "FAST");
+        doc.addImage(
+          stempelData,
+          "PNG",
+          pageWidth - margin - 70,
+          sigY + 5,
+          size,
+          size,
+          undefined,
+          "FAST",
+        );
       } catch {
         // ignore
       }
@@ -445,7 +454,16 @@ export async function generateInvoicePDF({
       try {
         const w = 35;
         const h = 25;
-        doc.addImage(sigData, "PNG", pageWidth - margin - 25 - w / 2, sigY + 7, w, h, undefined, "FAST");
+        doc.addImage(
+          sigData,
+          "PNG",
+          pageWidth - margin - 25 - w / 2,
+          sigY + 7,
+          w,
+          h,
+          undefined,
+          "FAST",
+        );
       } catch {
         // ignore
       }
@@ -642,7 +660,7 @@ export async function generateKwitansiPDF({
       try {
         const size = 35;
         doc.addImage(stempelData, "PNG", sigX - 35, sigY + 5, size, size, undefined, "FAST");
-      } catch { }
+      } catch {}
     }
   }
 
@@ -653,7 +671,7 @@ export async function generateKwitansiPDF({
         const w = 35;
         const h = 25;
         doc.addImage(sigData, "PNG", sigX - w / 2, sigY + 7, w, h, undefined, "FAST");
-      } catch { }
+      } catch {}
     }
   }
 
