@@ -69,10 +69,6 @@ export const Route = createFileRoute("/payments")({
       { name: "description", content: "Track payment history: DP, settlement, and installment records." },
     ],
   }),
-  beforeLoad: () => {
-    const { user } = useAuthStore.getState();
-    if (!user || !["owner", "accounting"].includes(user.role)) throw redirect({ to: "/forbidden" });
-  },
   component: PaymentsPage,
 });
 

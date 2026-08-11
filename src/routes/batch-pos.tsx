@@ -55,10 +55,6 @@ export const Route = createFileRoute("/batch-pos")({
       { name: "description", content: "Manage production batch purchase orders." },
     ],
   }),
-  beforeLoad: () => {
-    const { user } = useAuthStore.getState();
-    if (!user || !["owner", "accounting"].includes(user.role)) throw redirect({ to: "/forbidden" });
-  },
   component: BatchPOsPage,
 });
 

@@ -44,10 +44,6 @@ export const Route = createFileRoute("/users")({
       { name: "description", content: "Register and manage sales users." },
     ],
   }),
-  beforeLoad: () => {
-    const { user } = useAuthStore.getState();
-    if (user?.role !== "owner") throw redirect({ to: "/forbidden" });
-  },
   component: UsersPage,
 });
 

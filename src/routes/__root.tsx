@@ -104,6 +104,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     // Public paths — skip auth check
     if (pathname === "/login" || pathname === "/forbidden") return;
 
+    // Skip auth check on the server (SSR) because localStorage is not available.
+    // The client will re-run this check during hydration or trigger 401 on API calls.
+    if (typeof window === "undefined") return;
+
     const { isAuthenticated, user } = useAuthStore.getState();
     if (!isAuthenticated()) {
       throw redirect({ to: "/login" });

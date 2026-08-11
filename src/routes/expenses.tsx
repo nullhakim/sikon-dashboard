@@ -38,10 +38,6 @@ export const Route = createFileRoute("/expenses")({
       { name: "description", content: "Track and manage business expenses." },
     ],
   }),
-  beforeLoad: () => {
-    const { user } = useAuthStore.getState();
-    if (!user || !["owner", "accounting"].includes(user.role)) throw redirect({ to: "/forbidden" });
-  },
   component: ExpensesPage,
 });
 

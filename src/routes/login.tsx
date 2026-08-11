@@ -70,11 +70,27 @@ function LoginPage() {
       // Handle various response formats from the backend
       const data = res.data || res;
       const token = data.token;
-      const expires_at = data.expires_at || new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+      let expires_at = data.expires_at;
       const user = data.user;
 
       if (!token || !user) {
         throw new Error(res.message || res.error || "Format response tidak valid dari server");
+      }
+
+      // Safely parse expires_at
+      if (!expires_at) {
+        expires_at = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+      } else if (typeof expires_at === "number") {
+        // Unix timestamp in seconds (if < 1e10)
+        expires_at = new Date(expires_at < 1e10 ? expires_at * 1000 : expires_at).toISOString();
+      } else {
+        const d = new Date(expires_at);
+        // If invalid date or the date is in the past (timezone mismatch), fallback to 24h
+        if (isNaN(d.getTime()) || d.getTime() < Date.now()) {
+          expires_at = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+        } else {
+          expires_at = d.toISOString();
+        }
       }
 
       login(token, expires_at, user);

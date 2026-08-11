@@ -30,10 +30,6 @@ export const Route = createFileRoute("/expense-categories")({
       { name: "description", content: "Manage expense categories." },
     ],
   }),
-  beforeLoad: () => {
-    const { user } = useAuthStore.getState();
-    if (!user || !["owner", "accounting"].includes(user.role)) throw redirect({ to: "/forbidden" });
-  },
   component: ExpenseCategoriesPage,
 });
 
