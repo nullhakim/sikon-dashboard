@@ -6,9 +6,5 @@ import { useAuthStore } from "@/lib/auth-store";
  * Tidak ada UI wrapper di sini — setiap child merender kontennya sendiri.
  */
 export const Route = createFileRoute("/reports")({
-  beforeLoad: () => {
-    const { user } = useAuthStore.getState();
-    if (!user || !["owner", "accounting"].includes(user.role)) throw redirect({ to: "/forbidden" });
-  },
   component: () => <Outlet />,
 });

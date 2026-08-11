@@ -44,10 +44,6 @@ export const Route = createFileRoute("/bank-accounts")({
       { name: "description", content: "Manage company and sales bank accounts." },
     ],
   }),
-  beforeLoad: () => {
-    const { user } = useAuthStore.getState();
-    if (!user || !["owner", "accounting"].includes(user.role)) throw redirect({ to: "/forbidden" });
-  },
   component: BankAccountsPage,
 });
 

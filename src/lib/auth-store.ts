@@ -18,10 +18,13 @@ export const useAuthStore = create<AuthState>()(
       isAuthenticated: () => {
         const { token, expires_at } = get();
         if (!token) return false;
-        if (expires_at && new Date(expires_at) < new Date()) {
-          // Token expired — clear state
-          set({ token: null, expires_at: null, user: null });
-          return false;
+        if (expires_at) {
+          const d = new Date(expires_at);
+          // If it's a valid date and it is in the past, token is expired
+          if (!isNaN(d.getTime()) && d.getTime() < Date.now()) {
+            set({ token: null, expires_at: null, user: null });
+            return false;
+          }
         }
         return true;
       },

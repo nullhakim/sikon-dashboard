@@ -37,11 +37,12 @@ export const ROUTE_PERMISSIONS: Record<string, UserRole[]> = {
 };
 
 /** Check whether a role can access a given path prefix. */
-export function canAccess(role: UserRole | undefined, path: string): boolean {
+export function canAccess(role: string | undefined, path: string): boolean {
   if (!role) return false;
+  const normalizedRole = role.toLowerCase() as UserRole;
   const matchedKey = Object.keys(ROUTE_PERMISSIONS).find((prefix) =>
     path === prefix || path.startsWith(prefix + "/"),
   );
   if (!matchedKey) return true; // no restriction → allow
-  return ROUTE_PERMISSIONS[matchedKey].includes(role);
+  return ROUTE_PERMISSIONS[matchedKey].includes(normalizedRole);
 }

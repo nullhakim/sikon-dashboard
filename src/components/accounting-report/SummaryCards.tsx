@@ -67,8 +67,8 @@ function MetricCard({
 }
 
 /**
- * Grid of 5 summary metric cards for accounting report.
- * Displays: Omset, Cash-In, Piutang, Total Order, Total Qty.
+ * Grid of summary metric cards for accounting report.
+ * Structured into 3 rows for better readability of P&L.
  */
 export function SummaryCards({ data, isLoading }: SummaryCardsProps) {
   const d = data ?? {
@@ -77,12 +77,14 @@ export function SummaryCards({ data, isLoading }: SummaryCardsProps) {
     total_receivable: 0,
     total_order_count: 0,
     total_item_qty: 0,
-    total_expense: 0,
+    total_hpp: 0,
+    gross_profit: 0,
+    total_opex: 0,
     net_profit: 0,
     net_cashflow: 0,
   };
 
-  const metrics: MetricCardProps[] = [
+  const row1: MetricCardProps[] = [
     {
       label: "Total Omset",
       value: formatIDR(d.total_omset),
@@ -97,7 +99,7 @@ export function SummaryCards({ data, isLoading }: SummaryCardsProps) {
       icon: <Wallet className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />,
       iconBg: "bg-emerald-100 dark:bg-emerald-900/40",
       valueColor: "text-emerald-700 dark:text-emerald-300",
-      description: "Pembayaran aktual yang diterima",
+      description: "Pembayaran terverifikasi",
     },
     {
       label: "Piutang Baru",
@@ -107,29 +109,51 @@ export function SummaryCards({ data, isLoading }: SummaryCardsProps) {
       valueColor: "text-amber-700 dark:text-amber-300",
       description: "Sisa tagihan belum terbayar",
     },
+  ];
+
+  const row2: MetricCardProps[] = [
     {
-      label: "Total Expense",
-      value: formatIDR(d.total_expense),
+      label: "Total HPP",
+      value: formatIDR(d.total_hpp),
       icon: <TrendingDown className="h-4 w-4 text-red-600 dark:text-red-400" />,
       iconBg: "bg-red-100 dark:bg-red-900/40",
       valueColor: "text-red-700 dark:text-red-300",
-      description: "Total pengeluaran (HPP & OPEX)",
+      description: "Biaya Bahan & Maklon Jasa",
     },
     {
-      label: "Net Profit",
+      label: "Laba Kotor (Gross Profit)",
+      value: formatIDR(d.gross_profit),
+      icon: <TrendingUp className="h-4 w-4 text-teal-600 dark:text-teal-400" />,
+      iconBg: "bg-teal-100 dark:bg-teal-900/40",
+      valueColor: "text-teal-700 dark:text-teal-300",
+      description: "Total Omset - Total HPP",
+    },
+    {
+      label: "Pengeluaran OPEX",
+      value: formatIDR(d.total_opex),
+      icon: <TrendingDown className="h-4 w-4 text-orange-600 dark:text-orange-400" />,
+      iconBg: "bg-orange-100 dark:bg-orange-900/40",
+      valueColor: "text-orange-700 dark:text-orange-300",
+      description: "Biaya Operasional & Overhead",
+    },
+    {
+      label: "Laba Bersih (Net Profit)",
       value: formatIDR(d.net_profit),
       icon: <Activity className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />,
       iconBg: "bg-indigo-100 dark:bg-indigo-900/40",
       valueColor: "text-indigo-700 dark:text-indigo-300",
-      description: "Total Omset - Total Expense",
+      description: "Laba Kotor - OPEX",
     },
+  ];
+
+  const row3: MetricCardProps[] = [
     {
       label: "Net Cashflow",
       value: formatIDR(d.net_cashflow),
       icon: <ArrowRightLeft className="h-4 w-4 text-cyan-600 dark:text-cyan-400" />,
       iconBg: "bg-cyan-100 dark:bg-cyan-900/40",
       valueColor: "text-cyan-700 dark:text-cyan-300",
-      description: "Cash In - Total Expense",
+      description: "Cash In - Total Pengeluaran",
     },
     {
       label: "Total Order",
@@ -150,10 +174,36 @@ export function SummaryCards({ data, isLoading }: SummaryCardsProps) {
   ];
 
   return (
-    <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-      {metrics.map((m) => (
-        <MetricCard key={m.label} {...m} isLoading={isLoading} />
-      ))}
+    <div className="space-y-6">
+      {/* Baris 1: Pemasukan & Piutang */}
+      <div>
+        <h3 className="text-sm font-semibold text-muted-foreground mb-3 px-1">Pemasukan & Piutang</h3>
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+          {row1.map((m) => (
+            <MetricCard key={m.label} {...m} isLoading={isLoading} />
+          ))}
+        </div>
+      </div>
+
+      {/* Baris 2: Struktur Biaya & Keuntungan */}
+      <div>
+        <h3 className="text-sm font-semibold text-muted-foreground mb-3 px-1">Struktur Biaya & Keuntungan / P&L</h3>
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+          {row2.map((m) => (
+            <MetricCard key={m.label} {...m} isLoading={isLoading} />
+          ))}
+        </div>
+      </div>
+
+      {/* Baris 3: Indikator Kas & Kuantitas */}
+      <div>
+        <h3 className="text-sm font-semibold text-muted-foreground mb-3 px-1">Indikator Kas & Kuantitas</h3>
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+          {row3.map((m) => (
+            <MetricCard key={m.label} {...m} isLoading={isLoading} />
+          ))}
+        </div>
+      </div>
     </div>
   );
 }

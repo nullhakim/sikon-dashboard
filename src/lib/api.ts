@@ -61,7 +61,7 @@ export async function apiRequest<T>(
   const authHeaders: Record<string, string> = {};
   if (!skipAuth) {
     // Import lazily to avoid circular dependencies
-    const { getAuthState } = await import("./auth-store");
+    const { getAuthState } = await import("@/lib/auth-store");
     const { token } = getAuthState();
     if (token) {
       authHeaders["Authorization"] = `Bearer ${token}`;
@@ -81,7 +81,8 @@ export async function apiRequest<T>(
 
   // Handle 401 — auto logout and redirect to login
   if (res.status === 401) {
-    const { getAuthState } = await import("./auth-store");
+    console.warn("API returned 401 Unauthorized. Logging out...", { path, res });
+    const { getAuthState } = await import("@/lib/auth-store");
     getAuthState().logout();
     if (typeof window !== "undefined") {
       window.location.href = "/login";
