@@ -14,6 +14,7 @@ export interface FabricColor {
 
 export interface ProductFabric {
   id?: string;
+  spec_template_id?: string | null; // referensi ke Master Kain Global (nullable)
   name: string;              // e.g. "Ripstop Cotton 65/35"
   description?: string;
   composition?: string;      // e.g. "65% Cotton / 35% Polyester"

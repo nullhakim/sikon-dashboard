@@ -21,7 +21,10 @@ export interface Category {
 export interface SpecTemplate {
   id: string;
   name: string;
-  spec: string;
+  spec: string;              // deskripsi singkat / short spec
+  description?: string;      // deskripsi panjang
+  composition?: string;      // e.g. "65% Polyester / 35% Viscose"
+  care_instruction?: string; // e.g. "Setrika suhu sedang, jangan gunakan pemutih"
   created_at?: string;
   updated_at?: string;
 }

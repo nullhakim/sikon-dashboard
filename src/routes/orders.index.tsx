@@ -327,30 +327,44 @@ export function ItemDetailsFields({
             <div className="space-y-1">
               <Label className="text-xs">Material Name</Label>
               <Select
-                value={currentPart.material_name}
-                onValueChange={(v) => {
-                  const t = specs.data?.data?.find((x) => x.name === v);
+                value={specs.data?.data?.find(x => x.name === currentPart.material_name)?.id ?? ""}
+                onValueChange={(templateId) => {
+                  const t = specs.data?.data?.find((x) => x.id === templateId);
+                  if (!t) return;
+                  // Auto-fill spec: gunakan spec, fallback ke description jika spec kosong
+                  const autoSpec = t.spec || t.description || "";
                   setCurrentPart(prev => ({
                     ...prev,
-                    material_name: v,
-                    ...(t && !prev.spec ? { spec: t.spec } : {}),
+                    material_name: t.name,
+                    ...(!prev.spec ? { spec: autoSpec } : {}),
                   }));
                 }}
               >
                 <SelectTrigger className="h-8 text-xs">
-                  <SelectValue placeholder="Select from catalog or type manually…" />
+                  <SelectValue placeholder="Pilih dari Master Kain Global…" />
                 </SelectTrigger>
                 <SelectContent>
                   {specs.data?.data?.map((t) => (
-                    <SelectItem key={t.id} value={t.name}>
-                      <span className="font-medium">{t.name}</span>
-                      <span className="ml-1 text-xs text-muted-foreground">
-                        — {t.spec.length > 40 ? t.spec.slice(0, 40) + "…" : t.spec}
-                      </span>
+                    <SelectItem key={t.id} value={t.id}>
+                      <div className="flex flex-col">
+                        <span className="font-medium">{t.name}</span>
+                        {t.composition && (
+                          <span className="text-xs text-muted-foreground">{t.composition}</span>
+                        )}
+                      </div>
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              {/* Tampilkan detail template yang dipilih */}
+              {(() => {
+                const selected = specs.data?.data?.find(x => x.name === currentPart.material_name);
+                if (!selected) return null;
+                const hint = selected.description || selected.spec;
+                return hint ? (
+                  <p className="text-[11px] text-muted-foreground italic px-1">{hint.length > 100 ? hint.slice(0, 100) + "…" : hint}</p>
+                ) : null;
+              })()}
               <Input
                 className="mt-1 h-7 text-xs"
                 placeholder="Or type a custom material name…"
