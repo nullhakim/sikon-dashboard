@@ -1,12 +1,22 @@
-import { Plus, Trash2, ChevronDown, ChevronUp } from "lucide-react";
+import { Plus, Trash2, ChevronDown, ChevronUp, Sparkles, X } from "lucide-react";
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import type { ProductFabric, FabricColor } from "@/lib/types/product";
+import type { SpecTemplate } from "@/lib/types";
+import { specTemplatesService } from "@/lib/services";
 
 interface Props {
   fabrics: ProductFabric[];
@@ -14,6 +24,7 @@ interface Props {
 }
 
 const emptyFabric = (): ProductFabric => ({
+  spec_template_id: null,
   name: "",
   description: "",
   composition: "",
@@ -28,6 +39,13 @@ const emptyColor = (): FabricColor => ({ name: "", hex_code: "#4b5320" });
 
 export function FabricSection({ fabrics, onChange }: Props) {
   const [expanded, setExpanded] = useState<number[]>([0]);
+
+  // Load spec templates untuk dropdown Master Kain Global
+  const { data: specData } = useQuery({
+    queryKey: ["spec-templates", { limit: 100 }],
+    queryFn: () => specTemplatesService.list({ page: 1, limit: 100 }),
+  });
+  const specTemplates: SpecTemplate[] = specData?.data ?? [];
 
   const toggleExpand = (i: number) =>
     setExpanded((prev) => prev.includes(i) ? prev.filter((x) => x !== i) : [...prev, i]);
@@ -59,6 +77,39 @@ export function FabricSection({ fabrics, onChange }: Props) {
   const removeColor = (fi: number, ci: number) =>
     update(fi, { colors: (fabrics[fi].colors ?? []).filter((_, idx) => idx !== ci) });
 
+  /** Auto-fill fields dari Spec Template yang dipilih (hanya isi yang kosong) */
+  const applyTemplate = (i: number, templateId: string) => {
+    const template = specTemplates.find((t) => t.id === templateId);
+    if (!template) {
+      // Clear template selection
+      update(i, { spec_template_id: null });
+      return;
+    }
+    const fabric = fabrics[i];
+    update(i, {
+      spec_template_id: templateId,
+      // Auto-fill hanya jika field kosong
+      name: fabric.name || template.name,
+      composition: fabric.composition || template.composition || "",
+      description: fabric.description || template.description || "",
+      care_instruction: fabric.care_instruction || template.care_instruction || "",
+    });
+  };
+
+  /** Overwrite semua field dari template (reset ke master) */
+  const resetToTemplate = (i: number) => {
+    const fabric = fabrics[i];
+    if (!fabric.spec_template_id) return;
+    const template = specTemplates.find((t) => t.id === fabric.spec_template_id);
+    if (!template) return;
+    update(i, {
+      name: template.name,
+      composition: template.composition || "",
+      description: template.description || "",
+      care_instruction: template.care_instruction || "",
+    });
+  };
+
   return (
     <div className="space-y-3">
       {fabrics.map((fabric, i) => (
@@ -73,6 +124,11 @@ export function FabricSection({ fabrics, onChange }: Props) {
               <span className="font-medium text-sm truncate">
                 {fabric.name || `Fabric ${i + 1}`}
               </span>
+              {fabric.spec_template_id && (
+                <Badge variant="secondary" className="text-[10px] shrink-0 gap-1">
+                  <Sparkles className="h-2.5 w-2.5" /> Master
+                </Badge>
+              )}
               {fabric.is_default && (
                 <Badge variant="secondary" className="text-xs shrink-0">Default</Badge>
               )}
@@ -105,6 +161,74 @@ export function FabricSection({ fabrics, onChange }: Props) {
           {/* Body */}
           {expanded.includes(i) && (
             <div className="border-t px-4 py-4 space-y-4">
+
+              {/* === DROPDOWN MASTER KAIN GLOBAL === */}
+              <div className="rounded-md border border-dashed border-primary/40 bg-primary/5 p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-semibold flex items-center gap-1.5 text-primary">
+                    <Sparkles className="h-3.5 w-3.5" />
+                    Pilih dari Master Kain Global
+                    <span className="text-muted-foreground font-normal">(Opsional)</span>
+                  </Label>
+                  {fabric.spec_template_id && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 px-2 text-xs text-muted-foreground"
+                      onClick={() => resetToTemplate(i)}
+                    >
+                      Reset ke Master
+                    </Button>
+                  )}
+                </div>
+                <div className="flex gap-2 items-center">
+                  <Select
+                    value={fabric.spec_template_id ?? ""}
+                    onValueChange={(v) => applyTemplate(i, v)}
+                  >
+                    <SelectTrigger className="h-8 text-xs flex-1">
+                      <SelectValue placeholder="Pilih template kain dari katalog global…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {specTemplates.length === 0 && (
+                        <div className="px-3 py-2 text-xs text-muted-foreground">
+                          Belum ada template kain.
+                        </div>
+                      )}
+                      {specTemplates.map((t) => (
+                        <SelectItem key={t.id} value={t.id}>
+                          <div className="flex flex-col">
+                            <span className="font-medium">{t.name}</span>
+                            {t.composition && (
+                              <span className="text-xs text-muted-foreground">{t.composition}</span>
+                            )}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {fabric.spec_template_id && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 shrink-0 text-muted-foreground"
+                      onClick={() => update(i, { spec_template_id: null })}
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                </div>
+                {fabric.spec_template_id && (() => {
+                  const tmpl = specTemplates.find(t => t.id === fabric.spec_template_id);
+                  return tmpl ? (
+                    <p className="text-xs text-muted-foreground italic">{tmpl.spec}</p>
+                  ) : null;
+                })()}
+              </div>
+
+              {/* === FABRIC FIELDS === */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5 col-span-2">
                   <Label className="text-xs">Nama Kain *</Label>

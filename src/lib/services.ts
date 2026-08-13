@@ -36,12 +36,20 @@ export interface PageParams {
 }
 
 // Spec Templates
+export interface SpecTemplatePayload {
+  name: string;
+  spec: string;
+  description?: string;
+  composition?: string;
+  care_instruction?: string;
+}
+
 export const specTemplatesService = {
   list: (p: PageParams = {}) =>
     api.get<ApiPaginated<SpecTemplate>>("/spec-templates", { page: p.page ?? 1, limit: p.limit ?? 10 }),
   get: (id: string) => api.get<ApiSuccess<SpecTemplate>>(`/spec-templates/${id}`),
-  create: (body: { name: string; spec: string }) => api.post<ApiSuccess<SpecTemplate>>("/spec-templates", body),
-  update: (id: string, body: { name: string; spec: string }) =>
+  create: (body: SpecTemplatePayload) => api.post<ApiSuccess<SpecTemplate>>("/spec-templates", body),
+  update: (id: string, body: SpecTemplatePayload) =>
     api.put<ApiSuccess<unknown>>(`/spec-templates/${id}`, body),
   delete: (id: string) => api.delete<ApiSuccess<unknown>>(`/spec-templates/${id}`),
 };
