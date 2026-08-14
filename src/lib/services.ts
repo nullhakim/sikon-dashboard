@@ -42,6 +42,7 @@ export interface SpecTemplatePayload {
   description?: string;
   composition?: string;
   care_instruction?: string;
+  colors?: { name: string; hex_code: string }[];
 }
 
 export const specTemplatesService = {
