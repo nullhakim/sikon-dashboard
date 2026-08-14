@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useAuthStore } from "@/lib/auth-store";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/hooks/use-auth";
 import { Plus, ChevronLeft, ChevronRight, Trash2, Pencil, Search, Filter, X, CalendarIcon, CheckCircle2 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -431,6 +432,7 @@ function PaymentsPage() {
   const searchParams = Route.useSearch();
   const navigate = Route.useNavigate();
   const qc = useQueryClient();
+  const { canVerifyPayment } = useAuth();
 
   const [createOpen, setCreateOpen] = useState(false);
   const [editPayment, setEditPayment] = useState<Payment | null>(null);
@@ -686,7 +688,7 @@ function PaymentsPage() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">
-                        {(p.status || "pending").toLowerCase() === "pending" && (
+                        {canVerifyPayment && (p.status || "pending").toLowerCase() === "pending" && (
                           <Button
                             variant="ghost"
                             size="icon"

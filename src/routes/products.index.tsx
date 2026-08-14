@@ -26,6 +26,7 @@ import type { ProductPayload, ProductFabric, WholesaleTier, DesignModel } from "
 import { FabricSection } from "@/components/products/FabricSection";
 import { WholesaleSection } from "@/components/products/WholesaleSection";
 import { CanvasDesignerSection } from "@/components/products/CanvasDesignerSection";
+import { useAuth } from "@/hooks/use-auth";
 
 const searchSchema = z.object({
   search: z.string().optional().catch(""),
@@ -71,6 +72,7 @@ function ProductsPage() {
   const searchParams = Route.useSearch();
   const navigate = Route.useNavigate();
   const qc = useQueryClient();
+  const { canManageCatalog } = useAuth();
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
@@ -228,9 +230,11 @@ function ProductsPage() {
           <h1 className="text-2xl font-semibold tracking-tight">Products</h1>
           <p className="text-sm text-muted-foreground">Master data: products catalog and pricing.</p>
         </div>
-        <Button onClick={openCreate}>
-          <Plus className="mr-1 h-4 w-4" /> New Product
-        </Button>
+        {canManageCatalog && (
+          <Button onClick={openCreate}>
+            <Plus className="mr-1 h-4 w-4" /> New Product
+          </Button>
+        )}
       </div>
 
       <div className="flex flex-col sm:flex-row gap-4">
@@ -310,8 +314,12 @@ function ProductsPage() {
                             <Eye className="h-4 w-4" />
                           </Link>
                         </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(p)}><Pencil className="h-4 w-4" /></Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => { if (confirm(`Delete product "${p.name}"?`)) deleteMut.mutate(p.id); }}><Trash2 className="h-4 w-4" /></Button>
+                        {canManageCatalog && (
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(p)}><Pencil className="h-4 w-4" /></Button>
+                        )}
+                        {canManageCatalog && (
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => { if (confirm(`Delete product "${p.name}"?`)) deleteMut.mutate(p.id); }}><Trash2 className="h-4 w-4" /></Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
