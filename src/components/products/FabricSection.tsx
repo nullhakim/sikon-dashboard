@@ -86,6 +86,8 @@ export function FabricSection({ fabrics, onChange }: Props) {
       return;
     }
     const fabric = fabrics[i];
+    // Petakan SpecTemplateColor -> FabricColor (strip field `id`)
+    const templateColors = (template.colors ?? []).map(({ name, hex_code }) => ({ name, hex_code }));
     update(i, {
       spec_template_id: templateId,
       // Auto-fill hanya jika field kosong
@@ -93,6 +95,8 @@ export function FabricSection({ fabrics, onChange }: Props) {
       composition: fabric.composition || template.composition || "",
       description: fabric.description || template.description || "",
       care_instruction: fabric.care_instruction || template.care_instruction || "",
+      // Auto-fill colors jika fabric belum punya warna
+      colors: (fabric.colors ?? []).length === 0 ? templateColors : fabric.colors,
     });
   };
 
@@ -102,11 +106,14 @@ export function FabricSection({ fabrics, onChange }: Props) {
     if (!fabric.spec_template_id) return;
     const template = specTemplates.find((t) => t.id === fabric.spec_template_id);
     if (!template) return;
+    // Petakan SpecTemplateColor -> FabricColor (strip field `id`)
+    const templateColors = (template.colors ?? []).map(({ name, hex_code }) => ({ name, hex_code }));
     update(i, {
       name: template.name,
       composition: template.composition || "",
       description: template.description || "",
       care_instruction: template.care_instruction || "",
+      colors: templateColors,
     });
   };
 
