@@ -51,6 +51,7 @@ import { ordersService, customersService, productsService, usersService, specTem
 import { formatIDR, formatDate } from "@/lib/format";
 import type { OrderStatus } from "@/lib/types";
 import { QuickCreateCustomerDialog } from "@/components/QuickCreateCustomerDialog";
+import { useAuth } from "@/hooks/use-auth";
 
 // TODO: Replace with real auth context when authentication is implemented.
 const currentUser = { role: "admin" };
@@ -333,10 +334,12 @@ export function ItemDetailsFields({
                   if (!t) return;
                   // Auto-fill spec: gunakan spec, fallback ke description jika spec kosong
                   const autoSpec = t.spec || t.description || "";
+                  const defaultColor = t.colors && t.colors.length > 0 ? t.colors[0].name : undefined;
                   setCurrentPart(prev => ({
                     ...prev,
                     material_name: t.name,
                     ...(!prev.spec ? { spec: autoSpec } : {}),
+                    ...(!prev.warna && defaultColor ? { warna: defaultColor } : {}),
                   }));
                 }}
               >
@@ -372,15 +375,62 @@ export function ItemDetailsFields({
                 onChange={(e) => setCurrentPart(prev => ({ ...prev, material_name: e.target.value }))}
               />
             </div>
-            <div className="space-y-1">
-              <Label className="text-xs">Warna</Label>
-              <Input
-                className="h-7 text-xs"
-                placeholder="e.g., Navy Blue, Hitam"
-                value={currentPart.warna ?? ""}
-                onChange={(e) => setCurrentPart(prev => ({ ...prev, warna: e.target.value }))}
-              />
-            </div>
+            {(() => {
+              const selectedTemplate = specs.data?.data?.find(x => x.name === currentPart.material_name);
+              const availableColors = selectedTemplate?.colors ?? [];
+
+              return (
+                <div className="space-y-1">
+                  <Label className="text-xs">Warna</Label>
+                  {availableColors.length > 0 ? (
+                    <div className="space-y-1">
+                      <Select
+                        value={currentPart.warna ?? ""}
+                        onValueChange={(val) =>
+                          setCurrentPart((prev) => ({ ...prev, warna: val }))
+                        }
+                      >
+                        <SelectTrigger className="h-8 text-xs">
+                          <SelectValue placeholder="Pilih warna dari template kain…" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {availableColors.map((c) => (
+                            <SelectItem key={c.id || c.name} value={c.name}>
+                              <div className="flex items-center gap-2">
+                                {c.hex_code && (
+                                  <span
+                                    className="h-3 w-3 rounded-full border border-black/10 shrink-0"
+                                    style={{ backgroundColor: c.hex_code }}
+                                  />
+                                )}
+                                <span>{c.name}</span>
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Input
+                        className="h-7 text-xs"
+                        placeholder="Atau ketik warna kustom…"
+                        value={currentPart.warna ?? ""}
+                        onChange={(e) =>
+                          setCurrentPart((prev) => ({ ...prev, warna: e.target.value }))
+                        }
+                      />
+                    </div>
+                  ) : (
+                    <Input
+                      className="h-7 text-xs"
+                      placeholder="e.g., Navy Blue, Hitam"
+                      value={currentPart.warna ?? ""}
+                      onChange={(e) =>
+                        setCurrentPart((prev) => ({ ...prev, warna: e.target.value }))
+                      }
+                    />
+                  )}
+                </div>
+              );
+            })()}
             {!hideSpec && (
               <div className="space-y-1">
                 <Label className="text-xs">Specification</Label>
@@ -460,10 +510,19 @@ export function ItemDetailsFields({
 function CreateOrderDialog({ open, onClose }: { open: boolean; onClose: () => void; }) {
   const isQuotation = true;
   const qc = useQueryClient();
+  const { isSales, user, canAssignSales } = useAuth();
+
   const [customerId, setCustomerId] = useState("");
   const [salesId, setSalesId] = useState("");
   const [batchPoId, setBatchPoId] = useState("");
   const [newCustomerOpen, setNewCustomerOpen] = useState(false);
+
+  // If logged-in user is Sales, fetch single user details GET /users/{id}
+  const currentUserDetail = useQuery({
+    queryKey: ["users", user?.id],
+    queryFn: () => usersService.get(user!.id!),
+    enabled: open && isSales && !!user?.id,
+  });
 
   const customers = useQuery({
     queryKey: ["customers", { sales_id: salesId, limit: 100 }],
@@ -475,10 +534,11 @@ function CreateOrderDialog({ open, onClose }: { open: boolean; onClose: () => vo
     queryFn: () => productsService.list({ page: 1, limit: 100 }),
     enabled: open,
   });
+  // Only query all sales users list if user is NOT sales
   const users = useQuery({
     queryKey: ["users", "sales"],
     queryFn: () => usersService.list({ role: "sales", limit: 100 }),
-    enabled: open,
+    enabled: open && !isSales,
   });
   const activeBatchPOs = useQuery({
     queryKey: ["batch-pos", "active"],
@@ -515,7 +575,11 @@ function CreateOrderDialog({ open, onClose }: { open: boolean; onClose: () => vo
   });
 
   useEffect(() => {
-    if (!open) {
+    if (open) {
+      if (isSales && user?.id) {
+        setSalesId(user.id);
+      }
+    } else {
       setCustomerId("");
       setSalesId("");
       setBatchPoId("");
@@ -529,7 +593,7 @@ function CreateOrderDialog({ open, onClose }: { open: boolean; onClose: () => vo
       setPaymentBankId("");
       setPaymentReference("");
     }
-  }, [open]);
+  }, [open, isSales, user]);
 
   const subtotal = items.reduce((s, i) => s + i.qty * i.price, 0);
   const total = subtotal + Number(shippingCost || 0);
@@ -677,24 +741,32 @@ function CreateOrderDialog({ open, onClose }: { open: boolean; onClose: () => vo
 
                 <div className="space-y-2">
                   <Label>Sales Person</Label>
-                  <Select
-                    value={salesId}
-                    onValueChange={(v) => {
-                      setSalesId(v);
-                      setCustomerId("");
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select sales" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {users.data?.data?.map((u) => (
-                        <SelectItem key={u.id} value={u.id}>
-                          {u.name} {u.role ? `(${u.role})` : ""}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  {isSales ? (
+                    <Input
+                      value={currentUserDetail.data?.data?.name || user?.name || "Your Account"}
+                      disabled
+                      className="bg-muted text-muted-foreground cursor-not-allowed"
+                    />
+                  ) : (
+                    <Select
+                      value={salesId}
+                      onValueChange={(v) => {
+                        setSalesId(v);
+                        setCustomerId("");
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select sales" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {users.data?.data?.map((u) => (
+                          <SelectItem key={u.id} value={u.id}>
+                            {u.name} {u.role ? `(${u.role})` : ""}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
