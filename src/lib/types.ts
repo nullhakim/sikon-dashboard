@@ -156,6 +156,7 @@ export interface Order {
   approved_at?: string | null;
   items?: OrderItem[];
   payments?: Payment[];
+  total_qty?: number;
   created_at?: string;
   updated_at?: string;
 }
