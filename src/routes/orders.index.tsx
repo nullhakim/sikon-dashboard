@@ -1462,11 +1462,40 @@ export function UpdateOrderDialog({
 }
 
 
+const paymentBadgeVariant: Record<string, string> = {
+  paid: "bg-emerald-100 text-emerald-800 border-emerald-200",
+  partial: "bg-amber-100 text-amber-800 border-amber-200",
+  unpaid: "bg-rose-100 text-rose-800 border-rose-200",
+  pending: "bg-purple-100 text-purple-800 border-purple-200",
+};
+
+function PaymentStatusBadge({ status }: { status?: string }) {
+  if (!status) return <span className="text-muted-foreground text-xs">—</span>;
+  const cls = paymentBadgeVariant[status.toLowerCase()] ?? "bg-muted text-foreground border-border";
+  return (
+    <span
+      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium capitalize ${cls}`}
+    >
+      {status}
+    </span>
+  );
+}
+
+const quickFilterTabs: { label: string; value: string }[] = [
+  { label: "All Orders", value: "" },
+  { label: "Quotation", value: "quotation" },
+  { label: "Pending", value: "pending" },
+  { label: "Production", value: "production" },
+  { label: "Ready", value: "ready" },
+  { label: "Completed", value: "completed" },
+];
+
 function OrdersPage() {
   const search = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
   const limit = 10;
   const qc = useQueryClient();
+  const { user, isSales, isOwner } = useAuth();
 
   const [editOrder, setEditOrder] = useState<{ id: string; type: "order" | "quotation" } | null>(null);
   const [createModeOpen, setCreateModeOpen] = useState(false);
@@ -1517,6 +1546,28 @@ function OrdersPage() {
     queryFn: () => ordersService.list(queryParams),
   });
 
+  // Query for counts across status tabs (with same search filters except order_status)
+  const countQueryParams = {
+    ...queryParams,
+    page: 1,
+    limit: 1000,
+    order_status: undefined,
+  };
+
+  const { data: countData } = useQuery({
+    queryKey: ["orders", "counts", countQueryParams],
+    queryFn: () => ordersService.list(countQueryParams),
+  });
+
+  const allFilteredOrders = countData?.data ?? [];
+  const statusCounts = allFilteredOrders.reduce<Record<string, number>>((acc, o) => {
+    const st = o.order_status?.toLowerCase();
+    if (st) {
+      acc[st] = (acc[st] || 0) + 1;
+    }
+    return acc;
+  }, {});
+
   const { data: usersData } = useQuery({
     queryKey: ["users", "sales"],
     queryFn: () => usersService.list({ role: "sales", limit: 100 }),
@@ -1528,16 +1579,6 @@ function OrdersPage() {
     queryFn: () => batchPosService.list({ limit: 100 }),
   });
   const allBatchPOs = allBatchPOsData?.data ?? [];
-
-  const statusMut = useMutation({
-    mutationFn: ({ id, status }: { id: string; status: OrderStatus }) =>
-      ordersService.updateStatus(id, status),
-    onSuccess: () => {
-      toast.success("Status updated");
-      qc.invalidateQueries({ queryKey: ["orders"] });
-    },
-    onError: (e: any) => toast.error(e?.payload?.error || e.message),
-  });
 
   const deleteMut = useMutation({
     mutationFn: (id: string) => ordersService.delete(id),
@@ -1587,26 +1628,182 @@ function OrdersPage() {
       replace: true,
     });
 
+  const selectedBatchPO = allBatchPOs.find((b) => b.id === search.batch_po_id);
+  const monthNames = [
+    "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+    "Juli", "Agustus", "September", "Oktober", "November", "Desember"
+  ];
+
+  // Helper to derive month-year key for a batch PO
+  const getBatchMonthKey = (b: typeof allBatchPOs[0]) => {
+    if (b.target_month && b.target_year) {
+      return `${b.target_year}-${String(b.target_month).padStart(2, "0")}`;
+    }
+    if (b.start_date) {
+      const d = new Date(b.start_date);
+      if (!isNaN(d.getTime())) {
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      }
+    }
+    return "other";
+  };
+
+  // Group unique months available from all batch POs
+  const availableMonthsMap = new Map<string, string>();
+  allBatchPOs.forEach((b) => {
+    const key = getBatchMonthKey(b);
+    if (key !== "other") {
+      const [year, monthStr] = key.split("-");
+      const mIdx = parseInt(monthStr, 10) - 1;
+      const label = `${monthNames[mIdx]} ${year}`;
+      availableMonthsMap.set(key, label);
+    }
+  });
+
+  const availableMonths = Array.from(availableMonthsMap.entries()).map(([key, label]) => ({ key, label }));
+
+  // State / Derived active month selection
+  const [selectedMonthKey, setSelectedMonthKey] = useState<string>(() => {
+    if (selectedBatchPO) {
+      return getBatchMonthKey(selectedBatchPO);
+    }
+    return search.batch_po_id === "all" ? "all" : "active";
+  });
+
+  // Keep selectedMonthKey in sync with search.batch_po_id if changed externally or by reset
+  useEffect(() => {
+    if (search.batch_po_id === "" || !search.batch_po_id) {
+      setSelectedMonthKey("active");
+    } else if (search.batch_po_id === "all") {
+      setSelectedMonthKey("all");
+    } else if (selectedBatchPO) {
+      setSelectedMonthKey(getBatchMonthKey(selectedBatchPO));
+    }
+  }, [search.batch_po_id, selectedBatchPO]);
+
+  // Filter batch POs for Dropdown 2 based on selectedMonthKey
+  const filteredBatchPOsForDropdown = allBatchPOs.filter((b) => {
+    if (selectedMonthKey === "active") return b.status === "active";
+    if (selectedMonthKey === "all") return true;
+    return getBatchMonthKey(b) === selectedMonthKey;
+  });
+
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Orders</h1>
           <p className="text-sm text-muted-foreground">
             Track every order from intake through delivery.
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button onClick={() => setCreateModeOpen(true)}>
+
+        {/* Top Filter Controls: Header Batch PO Selectors */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-1.5">
+            <Label className="text-xs text-muted-foreground whitespace-nowrap">Bulan PO:</Label>
+            <Select
+              value={selectedMonthKey}
+              onValueChange={(val) => {
+                setSelectedMonthKey(val);
+                if (val === "active") {
+                  setFilter({ batch_po_id: "" });
+                } else if (val === "all") {
+                  setFilter({ batch_po_id: "all" });
+                } else {
+                  // Pick first PO from this month or clear to all
+                  const match = allBatchPOs.find((b) => getBatchMonthKey(b) === val);
+                  setFilter({ batch_po_id: match ? match.id : "all" });
+                }
+              }}
+            >
+              <SelectTrigger className="h-9 text-xs w-[170px] bg-background">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="active">Batch PO Aktif (Default)</SelectItem>
+                <SelectItem value="all">Semua Bulan</SelectItem>
+                {availableMonths.map((m) => (
+                  <SelectItem key={m.key} value={m.key}>
+                    {m.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <Label className="text-xs text-muted-foreground whitespace-nowrap">Batch PO:</Label>
+            <Select
+              value={search.batch_po_id || (selectedMonthKey === "active" ? "active" : "all")}
+              onValueChange={(v) => {
+                if (v === "active") setFilter({ batch_po_id: "" });
+                else setFilter({ batch_po_id: v });
+              }}
+            >
+              <SelectTrigger className="h-9 text-xs w-[200px] bg-background">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {selectedMonthKey === "active" && (
+                  <SelectItem value="active">Batch PO Aktif (Default)</SelectItem>
+                )}
+                <SelectItem value="all">Semua Batch PO</SelectItem>
+                {filteredBatchPOsForDropdown.map((b) => (
+                  <SelectItem key={b.id} value={b.id}>
+                    <span>{b.name}</span>
+                    <span className="ml-1 text-[10px] text-muted-foreground capitalize">({b.status})</span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <Button onClick={() => setCreateModeOpen(true)} className="h-9">
             <Plus className="mr-1 h-4 w-4" /> New Order
           </Button>
         </div>
       </div>
 
+      {/* Quick Filter Tabs (Order Status) */}
+      <div className="flex items-center gap-1 border-b pb-1 overflow-x-auto no-scrollbar">
+        {quickFilterTabs.map((tab) => {
+          const isActive = (search.order_status || "") === tab.value;
+          const count = tab.value === "" 
+            ? allFilteredOrders.length 
+            : (statusCounts[tab.value] || 0);
+
+          return (
+            <button
+              key={tab.value}
+              onClick={() => setFilter({ order_status: tab.value })}
+              className={cn(
+                "inline-flex items-center gap-2 px-3.5 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap",
+                isActive
+                  ? "border-primary text-primary"
+                  : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground/30"
+              )}
+            >
+              <span>{tab.label}</span>
+              <span
+                className={cn(
+                  "rounded-full px-2 py-0.5 text-xs font-semibold",
+                  isActive
+                    ? "bg-primary/10 text-primary"
+                    : "bg-muted text-muted-foreground"
+                )}
+              >
+                {count}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
       <Card>
         <CardHeader className="pb-3 space-y-3">
           <div className="flex items-center justify-between gap-3 flex-wrap">
-            <CardTitle className="text-base">All Orders</CardTitle>
+            <CardTitle className="text-base">Order List</CardTitle>
             <div className="flex items-center gap-2 flex-1 sm:flex-initial sm:min-w-[420px] sm:justify-end flex-wrap">
               <div className="relative flex-1 sm:max-w-xs min-w-[200px]">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -1631,28 +1828,6 @@ function OrdersPage() {
                 </PopoverTrigger>
                 <PopoverContent align="end" className="w-80 space-y-4">
                   <div className="space-y-2">
-                    <Label className="text-xs">Order Status</Label>
-                    <Select
-                      value={search.order_status || "all"}
-                      onValueChange={(v) =>
-                        setFilter({ order_status: v === "all" ? "" : v })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All</SelectItem>
-                        {statusList.map((s) => (
-                          <SelectItem key={s} value={s} className="capitalize">
-                            {s}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
                     <Label className="text-xs">Payment Status</Label>
                     <Select
                       value={search.payment_status || "all"}
@@ -1664,7 +1839,7 @@ function OrdersPage() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">All</SelectItem>
+                        <SelectItem value="all">Semua Status Bayar</SelectItem>
                         {paymentStatusList.map((s) => (
                           <SelectItem key={s} value={s} className="capitalize">
                             {s}
@@ -1686,33 +1861,10 @@ function OrdersPage() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">All</SelectItem>
+                        <SelectItem value="all">Semua Sales</SelectItem>
                         {salesUsers.map((u) => (
                           <SelectItem key={u.id} value={u.id} className="capitalize">
                             {u.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label className="text-xs">Batch PO</Label>
-                    <Select
-                      value={search.batch_po_id || "all"}
-                      onValueChange={(v) =>
-                        setFilter({ batch_po_id: v === "all" ? "" : v })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Batches</SelectItem>
-                        {allBatchPOs.map((b) => (
-                          <SelectItem key={b.id} value={b.id}>
-                            <span>{b.name}</span>
-                            <span className="ml-1 text-xs text-muted-foreground capitalize">— {b.status}</span>
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -1808,9 +1960,10 @@ function OrdersPage() {
                 <TableHead>Sales</TableHead>
                 <TableHead>Customer</TableHead>
                 <TableHead>Created</TableHead>
+                <TableHead className="text-center">Total Qty</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Total</TableHead>
-                <TableHead className="text-right">Payment</TableHead>
+                <TableHead className="text-center">Payment</TableHead>
                 <TableHead className="w-[1%]"></TableHead>
               </TableRow>
             </TableHeader>
@@ -1818,7 +1971,7 @@ function OrdersPage() {
               {isLoading &&
                 Array.from({ length: 5 }).map((_, i) => (
                   <TableRow key={`sk-${i}`}>
-                    {Array.from({ length: 8 }).map((_, j) => (
+                    {Array.from({ length: 10 }).map((_, j) => (
                       <TableCell key={j}>
                         <Skeleton className="h-4 w-full" />
                       </TableCell>
@@ -1827,14 +1980,14 @@ function OrdersPage() {
                 ))}
               {isError && !isLoading && (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center text-destructive py-8">
+                  <TableCell colSpan={10} className="text-center text-destructive py-8">
                     {(error as Error)?.message ?? "Failed to load orders"}
                   </TableCell>
                 </TableRow>
               )}
               {!isLoading && !isError && orders.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center text-muted-foreground py-10">
+                  <TableCell colSpan={10} className="text-center text-muted-foreground py-10">
                     <div className="space-y-1">
                       <p className="font-medium">No orders found</p>
                       <p className="text-xs">
@@ -1846,69 +1999,80 @@ function OrdersPage() {
                   </TableCell>
                 </TableRow>
               )}
-              {orders.map((o) => (
-                <TableRow key={o.id} className={isFetching ? "opacity-70" : ""}>
-                  <TableCell className="font-mono text-xs">
-                    {o.order_number ?? o.id.slice(0, 8)}
-                  </TableCell>
-                  <TableCell className="text-xs">
-                    {o.batch_po?.name ? (
-                      <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium bg-indigo-50 text-indigo-700 border-indigo-200">
-                        {o.batch_po.name}
-                      </span>
-                    ) : (
-                      <span className="text-muted-foreground">—</span>
-                    )}
-                  </TableCell>
-                  <TableCell className="font-medium">
-                    {o.sales?.name ?? "—"}
-                  </TableCell>
-                  <TableCell className="font-medium">
-                    {o.customer?.name ?? "—"}
-                  </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
-                    {formatDate(o.created_at)}
-                  </TableCell>
-                  <TableCell>
-                    <StatusBadge status={o.order_status} />
-                  </TableCell>
-                  <TableCell className="text-right font-medium">
-                    {formatIDR(o.total_amount)}
-                  </TableCell>
-                  <TableCell className="text-right text-muted-foreground capitalize">
-                    {o.payment_status ?? "—"}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex justify-end gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                        title="Quick Update"
-                        onClick={() => setEditOrder({ id: o.id, type: o.order_status === "quotation" ? "quotation" : "order" })}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button asChild variant="ghost" size="icon" className="h-8 w-8" title="View">
-                        <Link to="/orders/$orderId" params={{ orderId: o.id }}>
-                          <Eye className="h-4 w-4" />
-                        </Link>
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                        onClick={() => {
-                          if (confirm("Delete this order?")) deleteMut.mutate(o.id);
-                        }}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
+              {orders.map((o) => {
+                const canEdit = !isSales || (o.order_status === "quotation" || o.order_status === "pending");
 
-                </TableRow>
-              ))}
+                return (
+                  <TableRow key={o.id} className={isFetching ? "opacity-70" : ""}>
+                    <TableCell className="font-mono text-xs">
+                      {o.order_number ?? o.id.slice(0, 8)}
+                    </TableCell>
+                    <TableCell className="text-xs">
+                      {o.batch_po?.name ? (
+                        <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium bg-indigo-50 text-indigo-700 border-indigo-200">
+                          {o.batch_po.name}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="font-medium">
+                      {o.sales?.name ?? "—"}
+                    </TableCell>
+                    <TableCell className="font-medium">
+                      {o.customer?.name ?? "—"}
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {formatDate(o.created_at)}
+                    </TableCell>
+                    <TableCell className="text-center font-medium text-xs">
+                      {o.total_qty !== undefined ? `${o.total_qty} pcs` : "—"}
+                    </TableCell>
+                    <TableCell>
+                      <StatusBadge status={o.order_status} />
+                    </TableCell>
+                    <TableCell className="text-right font-medium">
+                      {formatIDR(o.total_amount)}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <PaymentStatusBadge status={o.payment_status} />
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex justify-end gap-1">
+                        {canEdit && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                            title="Quick Update"
+                            onClick={() => setEditOrder({ id: o.id, type: o.order_status === "quotation" ? "quotation" : "order" })}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        )}
+                        <Button asChild variant="ghost" size="icon" className="h-8 w-8" title="View">
+                          <Link to="/orders/$orderId" params={{ orderId: o.id }}>
+                            <Eye className="h-4 w-4" />
+                          </Link>
+                        </Button>
+                        {isOwner && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                            title="Delete"
+                            onClick={() => {
+                              if (confirm("Delete this order?")) deleteMut.mutate(o.id);
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </CardContent>
