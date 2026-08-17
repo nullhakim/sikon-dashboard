@@ -37,16 +37,36 @@ export const Route = createFileRoute("/reports/accounting")({
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function getFirstDayOfMonth(): string {
-  const d = new Date();
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-01`;
+function pad(n: number): string {
+  return String(n).padStart(2, "0");
 }
 
 function getTodayString(): string {
   const d = new Date();
-  const pad = (n: number) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+function getFirstDayOfMonth(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-01`;
+}
+
+function getLastMonthRange(): { start: string; end: string } {
+  const d = new Date();
+  const firstDayLastMonth = new Date(d.getFullYear(), d.getMonth() - 1, 1);
+  const lastDayLastMonth = new Date(d.getFullYear(), d.getMonth(), 0);
+  return {
+    start: `${firstDayLastMonth.getFullYear()}-${pad(firstDayLastMonth.getMonth() + 1)}-${pad(firstDayLastMonth.getDate())}`,
+    end: `${lastDayLastMonth.getFullYear()}-${pad(lastDayLastMonth.getMonth() + 1)}-${pad(lastDayLastMonth.getDate())}`,
+  };
+}
+
+function getThisYearRange(): { start: string; end: string } {
+  const d = new Date();
+  return {
+    start: `${d.getFullYear()}-01-01`,
+    end: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`,
+  };
 }
 
 function formatDateLabel(dateStr: string): string {
@@ -84,6 +104,25 @@ function AccountingReportDashboard() {
 
   const isDefaultRange = startDate === firstDay && endDate === today;
 
+  const handleSelectPreset = (preset: "today" | "this_month" | "last_month" | "this_year") => {
+    if (preset === "today") {
+      const t = getTodayString();
+      setStartDate(t);
+      setEndDate(t);
+    } else if (preset === "this_month") {
+      setStartDate(getFirstDayOfMonth());
+      setEndDate(getTodayString());
+    } else if (preset === "last_month") {
+      const { start, end } = getLastMonthRange();
+      setStartDate(start);
+      setEndDate(end);
+    } else if (preset === "this_year") {
+      const { start, end } = getThisYearRange();
+      setStartDate(start);
+      setEndDate(end);
+    }
+  };
+
   // Consider empty if we successfully fetched, but there are no daily trends AND no sales performances
   const isEmpty =
     !isLoading &&
@@ -103,11 +142,7 @@ function AccountingReportDashboard() {
           setEndDate={setEndDate}
           isFetching={isFetching}
           refetch={refetch}
-          isDefaultRange={isDefaultRange}
-          resetToDefault={() => {
-            setStartDate(firstDay);
-            setEndDate(today);
-          }}
+          onSelectPreset={handleSelectPreset}
         />
         <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-20 gap-4">
           <div className="rounded-full bg-destructive/10 p-4">
@@ -138,11 +173,7 @@ function AccountingReportDashboard() {
         setEndDate={setEndDate}
         isFetching={isFetching}
         refetch={refetch}
-        isDefaultRange={isDefaultRange}
-        resetToDefault={() => {
-          setStartDate(firstDay);
-          setEndDate(today);
-        }}
+        onSelectPreset={handleSelectPreset}
       />
 
       {/* ── Date Context Badge ── */}
@@ -186,7 +217,7 @@ function AccountingReportDashboard() {
       {/* ── Main Dashboard Content ── */}
       {(isLoading || !isEmpty) && (
         <>
-          {/* ── Section 1: Summary Cards ── */}
+          {/* ── Section 1: Summary Cards (Top Hero + P&L Breakdown) ── */}
           <SummaryCards data={summary} isLoading={isLoading} />
 
           <Separator className="my-2" />
@@ -213,8 +244,7 @@ interface PageHeaderProps {
   setEndDate: (d: string) => void;
   isFetching: boolean;
   refetch: () => void;
-  isDefaultRange: boolean;
-  resetToDefault: () => void;
+  onSelectPreset: (preset: "today" | "this_month" | "last_month" | "this_year") => void;
 }
 
 function PageHeader({
@@ -224,9 +254,18 @@ function PageHeader({
   setEndDate,
   isFetching,
   refetch,
-  isDefaultRange,
-  resetToDefault,
+  onSelectPreset,
 }: PageHeaderProps) {
+  const today = getTodayString();
+  const firstDay = getFirstDayOfMonth();
+  const { start: lmStart, end: lmEnd } = getLastMonthRange();
+  const { start: tyStart, end: tyEnd } = getThisYearRange();
+
+  const isToday = startDate === today && endDate === today;
+  const isThisMonth = startDate === firstDay && endDate === today;
+  const isLastMonth = startDate === lmStart && endDate === lmEnd;
+  const isThisYear = startDate === tyStart && endDate === tyEnd;
+
   return (
     <div className="flex flex-wrap items-end justify-between gap-4">
       <div>
@@ -234,62 +273,100 @@ function PageHeader({
           Accounting Report
         </h1>
         <p className="text-sm text-muted-foreground mt-0.5">
-          Laporan keuangan — Omset, cash-in, piutang, dan kinerja sales.
+          Laporan keuangan — Omset, cash-in, P&L, dan kinerja sales.
         </p>
       </div>
-      <div className="flex items-end gap-2 flex-wrap">
+      <div className="flex items-end gap-3 flex-wrap">
+        {/* Quick Date Presets */}
         <div className="space-y-1">
-          <Label
-            htmlFor="acc-start-date"
-            className="flex items-center gap-1.5 text-xs text-muted-foreground"
-          >
-            <CalendarDays className="h-3.5 w-3.5" />
-            Dari Tanggal
+          <Label className="text-xs text-muted-foreground font-medium block">
+            Filter Shortcut
           </Label>
-          <Input
-            id="acc-start-date"
-            type="date"
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-            className="w-40"
-          />
+          <div className="flex items-center rounded-lg border border-border bg-muted/40 p-0.5 shadow-sm">
+            <Button
+              type="button"
+              variant={isToday ? "secondary" : "ghost"}
+              size="sm"
+              className="h-8 px-2.5 text-xs font-medium"
+              onClick={() => onSelectPreset("today")}
+            >
+              Hari Ini
+            </Button>
+            <Button
+              type="button"
+              variant={isThisMonth ? "secondary" : "ghost"}
+              size="sm"
+              className="h-8 px-2.5 text-xs font-medium"
+              onClick={() => onSelectPreset("this_month")}
+            >
+              Bulan Ini
+            </Button>
+            <Button
+              type="button"
+              variant={isLastMonth ? "secondary" : "ghost"}
+              size="sm"
+              className="h-8 px-2.5 text-xs font-medium"
+              onClick={() => onSelectPreset("last_month")}
+            >
+              Bulan Lalu
+            </Button>
+            <Button
+              type="button"
+              variant={isThisYear ? "secondary" : "ghost"}
+              size="sm"
+              className="h-8 px-2.5 text-xs font-medium"
+              onClick={() => onSelectPreset("this_year")}
+            >
+              Tahun Ini
+            </Button>
+          </div>
         </div>
-        <div className="space-y-1">
-          <Label
-            htmlFor="acc-end-date"
-            className="flex items-center gap-1.5 text-xs text-muted-foreground"
-          >
-            <CalendarDays className="h-3.5 w-3.5" />
-            Sampai Tanggal
-          </Label>
-          <Input
-            id="acc-end-date"
-            type="date"
-            value={endDate}
-            onChange={(e) => setEndDate(e.target.value)}
-            className="w-40"
-          />
-        </div>
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={() => refetch()}
-          disabled={isFetching}
-          title="Refresh data"
-          className="shrink-0"
-        >
-          <RefreshCw className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`} />
-        </Button>
-        {!isDefaultRange && (
+
+        {/* Date Inputs */}
+        <div className="flex items-end gap-2">
+          <div className="space-y-1">
+            <Label
+              htmlFor="acc-start-date"
+              className="flex items-center gap-1.5 text-xs text-muted-foreground"
+            >
+              <CalendarDays className="h-3.5 w-3.5" />
+              Dari Tanggal
+            </Label>
+            <Input
+              id="acc-start-date"
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="w-36 text-xs h-9"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label
+              htmlFor="acc-end-date"
+              className="flex items-center gap-1.5 text-xs text-muted-foreground"
+            >
+              <CalendarDays className="h-3.5 w-3.5" />
+              Sampai Tanggal
+            </Label>
+            <Input
+              id="acc-end-date"
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="w-36 text-xs h-9"
+            />
+          </div>
           <Button
-            variant="ghost"
-            size="sm"
-            onClick={resetToDefault}
-            className="text-xs text-primary hover:text-primary"
+            variant="outline"
+            size="icon"
+            onClick={() => refetch()}
+            disabled={isFetching}
+            title="Refresh data"
+            className="shrink-0 h-9 w-9"
           >
-            Reset ke Bulan Ini
+            <RefreshCw className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`} />
           </Button>
-        )}
+        </div>
       </div>
     </div>
   );

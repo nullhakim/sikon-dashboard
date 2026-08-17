@@ -1,7 +1,9 @@
 import type { DailyReportPOInfo } from "@/lib/types/daily-report";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Layers, Target, PackageMinus, CalendarRange } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Link } from "@tanstack/react-router";
+import { Layers, Target, PackageMinus, CalendarRange, ArrowRight } from "lucide-react";
 
 interface DailyPOInfoCardProps {
   data: DailyReportPOInfo | null | undefined;
@@ -28,6 +30,7 @@ export function DailyPOInfoCard({ data, isLoading }: DailyPOInfoCardProps) {
   const quota = d.quota ?? 0;
   const remaining_quota = d.remaining_quota ?? 0;
   const po_name = d.po_name ?? "-";
+  const po_id = d.po_id;
   const used = quota - remaining_quota;
   const pct = quota > 0 ? Math.round((used / quota) * 100) : 0;
 
@@ -64,25 +67,36 @@ export function DailyPOInfoCard({ data, isLoading }: DailyPOInfoCardProps) {
   return (
     <Card className="border-border/60 transition-shadow hover:shadow-md">
       <CardContent className="pt-5 pb-4 px-5 space-y-4">
-        {/* PO Name + Date Range */}
-        <div className="flex items-start gap-2.5">
-          <div className="rounded-xl p-2.5 shrink-0 bg-indigo-100 dark:bg-indigo-900/40">
-            <Layers className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+        {/* PO Name + Date Range + Shortcut Link */}
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex items-start gap-2.5 min-w-0">
+            <div className="rounded-xl p-2.5 shrink-0 bg-indigo-100 dark:bg-indigo-900/40">
+              <Layers className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs text-muted-foreground font-medium">PO Aktif</p>
+              <p className="text-lg font-bold tracking-tight text-foreground truncate">
+                {po_name}
+              </p>
+              {hasDateRange && (
+                <div className="flex items-center gap-1.5 mt-1">
+                  <CalendarRange className="h-3 w-3 text-muted-foreground shrink-0" />
+                  <span className="text-xs text-muted-foreground">
+                    {formatShortDate(d.start_date)} — {formatShortDate(d.end_date)}
+                  </span>
+                </div>
+              )}
+            </div>
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-xs text-muted-foreground font-medium">PO Aktif</p>
-            <p className="text-lg font-bold tracking-tight text-foreground">
-              {po_name}
-            </p>
-            {hasDateRange && (
-              <div className="flex items-center gap-1.5 mt-1">
-                <CalendarRange className="h-3 w-3 text-muted-foreground shrink-0" />
-                <span className="text-xs text-muted-foreground">
-                  {formatShortDate(d.start_date)} — {formatShortDate(d.end_date)}
-                </span>
-              </div>
-            )}
-          </div>
+
+          {po_id && (
+            <Button asChild variant="outline" size="sm" className="shrink-0 text-xs h-8 gap-1.5 border-indigo-200 hover:bg-indigo-50 text-indigo-700 dark:border-indigo-800 dark:text-indigo-300 dark:hover:bg-indigo-950/40">
+              <Link to="/reports/po-summary/$poId" params={{ poId: po_id }}>
+                Detail PO Summary
+                <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
+            </Button>
+          )}
         </div>
 
         {/* Quota Stats */}

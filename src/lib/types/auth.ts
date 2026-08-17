@@ -30,6 +30,7 @@ export const ROUTE_PERMISSIONS: Record<string, UserRole[]> = {
   "/expenses": ["owner", "accounting"],
   "/expense-categories": ["owner", "accounting"],
   "/reports": ["owner", "accounting"],
+  "/receivables": ["owner", "accounting"],
   "/payments": ["owner", "accounting"],
   "/batch-pos": ["owner", "accounting"],
   "/bank-accounts": ["owner", "accounting"],
