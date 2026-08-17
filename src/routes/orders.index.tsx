@@ -1,13 +1,21 @@
 import { useState, useEffect } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, ChevronLeft, ChevronRight, Trash2, Eye, Pencil, Search, Filter, X, CalendarIcon, FileText } from "lucide-react";
+import { Plus, ChevronLeft, ChevronRight, Trash2, Eye, Pencil, Search, Filter, X, CalendarIcon, FileText, Check, ChevronsUpDown } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -132,6 +140,61 @@ export function buildItemDetails(
     (d) => d.part.trim() || d.material_name.trim() || d.spec.trim() || (d.warna && d.warna.trim()),
   );
   return parts.length > 0 ? parts : undefined;
+}
+
+/** Helper for formatting currency string in real time (e.g. 150000 -> 150.000) */
+function formatNumberWithThousandSeparators(val: number | string | undefined | null): string {
+  if (val === undefined || val === null || val === "") return "";
+  const num = typeof val === "string" ? parseFloat(val.replace(/\D/g, "")) : val;
+  if (isNaN(num)) return "";
+  return num.toLocaleString("id-ID");
+}
+
+/** Helper component for currency input with "Rp" prefix and thousand separators */
+export function CurrencyInput({
+  value,
+  onChange,
+  placeholder = "0",
+  className = "",
+  disabled = false,
+  id,
+}: {
+  value: number | "";
+  onChange: (val: number | "") => void;
+  placeholder?: string;
+  className?: string;
+  disabled?: boolean;
+  id?: string;
+}) {
+  const displayValue = formatNumberWithThousandSeparators(value);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const rawDigits = e.target.value.replace(/\D/g, "");
+    if (!rawDigits) {
+      onChange("");
+    } else {
+      const parsed = parseInt(rawDigits, 10);
+      onChange(isNaN(parsed) ? "" : parsed);
+    }
+  };
+
+  return (
+    <div className="relative flex items-center w-full">
+      <span className="absolute left-2.5 text-xs text-muted-foreground font-medium pointer-events-none select-none">
+        Rp
+      </span>
+      <Input
+        id={id}
+        type="text"
+        inputMode="numeric"
+        disabled={disabled}
+        placeholder={placeholder}
+        value={displayValue}
+        onChange={handleChange}
+        className={cn("pl-8 text-xs font-mono tabular-nums", className)}
+      />
+    </div>
+  );
 }
 
 /** Helper: parse legacy details (object) or new details (array) from backend into form state. */
@@ -510,12 +573,16 @@ export function ItemDetailsFields({
 function CreateOrderDialog({ open, onClose }: { open: boolean; onClose: () => void; }) {
   const isQuotation = true;
   const qc = useQueryClient();
-  const { isSales, user, canAssignSales } = useAuth();
+  const { isSales, user } = useAuth();
 
   const [customerId, setCustomerId] = useState("");
   const [salesId, setSalesId] = useState("");
   const [batchPoId, setBatchPoId] = useState("");
   const [newCustomerOpen, setNewCustomerOpen] = useState(false);
+
+  // Combobox Popover states
+  const [salesPopoverOpen, setSalesPopoverOpen] = useState(false);
+  const [customerPopoverOpen, setCustomerPopoverOpen] = useState(false);
 
   // If logged-in user is Sales, fetch single user details GET /users/{id}
   const currentUserDetail = useQuery({
@@ -549,7 +616,8 @@ function CreateOrderDialog({ open, onClose }: { open: boolean; onClose: () => vo
   // Derive the currently selected BatchPO object for guard checks
   const selectedBatchPO = activeBatchPOs.data?.data?.find((b) => b.id === batchPoId);
   const isBatchPOClosed = selectedBatchPO?.status === "closed";
-  const isFormLocked = isBatchPOClosed && currentUser.role !== "admin";
+  const currentUserRole = user?.role ?? "";
+  const isFormLocked = isBatchPOClosed && currentUserRole !== "owner";
 
   const [courier, setCourier] = useState("");
   const [shippingCost, setShippingCost] = useState<number | "">("");
@@ -671,8 +739,8 @@ function CreateOrderDialog({ open, onClose }: { open: boolean; onClose: () => vo
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!batchPoId) return toast.error("Select a Batch PO");
-    if (!customerId) return toast.error("Choose a customer");
     if (!salesId) return toast.error("Choose a sales person");
+    if (!customerId) return toast.error("Choose a customer");
     if (!items.some((i) => i.product_id && i.qty > 0))
       return toast.error("Add at least one item");
     if (Number(paymentAmount) > 0) {
@@ -682,372 +750,456 @@ function CreateOrderDialog({ open, onClose }: { open: boolean; onClose: () => vo
     create.mutate();
   };
 
+  const selectedSalesObj = users.data?.data?.find((u) => u.id === salesId);
+  const selectedCustomerObj = customers.data?.data?.find((c) => c.id === customerId);
+
   return (
     <Dialog open={open} onOpenChange={(v) => (v ? null : onClose())}>
-      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-0">
-        <DialogHeader className="px-6 pt-6 pb-2 border-b">
-          <DialogTitle>Buat Pesanan Baru</DialogTitle>
-          <DialogDescription>
-            Create a new order (initialized as quotation).
+      <DialogContent className="w-[90vw] max-w-6xl max-h-[90vh] flex flex-col p-0 overflow-hidden">
+        <DialogHeader className="px-6 pt-5 pb-3 border-b shrink-0">
+          <DialogTitle className="text-xl">Buat Pesanan Baru</DialogTitle>
+          <DialogDescription className="text-xs text-muted-foreground">
+            Lengkapi informasi pesanan, pengiriman, dan item untuk membuat quotation/order baru.
           </DialogDescription>
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto px-6 py-4">
-          <form id="create-order-form" onSubmit={submit} className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Batch PO & Customer & Shipping</CardTitle>
-              </CardHeader>
-              <CardContent className="grid gap-4 sm:grid-cols-2">
-                {/* Batch PO Selection — mandatory */}
-                <div className="space-y-2 sm:col-span-2">
-                  <Label>
-                    Batch PO <span className="text-destructive">*</span>
-                  </Label>
-                  <Select
-                    value={batchPoId}
-                    onValueChange={setBatchPoId}
-                    disabled={activeBatchPOs.isLoading}
-                  >
-                    <SelectTrigger className={!batchPoId ? "border-destructive/50" : ""}>
-                      <SelectValue
-                        placeholder={
-                          activeBatchPOs.isLoading ? "Loading batches…" : "Select an active Batch PO"
-                        }
-                      />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {activeBatchPOs.data?.data?.length === 0 && (
-                        <div className="px-2 py-3 text-xs text-muted-foreground">
-                          No active Batch POs available.
-                        </div>
-                      )}
-                      {activeBatchPOs.data?.data?.map((b) => (
-                        <SelectItem key={b.id} value={b.id}>
-                          <span className="font-medium">{b.name}</span>
-                          <span className="ml-1 text-xs text-muted-foreground capitalize">— {b.status}</span>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {isBatchPOClosed && (
-                    <p className="text-xs text-destructive">
-                      {currentUser.role === "admin"
-                        ? "⚠ This Batch PO is closed. You have admin access to proceed."
-                        : "This Batch PO is closed. Only administrators can add orders."}
-                    </p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Sales Person</Label>
-                  {isSales ? (
-                    <Input
-                      value={currentUserDetail.data?.data?.name || user?.name || "Your Account"}
-                      disabled
-                      className="bg-muted text-muted-foreground cursor-not-allowed"
-                    />
-                  ) : (
-                    <Select
-                      value={salesId}
-                      onValueChange={(v) => {
-                        setSalesId(v);
-                        setCustomerId("");
-                      }}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select sales" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {users.data?.data?.map((u) => (
-                          <SelectItem key={u.id} value={u.id}>
-                            {u.name} {u.role ? `(${u.role})` : ""}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                </div>
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label>Customer</Label>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 px-2 text-xs"
-                      disabled={!salesId}
-                      onClick={() => setNewCustomerOpen(true)}
-                    >
-                      <Plus className="h-3 w-3 mr-1" /> New
-                    </Button>
-                  </div>
-                  <Select value={customerId} onValueChange={setCustomerId} disabled={!salesId}>
-                    <SelectTrigger>
-                      <SelectValue
-                        placeholder={salesId ? "Select customer" : "Pick sales first"}
-                      />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {customers.data?.data?.length === 0 && (
-                        <div className="px-2 py-3 text-xs text-muted-foreground">
-                          No customers for this sales yet.
-                        </div>
-                      )}
-                      {customers.data?.data?.map((c) => (
-                        <SelectItem key={c.id} value={c.id}>
-                          {c.name} {c.phone ? `· ${c.phone}` : ""}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Courier</Label>
-                  <Input value={courier} onChange={(e) => setCourier(e.target.value)} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Shipping Cost</Label>
-                  <Input
-                    type="number"
-                    min={0}
-                    value={shippingCost}
-                    onChange={(e) => setShippingCost(Number(e.target.value))}
-                  />
-                </div>
-                {/* <div className="space-y-2 sm:col-span-2">
-                  <Label>Notes</Label>
-                  <Textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} />
-                </div> */}
-                {/* {isQuotation && (
-                  <div className="space-y-2 sm:col-span-2">
-                    <Label>Terms &amp; Conditions</Label>
-                    <Textarea
-                      rows={3}
-                      placeholder="DP Minimal 50%, Waktu Pengerjaan 14 Hari, dll."
-                      value={termsConditions}
-                      onChange={(e) => setTermsConditions(e.target.value)}
-                    />
-                  </div>
-                )} */}
-              </CardContent>
-            </Card>
-
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle className="text-base">Items</CardTitle>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setItems((arr) => [...arr, { product_id: "", qty: 1, price: 0, details: [] }])}
-                >
-                  <Plus className="h-4 w-4 mr-1" /> Add item
-                </Button>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {items.map((it, idx) => (
-                  <div key={idx} className="space-y-3 rounded-md border p-3">
-                    <div className="grid gap-3 sm:grid-cols-[1fr_80px_120px_auto] items-end">
-                      <div className="space-y-1">
-                        <Label className="text-xs">Product</Label>
-                        <Select
-                          value={it.product_id}
-                          onValueChange={(v) => {
-                            const p = products.data?.data?.find((x) => x.id === v);
-                            updateItem(idx, { product_id: v, price: p?.base_price ?? it.price });
-                          }}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select product" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {products.data?.data?.map((p) => (
-                              <SelectItem key={p.id} value={p.id}>
-                                {p.name} — {formatIDR(p.base_price)}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs">Qty</Label>
-                        <Input
-                          type="number"
-                          min={1}
-                          value={it.qty}
-                          onChange={(e) => updateItem(idx, { qty: Number(e.target.value) })}
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs">Price</Label>
-                        <Input
-                          type="number"
-                          min={0}
-                          value={it.price}
-                          onChange={(e) => updateItem(idx, { price: Number(e.target.value) })}
-                        />
-                      </div>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="text-muted-foreground hover:text-destructive"
-                        onClick={() => setItems((arr) => arr.filter((_, i) => i !== idx))}
-                        disabled={items.length === 1}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-
-                    <ItemDetailsFields
-                      item={it}
-                      isQuotation={false}
-                      hideSpec={true}
-                      onChange={(patch) => updateItem(idx, patch)}
-                    />
-                  </div>
-                ))}
-
-                <div className="border-t pt-4 space-y-1 text-sm">
-                  <div className="flex justify-between text-muted-foreground">
-                    <span>Subtotal</span>
-                    <span>{formatIDR(subtotal)}</span>
-                  </div>
-                  <div className="flex justify-between text-muted-foreground">
-                    <span>Shipping</span>
-                    <span>{formatIDR(Number(shippingCost) || 0)}</span>
-                  </div>
-                  <div className="flex justify-between font-semibold text-base pt-2">
-                    <span>Total</span>
-                    <span>{formatIDR(total)}</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {true && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">Direct Payment (Optional)</CardTitle>
+          <form id="create-order-form" onSubmit={submit} className="grid grid-cols-1 lg:grid-cols-10 gap-6">
+            {/* ── KOLOM KIRI (38% / 4 Cols): Informasional & Header Order ── */}
+            <div className="lg:col-span-4 space-y-4">
+              {/* Card 1: Batch PO, Sales, Customer */}
+              <Card className="border-border/60">
+                <CardHeader className="py-3 px-4 border-b bg-muted/20">
+                  <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Metadata Order
+                  </CardTitle>
                 </CardHeader>
-                <CardContent className="grid gap-4 sm:grid-cols-2">
-                  <div className="space-y-2 sm:col-span-2">
-                    <div className="grid grid-cols-3 gap-2 bg-muted/50 p-3 rounded-md text-sm">
-                      <div>
-                        <div className="text-muted-foreground">Total Order</div>
-                        <div className="font-semibold">{formatIDR(total)}</div>
-                      </div>
-                      <div>
-                        <div className="text-muted-foreground">Payment</div>
-                        <div className="font-semibold text-emerald-600">
-                          {formatIDR(Number(paymentAmount) || 0)}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-muted-foreground">Remaining</div>
-                        <div className={`font-semibold ${total - (Number(paymentAmount) || 0) > 0 ? "text-amber-600" : "text-emerald-600"}`}>
-                          {formatIDR(total - (Number(paymentAmount) || 0))}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="space-y-2 sm:col-span-2">
-                    <Label>Bank Account (Sales)</Label>
+                <CardContent className="p-4 space-y-3.5">
+                  {/* Batch PO */}
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">
+                      Batch PO <span className="text-destructive">*</span>
+                    </Label>
                     <Select
-                      value={paymentBankId}
-                      onValueChange={setPaymentBankId}
-                      disabled={(!salesId && !globalBankAccounts.data?.data?.length) || bankAccounts.isLoading || globalBankAccounts.isLoading}
+                      value={batchPoId}
+                      onValueChange={setBatchPoId}
+                      disabled={activeBatchPOs.isLoading}
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className={`h-9 text-xs ${!batchPoId ? "border-destructive/50" : ""}`}>
                         <SelectValue
                           placeholder={
-                            (!salesId && !globalBankAccounts.data?.data?.length)
-                              ? "Select sales first"
-                              : bankAccounts.isLoading || globalBankAccounts.isLoading
-                                ? "Loading…"
-                                : "Select bank account"
+                            activeBatchPOs.isLoading ? "Loading batches…" : "Select an active Batch PO"
                           }
                         />
                       </SelectTrigger>
                       <SelectContent>
-                        {globalBankAccounts.data?.data && globalBankAccounts.data.data.length > 0 && (
-                          <SelectGroup>
-                            <SelectLabel>Global / Perusahaan</SelectLabel>
-                            {globalBankAccounts.data.data.map((ba) => (
-                              <SelectItem key={ba.id} value={ba.id}>
-                                {ba.bank_name} — {ba.account_number} ({ba.account_name})
-                              </SelectItem>
-                            ))}
-                          </SelectGroup>
-                        )}
-                        {bankAccounts.data?.data && bankAccounts.data.data.length > 0 && (
-                          <SelectGroup>
-                            <SelectLabel>Sales</SelectLabel>
-                            {bankAccounts.data.data.map((ba) => (
-                              <SelectItem key={ba.id} value={ba.id}>
-                                {ba.bank_name} — {ba.account_number} ({ba.account_name})
-                              </SelectItem>
-                            ))}
-                          </SelectGroup>
-                        )}
-                        {(!globalBankAccounts.data?.data || globalBankAccounts.data.data.length === 0) &&
-                         (!bankAccounts.data?.data || bankAccounts.data.data.length === 0) && (
-                          <div className="px-3 py-2 text-xs text-muted-foreground">
-                            No bank accounts available.
+                        {activeBatchPOs.data?.data?.length === 0 && (
+                          <div className="px-2 py-3 text-xs text-muted-foreground">
+                            No active Batch POs available.
                           </div>
                         )}
+                        {activeBatchPOs.data?.data?.map((b) => (
+                          <SelectItem key={b.id} value={b.id}>
+                            <span className="font-medium text-xs">{b.name}</span>
+                            <span className="ml-1 text-[10px] text-muted-foreground capitalize">— {b.status}</span>
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
+                    {isBatchPOClosed && (
+                      <p className="text-[11px] text-destructive mt-1">
+                        {currentUserRole === "owner"
+                          ? "⚠ This Batch PO is closed. You have owner access to proceed."
+                          : "This Batch PO is closed. Only administrators can add orders."}
+                      </p>
+                    )}
                   </div>
-                  <div className="space-y-2">
-                    <Label>Amount</Label>
+
+                  {/* Sales Person (Searchable Combobox) */}
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Sales Person <span className="text-destructive">*</span></Label>
+                    {isSales ? (
+                      <Input
+                        value={currentUserDetail.data?.data?.name || user?.name || "Your Account"}
+                        disabled
+                        className="h-9 text-xs bg-muted text-muted-foreground cursor-not-allowed"
+                      />
+                    ) : (
+                      <Popover open={salesPopoverOpen} onOpenChange={setSalesPopoverOpen}>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            role="combobox"
+                            aria-expanded={salesPopoverOpen}
+                            className="w-full h-9 px-3 justify-between text-xs font-normal"
+                          >
+                            {selectedSalesObj
+                              ? `${selectedSalesObj.name} ${selectedSalesObj.role ? `(${selectedSalesObj.role})` : ""}`
+                              : "Search & select sales..."}
+                            <ChevronsUpDown className="ml-2 h-3.5 w-3.5 shrink-0 opacity-50" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[280px] p-0" align="start">
+                          <Command>
+                            <CommandInput placeholder="Cari nama sales..." className="h-8 text-xs" />
+                            <CommandList>
+                              <CommandEmpty className="py-2 text-xs text-center text-muted-foreground">
+                                Sales tidak ditemukan.
+                              </CommandEmpty>
+                              <CommandGroup>
+                                {users.data?.data?.map((u) => (
+                                  <CommandItem
+                                    key={u.id}
+                                    value={u.name}
+                                    onSelect={() => {
+                                      setSalesId(u.id);
+                                      setCustomerId("");
+                                      setSalesPopoverOpen(false);
+                                    }}
+                                    className="text-xs cursor-pointer"
+                                  >
+                                    <Check
+                                      className={cn(
+                                        "mr-2 h-3.5 w-3.5",
+                                        salesId === u.id ? "opacity-100" : "opacity-0"
+                                      )}
+                                    />
+                                    <span>{u.name}</span>
+                                    {u.role && <span className="ml-auto text-[10px] text-muted-foreground">{u.role}</span>}
+                                  </CommandItem>
+                                ))}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
+                    )}
+                  </div>
+
+                  {/* Customer (Searchable Combobox + Quick Create) */}
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs">Customer <span className="text-destructive">*</span></Label>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-5 px-1.5 text-[11px] text-primary hover:text-primary"
+                        disabled={!salesId}
+                        onClick={() => setNewCustomerOpen(true)}
+                      >
+                        <Plus className="h-3 w-3 mr-0.5" /> Customer Baru
+                      </Button>
+                    </div>
+
+                    <Popover open={customerPopoverOpen} onOpenChange={setCustomerPopoverOpen}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          aria-expanded={customerPopoverOpen}
+                          disabled={!salesId}
+                          className="w-full h-9 px-3 justify-between text-xs font-normal"
+                        >
+                          {!salesId
+                            ? "Pilih sales terlebih dahulu"
+                            : selectedCustomerObj
+                            ? `${selectedCustomerObj.name} ${selectedCustomerObj.phone ? `· ${selectedCustomerObj.phone}` : ""}`
+                            : "Cari customer..."}
+                          <ChevronsUpDown className="ml-2 h-3.5 w-3.5 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[300px] p-0" align="start">
+                        <Command>
+                          <CommandInput placeholder="Cari nama atau telepon customer..." className="h-8 text-xs" />
+                          <CommandList>
+                            <CommandEmpty className="py-2 text-xs text-center text-muted-foreground">
+                              Customer tidak ditemukan.
+                            </CommandEmpty>
+                            <CommandGroup>
+                              {customers.data?.data?.map((c) => (
+                                <CommandItem
+                                  key={c.id}
+                                  value={`${c.name} ${c.phone || ""}`}
+                                  onSelect={() => {
+                                    setCustomerId(c.id);
+                                    setCustomerPopoverOpen(false);
+                                  }}
+                                  className="text-xs cursor-pointer"
+                                >
+                                  <Check
+                                    className={cn(
+                                      "mr-2 h-3.5 w-3.5",
+                                      customerId === c.id ? "opacity-100" : "opacity-0"
+                                    )}
+                                  />
+                                  <div className="flex flex-col">
+                                    <span className="font-medium">{c.name}</span>
+                                    {c.phone && <span className="text-[10px] text-muted-foreground">{c.phone}</span>}
+                                  </div>
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Card 2: Pengiriman */}
+              <Card className="border-border/60">
+                <CardHeader className="py-3 px-4 border-b bg-muted/20">
+                  <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Pengiriman & Kurir
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-4 grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-1">
+                    <Label className="text-xs">Nama Kurir</Label>
                     <Input
-                      type="number"
-                      min={0}
-                      placeholder="0"
-                      value={paymentAmount}
-                      onChange={(e) => setPaymentAmount(e.target.value ? Number(e.target.value) : "")}
+                      placeholder="JNE, J&T, Self Pick-up"
+                      value={courier}
+                      onChange={(e) => setCourier(e.target.value)}
+                      className="h-8 text-xs"
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label>Payment Type</Label>
-                    <Select value={paymentType} onValueChange={setPaymentType}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="dp">DP</SelectItem>
-                        <SelectItem value="settlement">SETTLEMENT</SelectItem>
-                        <SelectItem value="installment">INSTALLMENT</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2 sm:col-span-2">
-                    <Label>Reference Number (Optional)</Label>
-                    <Input
-                      placeholder="TRX-12345"
-                      value={paymentReference}
-                      onChange={(e) => setPaymentReference(e.target.value)}
+                  <div className="space-y-1">
+                    <Label className="text-xs">Ongkos Kirim</Label>
+                    <CurrencyInput
+                      placeholder="0"
+                      value={shippingCost}
+                      onChange={(val) => setShippingCost(val)}
+                      className="h-8 text-xs"
                     />
                   </div>
                 </CardContent>
               </Card>
-            )}
+
+              {/* Card 3: Direct Payment (Collapsible Accordion) */}
+              <Card className="border-border/60">
+                <Accordion type="single" collapsible className="w-full">
+                  <AccordionItem value="direct-payment" className="border-none">
+                    <AccordionTrigger className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:no-underline hover:bg-muted/30 rounded-t-xl">
+                      Direct Payment (Optional)
+                    </AccordionTrigger>
+                    <AccordionContent className="p-4 pt-1 space-y-3">
+                      <div className="grid grid-cols-3 gap-2 bg-muted/40 p-2.5 rounded-lg text-xs">
+                        <div>
+                          <div className="text-muted-foreground text-[10px]">Total Order</div>
+                          <div className="font-semibold">{formatIDR(total)}</div>
+                        </div>
+                        <div>
+                          <div className="text-muted-foreground text-[10px]">Bayar Awal</div>
+                          <div className="font-semibold text-emerald-600">
+                            {formatIDR(Number(paymentAmount) || 0)}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-muted-foreground text-[10px]">Sisa Piutang</div>
+                          <div className={`font-semibold ${total - (Number(paymentAmount) || 0) > 0 ? "text-amber-600" : "text-emerald-600"}`}>
+                            {formatIDR(total - (Number(paymentAmount) || 0))}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="space-y-1">
+                        <Label className="text-xs">Rekening Bank (Sales/Global)</Label>
+                        <Select
+                          value={paymentBankId}
+                          onValueChange={setPaymentBankId}
+                          disabled={(!salesId && !globalBankAccounts.data?.data?.length) || bankAccounts.isLoading || globalBankAccounts.isLoading}
+                        >
+                          <SelectTrigger className="h-8 text-xs">
+                            <SelectValue
+                              placeholder={
+                                (!salesId && !globalBankAccounts.data?.data?.length)
+                                  ? "Pilih sales terlebih dahulu"
+                                  : bankAccounts.isLoading || globalBankAccounts.isLoading
+                                    ? "Memuat bank…"
+                                    : "Pilih rekening penerima"
+                              }
+                            />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {globalBankAccounts.data?.data && globalBankAccounts.data.data.length > 0 && (
+                              <SelectGroup>
+                                <SelectLabel className="text-[11px]">Global / Perusahaan</SelectLabel>
+                                {globalBankAccounts.data.data.map((ba) => (
+                                  <SelectItem key={ba.id} value={ba.id} className="text-xs">
+                                    {ba.bank_name} — {ba.account_number} ({ba.account_name})
+                                  </SelectItem>
+                                ))}
+                              </SelectGroup>
+                            )}
+                            {bankAccounts.data?.data && bankAccounts.data.data.length > 0 && (
+                              <SelectGroup>
+                                <SelectLabel className="text-[11px]">Sales</SelectLabel>
+                                {bankAccounts.data.data.map((ba) => (
+                                  <SelectItem key={ba.id} value={ba.id} className="text-xs">
+                                    {ba.bank_name} — {ba.account_number} ({ba.account_name})
+                                  </SelectItem>
+                                ))}
+                              </SelectGroup>
+                            )}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <Label className="text-xs">Nominal Bayar</Label>
+                          <CurrencyInput
+                            placeholder="0"
+                            value={paymentAmount}
+                            onChange={(val) => setPaymentAmount(val)}
+                            className="h-8 text-xs"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Tipe Pembayaran</Label>
+                          <Select value={paymentType} onValueChange={setPaymentType}>
+                            <SelectTrigger className="h-8 text-xs">
+                              <SelectValue placeholder="Tipe" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="dp" className="text-xs">DP</SelectItem>
+                              <SelectItem value="settlement" className="text-xs">SETTLEMENT</SelectItem>
+                              <SelectItem value="installment" className="text-xs">INSTALLMENT</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+
+                      <div className="space-y-1">
+                        <Label className="text-xs">Nomor Referensi / TRX (Opsional)</Label>
+                        <Input
+                          placeholder="e.g. TRX-12345"
+                          value={paymentReference}
+                          onChange={(e) => setPaymentReference(e.target.value)}
+                          className="h-8 text-xs"
+                        />
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                </Accordion>
+              </Card>
+            </div>
+
+            {/* ── KOLOM KANAN (62% / 6 Cols): Items List & Total Summary ── */}
+            <div className="lg:col-span-6 flex flex-col space-y-4">
+              <Card className="border-border/60 flex-1 flex flex-col">
+                <CardHeader className="py-3 px-4 border-b bg-muted/20 flex flex-row items-center justify-between">
+                  <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Daftar Item Pesanan
+                  </CardTitle>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs px-2 gap-1"
+                    onClick={() => setItems((arr) => [...arr, { product_id: "", qty: 1, price: 0, details: [] }])}
+                  >
+                    <Plus className="h-3.5 w-3.5" /> Tambah Item
+                  </Button>
+                </CardHeader>
+                <CardContent className="p-4 space-y-3 flex-1">
+                  {items.map((it, idx) => (
+                    <div key={idx} className="space-y-3 rounded-lg border bg-card p-3 shadow-xs">
+                      <div className="grid gap-2 sm:grid-cols-[1fr_80px_140px_auto] items-end">
+                        <div className="space-y-1">
+                          <Label className="text-xs">Produk / Kategori</Label>
+                          <Select
+                            value={it.product_id}
+                            onValueChange={(v) => {
+                              const p = products.data?.data?.find((x) => x.id === v);
+                              updateItem(idx, { product_id: v, price: p?.base_price ?? it.price });
+                            }}
+                          >
+                            <SelectTrigger className="h-8 text-xs">
+                              <SelectValue placeholder="Pilih produk..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {products.data?.data?.map((p) => (
+                                <SelectItem key={p.id} value={p.id} className="text-xs">
+                                  {p.name} — {formatIDR(p.base_price)}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Qty</Label>
+                          <Input
+                            type="number"
+                            min={1}
+                            value={it.qty}
+                            onChange={(e) => updateItem(idx, { qty: Number(e.target.value) })}
+                            className="h-8 text-xs"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Harga Satuan</Label>
+                          <CurrencyInput
+                            value={it.price || ""}
+                            onChange={(val) => updateItem(idx, { price: Number(val) || 0 })}
+                            className="h-8 text-xs"
+                          />
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-muted-foreground hover:text-destructive shrink-0"
+                          onClick={() => setItems((arr) => arr.filter((_, i) => i !== idx))}
+                          disabled={items.length === 1}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+
+                      <ItemDetailsFields
+                        item={it}
+                        isQuotation={false}
+                        hideSpec={true}
+                        onChange={(patch) => updateItem(idx, patch)}
+                      />
+                    </div>
+                  ))}
+                </CardContent>
+
+                {/* Sticky/Bottom Summary Panel */}
+                <div className="border-t bg-muted/10 p-4 space-y-1 text-xs">
+                  <div className="flex justify-between text-muted-foreground">
+                    <span>Subtotal Items</span>
+                    <span className="tabular-nums">{formatIDR(subtotal)}</span>
+                  </div>
+                  <div className="flex justify-between text-muted-foreground">
+                    <span>Ongkos Kirim</span>
+                    <span className="tabular-nums">{formatIDR(Number(shippingCost) || 0)}</span>
+                  </div>
+                  <div className="flex justify-between font-bold text-sm text-foreground pt-1.5 border-t mt-1.5">
+                    <span>Total Keseluruhan</span>
+                    <span className="tabular-nums text-primary text-base">{formatIDR(total)}</span>
+                  </div>
+                </div>
+              </Card>
+            </div>
           </form>
         </div>
 
-        <DialogFooter className="px-6 py-4 border-t">
-          <Button type="button" variant="outline" onClick={onClose}>
-            Cancel
+        <DialogFooter className="px-6 py-3 border-t shrink-0 bg-card">
+          <Button type="button" variant="outline" size="sm" onClick={onClose}>
+            Batal
           </Button>
           <Button
             type="submit"
+            size="sm"
             form="create-order-form"
             disabled={create.isPending || !batchPoId || isFormLocked}
           >
-            {create.isPending ? "Creating…" : "Buat Pesanan"}
+            {create.isPending ? "Proses..." : "Buat Pesanan Baru"}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -1055,7 +1207,11 @@ function CreateOrderDialog({ open, onClose }: { open: boolean; onClose: () => vo
         open={newCustomerOpen}
         onClose={() => setNewCustomerOpen(false)}
         salesId={salesId}
-        onCreated={(c) => setCustomerId(c.id)}
+        onCreated={(c) => {
+          setCustomerId(c.id);
+          if (c.sales_id) setSalesId(c.sales_id);
+          qc.invalidateQueries({ queryKey: ["customers"] });
+        }}
       />
     </Dialog>
   );
