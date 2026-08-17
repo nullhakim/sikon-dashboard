@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { FileBarChart, Layers, ArrowRight, Loader2 } from "lucide-react";
 
 import { batchPosService } from "@/lib/services";
@@ -15,9 +15,20 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 
+// ─── Search Params Schema ───────────────────────────────────────────────────
+
+interface POSummarySearch {
+  batch_po_id?: string;
+}
+
 // ─── Route Definition ────────────────────────────────────────────────────────
 
 export const Route = createFileRoute("/reports/po-summary/")({
+  validateSearch: (search: Record<string, unknown>): POSummarySearch => {
+    return {
+      batch_po_id: (search.batch_po_id as string) || undefined,
+    };
+  },
   head: () => ({
     meta: [
       { title: "PO Summary — Pilih PO — SIKOn ERP" },
@@ -34,7 +45,19 @@ export const Route = createFileRoute("/reports/po-summary/")({
 
 function POSummarySelector() {
   const navigate = useNavigate();
-  const [selectedPoId, setSelectedPoId] = useState<string>("");
+  const search = Route.useSearch();
+  const [selectedPoId, setSelectedPoId] = useState<string>(search.batch_po_id || "");
+
+  // Auto-redirect if batch_po_id search query param is present
+  useEffect(() => {
+    if (search.batch_po_id) {
+      navigate({
+        to: "/reports/po-summary/$poId",
+        params: { poId: search.batch_po_id },
+        replace: true,
+      });
+    }
+  }, [search.batch_po_id, navigate]);
 
   // Fetch all POs (paginated, limit high enough to get all)
   const { data, isLoading } = useQuery({

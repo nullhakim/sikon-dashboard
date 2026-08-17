@@ -9,7 +9,6 @@ import {
   Tags,
   Landmark,
   BookOpen,
-  PieChart,
   Layers,
   ClipboardList,
   Factory,
@@ -17,6 +16,7 @@ import {
   FolderOpen,
   CalendarDays,
   FileBarChart,
+  Receipt,
 } from "lucide-react";
 
 import {
@@ -55,7 +55,7 @@ type NavItem = {
 
 const main: NavItem[] = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
-  { title: "Reports", url: "/reports", icon: PieChart, roles: ["owner", "accounting"] },
+  { title: "Laporan Piutang", url: "/receivables", icon: Receipt, roles: ["owner", "accounting"] },
   { title: "Daily Report", url: "/reports/daily", icon: CalendarDays, roles: ["owner", "accounting"] },
   { title: "Accounting Report", url: "/reports/accounting", icon: ClipboardList, roles: ["owner", "accounting"] },
   { title: "Production Report", url: "/reports/production", icon: Factory, roles: ["owner", "accounting"] },

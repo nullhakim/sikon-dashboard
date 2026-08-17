@@ -1,16 +1,18 @@
 import type { AccountingSummary } from "@/lib/types/accounting-report";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
 import { formatIDR } from "@/lib/format";
 import {
   TrendingUp,
   Wallet,
-  AlertCircle,
-  ShoppingCart,
-  Package,
-  TrendingDown,
   Activity,
   ArrowRightLeft,
+  PieChart,
+  ShoppingCart,
+  Package,
+  AlertCircle,
+  TrendingDown,
 } from "lucide-react";
 
 interface SummaryCardsProps {
@@ -18,48 +20,52 @@ interface SummaryCardsProps {
   isLoading: boolean;
 }
 
-interface MetricCardProps {
+interface HeroCardProps {
   label: string;
   value: string;
   icon: React.ReactNode;
   iconBg: string;
-  valueColor?: string;
-  description?: string;
+  borderColor: string;
+  valueColor: string;
+  description: string;
   isLoading?: boolean;
 }
 
-function MetricCard({
+function HeroCard({
   label,
   value,
   icon,
   iconBg,
-  valueColor = "text-foreground",
+  borderColor,
+  valueColor,
   description,
   isLoading = false,
-}: MetricCardProps) {
+}: HeroCardProps) {
   return (
-    <Card className="border-border/60 transition-shadow hover:shadow-md">
-      <CardContent className="pt-5 pb-4 px-5">
-        <div className="flex items-start gap-3.5">
-          <div className={`rounded-xl p-2.5 shrink-0 ${iconBg}`}>{icon}</div>
+    <Card className={`border-t-4 ${borderColor} border-x border-b border-border/60 transition-all hover:shadow-md`}>
+      <CardContent className="pt-4 pb-4 px-4">
+        <div className="flex items-start justify-between gap-3">
           <div className="flex-1 min-w-0">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+              {label}
+            </p>
             {isLoading ? (
-              <div className="space-y-2 pt-1">
-                <Skeleton className="h-5 w-3/4" />
+              <div className="space-y-2 mt-2">
+                <Skeleton className="h-7 w-3/4" />
                 <Skeleton className="h-3 w-1/2" />
               </div>
             ) : (
               <>
-                <p className="text-xs text-muted-foreground font-medium mb-0.5">{label}</p>
-                <p className={`text-xl font-bold tabular-nums leading-tight ${valueColor}`}>
+                <p className={`text-2xl font-bold tabular-nums leading-tight mt-1 ${valueColor}`}>
                   {value}
                 </p>
-                {description && (
-                  <p className="text-xs text-muted-foreground mt-1">{description}</p>
-                )}
+                <p className="text-[11px] text-muted-foreground mt-1 line-clamp-1">
+                  {description}
+                </p>
               </>
             )}
           </div>
+          <div className={`rounded-xl p-2.5 shrink-0 ${iconBg}`}>{icon}</div>
         </div>
       </CardContent>
     </Card>
@@ -67,8 +73,10 @@ function MetricCard({
 }
 
 /**
- * Grid of summary metric cards for accounting report.
- * Structured into 3 rows for better readability of P&L.
+ * Refactored SummaryCards for Accounting Report:
+ * 1. 4 Top Hero Cards (Total Omset, Cash-In, Laba Bersih, Net Cashflow)
+ * 2. P&L & Cash Breakdown (Compact Horizontal Summary Card)
+ * 3. Operational Information Badges (Total Order & Total Qty)
  */
 export function SummaryCards({ data, isLoading }: SummaryCardsProps) {
   const d = data ?? {
@@ -84,126 +92,153 @@ export function SummaryCards({ data, isLoading }: SummaryCardsProps) {
     net_cashflow: 0,
   };
 
-  const row1: MetricCardProps[] = [
+  const heroCards: HeroCardProps[] = [
     {
       label: "Total Omset",
       value: formatIDR(d.total_omset),
-      icon: <TrendingUp className="h-4 w-4 text-blue-600 dark:text-blue-400" />,
+      icon: <TrendingUp className="h-5 w-5 text-blue-600 dark:text-blue-400" />,
       iconBg: "bg-blue-100 dark:bg-blue-900/40",
-      valueColor: "text-blue-700 dark:text-blue-300",
+      borderColor: "border-t-blue-500",
+      valueColor: "text-blue-600 dark:text-blue-400",
       description: "Order yang sudah approved",
     },
     {
-      label: "Cash-In (Uang Masuk)",
+      label: "Cash-In / Uang Masuk",
       value: formatIDR(d.total_cash_in),
-      icon: <Wallet className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />,
+      icon: <Wallet className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />,
       iconBg: "bg-emerald-100 dark:bg-emerald-900/40",
-      valueColor: "text-emerald-700 dark:text-emerald-300",
+      borderColor: "border-t-emerald-500",
+      valueColor: "text-emerald-600 dark:text-emerald-400",
       description: "Pembayaran terverifikasi",
-    },
-    {
-      label: "Piutang Baru",
-      value: formatIDR(d.total_receivable),
-      icon: <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400" />,
-      iconBg: "bg-amber-100 dark:bg-amber-900/40",
-      valueColor: "text-amber-700 dark:text-amber-300",
-      description: "Sisa tagihan belum terbayar",
-    },
-  ];
-
-  const row2: MetricCardProps[] = [
-    {
-      label: "Total HPP",
-      value: formatIDR(d.total_hpp),
-      icon: <TrendingDown className="h-4 w-4 text-red-600 dark:text-red-400" />,
-      iconBg: "bg-red-100 dark:bg-red-900/40",
-      valueColor: "text-red-700 dark:text-red-300",
-      description: "Biaya Bahan & Maklon Jasa",
-    },
-    {
-      label: "Laba Kotor (Gross Profit)",
-      value: formatIDR(d.gross_profit),
-      icon: <TrendingUp className="h-4 w-4 text-teal-600 dark:text-teal-400" />,
-      iconBg: "bg-teal-100 dark:bg-teal-900/40",
-      valueColor: "text-teal-700 dark:text-teal-300",
-      description: "Total Omset - Total HPP",
-    },
-    {
-      label: "Pengeluaran OPEX",
-      value: formatIDR(d.total_opex),
-      icon: <TrendingDown className="h-4 w-4 text-orange-600 dark:text-orange-400" />,
-      iconBg: "bg-orange-100 dark:bg-orange-900/40",
-      valueColor: "text-orange-700 dark:text-orange-300",
-      description: "Biaya Operasional & Overhead",
     },
     {
       label: "Laba Bersih (Net Profit)",
       value: formatIDR(d.net_profit),
-      icon: <Activity className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />,
-      iconBg: "bg-indigo-100 dark:bg-indigo-900/40",
-      valueColor: "text-indigo-700 dark:text-indigo-300",
+      icon: <Activity className="h-5 w-5 text-purple-600 dark:text-purple-400" />,
+      iconBg: "bg-purple-100 dark:bg-purple-900/40",
+      borderColor: "border-t-purple-500",
+      valueColor: "text-purple-600 dark:text-purple-400",
       description: "Laba Kotor - OPEX",
     },
-  ];
-
-  const row3: MetricCardProps[] = [
     {
       label: "Net Cashflow",
       value: formatIDR(d.net_cashflow),
-      icon: <ArrowRightLeft className="h-4 w-4 text-cyan-600 dark:text-cyan-400" />,
-      iconBg: "bg-cyan-100 dark:bg-cyan-900/40",
-      valueColor: "text-cyan-700 dark:text-cyan-300",
+      icon: <ArrowRightLeft className="h-5 w-5 text-teal-600 dark:text-teal-400" />,
+      iconBg: "bg-teal-100 dark:bg-teal-900/40",
+      borderColor: "border-t-teal-500",
+      valueColor: "text-teal-600 dark:text-teal-400",
       description: "Cash In - Total Pengeluaran",
-    },
-    {
-      label: "Total Order",
-      value: d.total_order_count.toLocaleString("id-ID"),
-      icon: <ShoppingCart className="h-4 w-4 text-violet-600 dark:text-violet-400" />,
-      iconBg: "bg-violet-100 dark:bg-violet-900/40",
-      valueColor: "text-violet-700 dark:text-violet-300",
-      description: "Jumlah order periode ini",
-    },
-    {
-      label: "Total Qty Item",
-      value: `${d.total_item_qty.toLocaleString("id-ID")} pcs`,
-      icon: <Package className="h-4 w-4 text-rose-600 dark:text-rose-400" />,
-      iconBg: "bg-rose-100 dark:bg-rose-900/40",
-      valueColor: "text-rose-700 dark:text-rose-300",
-      description: "Kuantitas item terproduksi",
     },
   ];
 
   return (
-    <div className="space-y-6">
-      {/* Baris 1: Pemasukan & Piutang */}
-      <div>
-        <h3 className="text-sm font-semibold text-muted-foreground mb-3 px-1">Pemasukan & Piutang</h3>
-        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-          {row1.map((m) => (
-            <MetricCard key={m.label} {...m} isLoading={isLoading} />
-          ))}
-        </div>
+    <div className="space-y-4">
+      {/* ── 1. Top Hero Metrics (4-Column Grid) ── */}
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+        {heroCards.map((hero) => (
+          <HeroCard key={hero.label} {...hero} isLoading={isLoading} />
+        ))}
       </div>
 
-      {/* Baris 2: Struktur Biaya & Keuntungan */}
-      <div>
-        <h3 className="text-sm font-semibold text-muted-foreground mb-3 px-1">Struktur Biaya & Keuntungan / P&L</h3>
-        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-          {row2.map((m) => (
-            <MetricCard key={m.label} {...m} isLoading={isLoading} />
-          ))}
-        </div>
-      </div>
+      {/* ── 2. Compact P&L Breakdown Card & Operational Badges ── */}
+      <Card className="border-border/60">
+        <CardHeader className="py-3 px-5 border-b border-border/40 bg-muted/20">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <PieChart className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-semibold">
+                Rincian P&L & Piutang (Cost Breakdown)
+              </CardTitle>
+            </div>
+            
+            {/* Operational Badges */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <Badge variant="outline" className="text-xs bg-background/80 font-medium gap-1.5 py-1 px-2.5">
+                <ShoppingCart className="h-3.5 w-3.5 text-violet-500" />
+                <span>Total Order:</span>
+                <strong className="text-foreground">
+                  {isLoading ? "..." : d.total_order_count.toLocaleString("id-ID")}
+                </strong>
+              </Badge>
+              <Badge variant="outline" className="text-xs bg-background/80 font-medium gap-1.5 py-1 px-2.5">
+                <Package className="h-3.5 w-3.5 text-rose-500" />
+                <span>Total Item:</span>
+                <strong className="text-foreground">
+                  {isLoading ? "..." : `${d.total_item_qty.toLocaleString("id-ID")} pcs`}
+                </strong>
+              </Badge>
+            </div>
+          </div>
+        </CardHeader>
 
-      {/* Baris 3: Indikator Kas & Kuantitas */}
-      <div>
-        <h3 className="text-sm font-semibold text-muted-foreground mb-3 px-1">Indikator Kas & Kuantitas</h3>
-        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-          {row3.map((m) => (
-            <MetricCard key={m.label} {...m} isLoading={isLoading} />
-          ))}
-        </div>
-      </div>
+        <CardContent className="py-4 px-5">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 divide-y sm:divide-y-0 sm:divide-x divide-border/60">
+            {/* HPP */}
+            <div className="pt-2 sm:pt-0 sm:px-2 first:px-0">
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-medium mb-1">
+                <TrendingDown className="h-3.5 w-3.5 text-red-500" />
+                <span>Total HPP</span>
+              </div>
+              {isLoading ? (
+                <Skeleton className="h-5 w-24" />
+              ) : (
+                <p className="text-base font-semibold text-foreground tabular-nums">
+                  {formatIDR(d.total_hpp)}
+                </p>
+              )}
+              <p className="text-[10px] text-muted-foreground mt-0.5">Bahan & Maklon</p>
+            </div>
+
+            {/* Laba Kotor */}
+            <div className="pt-2 sm:pt-0 sm:px-4">
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-medium mb-1">
+                <TrendingUp className="h-3.5 w-3.5 text-teal-500" />
+                <span>Laba Kotor</span>
+              </div>
+              {isLoading ? (
+                <Skeleton className="h-5 w-24" />
+              ) : (
+                <p className="text-base font-semibold text-foreground tabular-nums">
+                  {formatIDR(d.gross_profit)}
+                </p>
+              )}
+              <p className="text-[10px] text-muted-foreground mt-0.5">Omset - HPP</p>
+            </div>
+
+            {/* OPEX */}
+            <div className="pt-2 sm:pt-0 sm:px-4">
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-medium mb-1">
+                <TrendingDown className="h-3.5 w-3.5 text-orange-500" />
+                <span>Total OPEX</span>
+              </div>
+              {isLoading ? (
+                <Skeleton className="h-5 w-24" />
+              ) : (
+                <p className="text-base font-semibold text-foreground tabular-nums">
+                  {formatIDR(d.total_opex)}
+                </p>
+              )}
+              <p className="text-[10px] text-muted-foreground mt-0.5">Biaya Operasional</p>
+            </div>
+
+            {/* Piutang Baru */}
+            <div className="pt-2 sm:pt-0 sm:px-4">
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-medium mb-1">
+                <AlertCircle className="h-3.5 w-3.5 text-amber-500" />
+                <span>Piutang Baru</span>
+              </div>
+              {isLoading ? (
+                <Skeleton className="h-5 w-24" />
+              ) : (
+                <p className="text-base font-semibold text-amber-600 dark:text-amber-400 tabular-nums">
+                  {formatIDR(d.total_receivable)}
+                </p>
+              )}
+              <p className="text-[10px] text-muted-foreground mt-0.5">Belum Terbayar</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
