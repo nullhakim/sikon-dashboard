@@ -9,10 +9,10 @@
  *   const { isOwner, canManageCatalog, canVerifyPayment } = useAuth();
  */
 import { useAuthStore } from "@/lib/auth-store";
-import type { UserRole } from "@/lib/types/auth";
+import type { AuthUser, UserRole } from "@/lib/types/auth";
 
 export interface AuthHelpers {
-  user: ReturnType<typeof useAuthStore>["user"];
+  user: AuthUser | null;
   role: UserRole | null;
 
   /** true only for 'owner' */

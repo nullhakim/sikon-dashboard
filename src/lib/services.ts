@@ -260,7 +260,10 @@ export const paymentsService = {
 };
 
 // Dashboard / Reports
+import type { DashboardOverviewData } from "./types/dashboard";
+
 export const dashboardService = {
+  overview: () => api.get<ApiSuccess<DashboardOverviewData>>("/dashboard/overview"),
   receivablesReport: () => api.get<ApiSuccess<any>>("/dashboard/receivables-report"),
   salesReport: (p: { start_date?: string; end_date?: string } = {}) => 
     api.get<ApiSuccess<any>>("/dashboard/sales-report", p as any),

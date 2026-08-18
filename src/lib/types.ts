@@ -1,5 +1,6 @@
 // Domain types derived from the SIKOn OpenAPI spec.
 export type { FabricColor, ProductFabric, WholesaleTier, DesignModelView, DesignModel, ProductPayload } from "./types/product";
+export type { DashboardOverviewData, DashboardOverviewSummary, DashboardOverviewActiveBatchPO, DashboardOverviewActionRequired, DashboardOverviewChartTrend, DashboardOverviewDailyTrend } from "./types/dashboard";
 
 /** A single material/part block inside an order item's `details` array. */
 export interface DetailPart {
