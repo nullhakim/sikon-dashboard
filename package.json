@@ -3,6 +3,10 @@
   "private": true,
   "sideEffects": false,
   "type": "module",
+  "imports": {
+    "#tanstack-router-entry": "./src/router.tsx",
+    "#tanstack-start-entry": "./src/start.ts"
+  },
   "scripts": {
     "dev": "vite dev",
     "build": "vite build",
