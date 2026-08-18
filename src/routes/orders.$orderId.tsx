@@ -9,8 +9,10 @@ import {
   Printer,
   Trash2,
   Info,
+  Check,
 } from "lucide-react";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -58,6 +60,7 @@ import {
 } from "@/lib/services";
 import { formatIDR, formatDate, formatDateISO, datetimeLocalToISO } from "@/lib/format";
 import { generateInvoicePDF, generateKwitansiPDF } from "@/lib/invoice";
+import { printSpkSuratJalan } from "@/lib/quotation";
 import { QuotationPdfDialog } from "@/components/QuotationPdfDialog";
 import { Item, buildItemDetails, ItemDetailsFields, parseDetailsFromBackend } from "@/routes/orders.index";
 import { StatusBadge } from "./payments";
@@ -97,6 +100,89 @@ function Badge({ value, map }: { value?: string; map: Record<string, string> }) 
     >
       {value ?? "—"}
     </span>
+  );
+}
+
+const ORDER_STAGES = [
+  { id: "quotation", label: "Quotation" },
+  { id: "pending", label: "Pending" },
+  { id: "production", label: "Production" },
+  { id: "ready", label: "Ready" },
+  { id: "completed", label: "Completed" },
+];
+
+function OrderLifecycleStepper({ currentStatus }: { currentStatus?: string }) {
+  const normalizedStatus = (currentStatus || "quotation").toLowerCase();
+  const isCanceled = normalizedStatus === "canceled";
+
+  const currentIndex = ORDER_STAGES.findIndex((s) => s.id === normalizedStatus);
+
+  return (
+    <div className="w-full py-2">
+      {isCanceled ? (
+        <div className="flex items-center gap-2 rounded-lg bg-rose-50 border border-rose-200 p-3 text-rose-800 text-sm font-medium">
+          <Trash2 className="h-5 w-5 shrink-0" />
+          <span>Pesanan ini telah dibatalkan (Canceled).</span>
+        </div>
+      ) : (
+        <div className="flex items-center justify-between w-full overflow-x-auto pb-1">
+          {ORDER_STAGES.map((stage, idx) => {
+            const isCompleted = currentIndex >= 0 && idx < currentIndex;
+            const isCurrent = currentIndex >= 0 && idx === currentIndex;
+            const isUpcoming = currentIndex < 0 || idx > currentIndex;
+
+            return (
+              <div key={stage.id} className="flex items-center flex-1 min-w-[120px] last:flex-none">
+                {/* Step Circle & Label */}
+                <div className="flex items-center gap-2.5">
+                  <div
+                    className={cn(
+                      "flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold transition-colors border",
+                      isCompleted && "bg-emerald-600 text-white border-emerald-600 shadow-sm",
+                      isCurrent && "bg-primary text-primary-foreground border-primary ring-2 ring-primary/20 shadow-md",
+                      isUpcoming && "bg-muted text-muted-foreground border-border"
+                    )}
+                  >
+                    {isCompleted ? (
+                      <Check className="h-4 w-4 stroke-[2.5]" />
+                    ) : (
+                      <span>{idx + 1}</span>
+                    )}
+                  </div>
+                  <div className="flex flex-col">
+                    <span
+                      className={cn(
+                        "text-xs font-medium capitalize whitespace-nowrap",
+                        isCurrent && "font-bold text-foreground",
+                        isCompleted && "text-emerald-700 font-semibold",
+                        isUpcoming && "text-muted-foreground"
+                      )}
+                    >
+                      {stage.label}
+                    </span>
+                    {isCurrent && (
+                      <span className="text-[10px] text-primary font-medium leading-none mt-0.5">Aktif</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Connecting Line */}
+                {idx < ORDER_STAGES.length - 1 && (
+                  <div className="flex-1 mx-3 h-0.5 min-w-[24px]">
+                    <div
+                      className={cn(
+                        "h-full rounded-full transition-all",
+                        idx < currentIndex ? "bg-emerald-500" : "bg-muted-foreground/20"
+                      )}
+                    />
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -1238,17 +1324,19 @@ function OrderDetailPage() {
     );
   }
 
+  const isQuotation = (order.order_status || "").toLowerCase() === "quotation";
+
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-wrap items-start justify-between gap-3">
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="space-y-1">
           <Button asChild variant="ghost" size="sm" className="-ml-2 h-8 px-2">
             <Link to="/orders" search={{ page: 1, search: "", order_status: "", payment_status: "", start_date: "", end_date: "", sales_id: "", batch_po_id: "" }}>
               <ArrowLeft className="h-4 w-4 mr-1" /> All Orders
             </Link>
           </Button>
-          <h1 className="text-2xl font-semibold tracking-tight">
+          <h1 className="text-2xl font-bold tracking-tight">
             {order.order_number ?? `Order ${order.id.slice(0, 8)}`}
           </h1>
           <div className="flex flex-wrap items-center gap-2 pt-1">
@@ -1264,355 +1352,435 @@ function OrderDetailPage() {
             )}
           </div>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Button
-            variant="outline"
-            onClick={() => setUpdateQuotationOpen(true)}
-          >
-            <Pencil className="h-4 w-4 mr-1" /> Edit Quotation
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => setQuotationOpen(true)}
-          >
-            <Printer className="h-4 w-4 mr-1" /> Surat Penawaran
-          </Button>
-          <Button variant="outline" onClick={() => setPdfOpen(true)}>
-            <FileDown className="h-4 w-4 mr-1" /> Invoice PDF
-          </Button>
-          {order.payment_status === "paid" && (
-            <Button variant="outline" onClick={() => setNotaOpen(true)}>
-              <FileDown className="h-4 w-4 mr-1" /> Nota PDF
-            </Button>
-          )}
-          <Button onClick={() => setPayOpen(true)} disabled={remaining <= 0}>
-            <Plus className="h-4 w-4 mr-1" /> Add Payment
-          </Button>
-          {order.order_status === "quotation" && (
-            <Button onClick={() => handleTransition("pending")} disabled={statusMut.isPending}>
-              Process to Production Queue
-            </Button>
-          )}
-          {order.order_status === "pending" && (
-            <Button onClick={() => handleTransition("production")} disabled={statusMut.isPending}>
-              Start Production (Cut Fabric)
-            </Button>
-          )}
-          {order.order_status === "production" && (
-            <Button onClick={() => handleTransition("ready")} disabled={statusMut.isPending}>
-              Mark as Finished (Warehouse)
-            </Button>
-          )}
-          {order.order_status === "ready" && (
-            <Button onClick={() => handleTransition("completed")} disabled={statusMut.isPending}>
-              Complete & Deliver Order
-            </Button>
+
+        {/* Dynamic Header Action Buttons (State Machine Aware) */}
+        <div className="flex flex-wrap items-center gap-2">
+          {isQuotation ? (
+            <>
+              <Button
+                variant="outline"
+                onClick={() => setUpdateQuotationOpen(true)}
+              >
+                <Pencil className="h-4 w-4 mr-1.5" /> Edit Quotation
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setQuotationOpen(true)}
+              >
+                <Printer className="h-4 w-4 mr-1.5" /> Cetak Surat Penawaran
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setPdfOpen(true)}
+              >
+                <Printer className="h-4 w-4 mr-1.5" /> Cetak Invoice
+              </Button>
+              <Button onClick={() => handleTransition("pending")} disabled={statusMut.isPending}>
+                Process to Production Queue
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button variant="outline" onClick={() => setPdfOpen(true)}>
+                <Printer className="h-4 w-4 mr-1.5" /> Cetak Invoice
+              </Button>
+              <Button variant="outline" onClick={() => printSpkSuratJalan({ order, items: order.items ?? [], customer: order.customer ?? null })}>
+                <Printer className="h-4 w-4 mr-1.5" /> Cetak SPK / Surat Jalan
+              </Button>
+              {order.payment_status === "paid" && (
+                <Button variant="outline" onClick={() => setNotaOpen(true)}>
+                  <FileDown className="h-4 w-4 mr-1.5" /> Nota PDF
+                </Button>
+              )}
+              <Button onClick={() => setPayOpen(true)} disabled={remaining <= 0}>
+                <Plus className="h-4 w-4 mr-1.5" /> Add Payment
+              </Button>
+              {order.order_status === "pending" && (
+                <Button onClick={() => handleTransition("production")} disabled={statusMut.isPending}>
+                  Start Production (Cut Fabric)
+                </Button>
+              )}
+              {order.order_status === "production" && (
+                <Button onClick={() => handleTransition("ready")} disabled={statusMut.isPending}>
+                  Mark as Finished (Warehouse)
+                </Button>
+              )}
+              {order.order_status === "ready" && (
+                <Button onClick={() => handleTransition("completed")} disabled={statusMut.isPending}>
+                  Complete & Deliver Order
+                </Button>
+              )}
+            </>
           )}
         </div>
       </div>
 
-      {/* Info grid */}
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Customer</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-1 text-sm">
-            <p className="font-medium">{order.customer?.name ?? "—"}</p>
-            {order.customer?.phone && (
-              <p className="text-muted-foreground">{order.customer.phone}</p>
-            )}
-            {order.customer?.address && (
-              <p className="text-muted-foreground">{order.customer.address}</p>
-            )}
-          </CardContent>
-        </Card>
+      {/* Main 70/30 Split Layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-10 gap-6">
+        {/* Left Column (70%) */}
+        <div className="lg:col-span-7 space-y-6">
+          {/* Stepper Card */}
+          <Card className="p-4 sm:p-5 border-border/80 shadow-sm">
+            <div className="pb-3 border-b mb-3">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Alur Lifecycle Status Order
+              </h3>
+            </div>
+            <OrderLifecycleStepper currentStatus={order.order_status} />
+          </Card>
 
-        <Card>
-          <CardHeader className="pb-3 flex flex-row items-center justify-between">
-            <CardTitle className="text-base">Sales & Shipping</CardTitle>
-            <Button size="sm" variant="ghost" onClick={() => setShippingOpen(true)}>
-              <Pencil className="h-4 w-4" />
-            </Button>
-          </CardHeader>
-          <CardContent className="space-y-1 text-sm">
-            <p>
-              <span className="text-muted-foreground">Sales:</span>{" "}
-              <span className="font-medium">{order.sales?.name ?? "—"}</span>
-            </p>
-            <p>
-              <span className="text-muted-foreground">Courier:</span>{" "}
-              {order.courier_name ?? "—"}
-            </p>
-            <p>
-              <span className="text-muted-foreground">Shipping cost:</span>{" "}
-              {formatIDR(shipping)}
-            </p>
-            {order.batch_po && (
-              <p className="flex items-center gap-1.5">
-                <span className="text-muted-foreground">Batch PO:</span>{" "}
-                <span className="font-medium">{order.batch_po.name}</span>
-                <span
-                  title="PO dapat berubah otomatis ke periode aktif saat pelanggan membayar DP (Auto Re-allocate PO)."
-                  className="inline-flex cursor-help text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  <Info className="h-3.5 w-3.5" />
-                </span>
-              </p>
-            )}
-            {order.shipping_address && (
-              <p className="text-muted-foreground pt-1">{order.shipping_address}</p>
-            )}
-            {order.notes && (
-              <p className="text-muted-foreground pt-1">
-                <span className="font-medium text-foreground">Notes:</span> {order.notes}
-              </p>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {(order.valid_until || order.terms_conditions) && (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Quotation</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm">
-            {order.valid_until && (
-              <p>
-                <span className="text-muted-foreground">Valid until:</span>{" "}
-                <span className="font-medium">{formatDate(order.valid_until)}</span>
-              </p>
-            )}
-            {order.terms_conditions && (
-              <div>
-                <p className="text-muted-foreground mb-1">Terms &amp; Conditions:</p>
-                <p className="whitespace-pre-wrap rounded-md bg-muted/40 p-3 text-sm">
-                  {order.terms_conditions}
-                </p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-
-      {/* Items */}
-      <Card>
-        <CardHeader className="pb-3 flex flex-row items-center justify-between">
-          <CardTitle className="text-base">Line Items</CardTitle>
-          <Button size="sm" variant="outline" onClick={() => {
-            setEditItem(null);
-            setItemOpen(true);
-          }}>
-            <Plus className="h-4 w-4 mr-1" /> Add Item
-          </Button>
-        </CardHeader>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Product</TableHead>
-                <TableHead className="text-center">Qty</TableHead>
-                <TableHead className="text-right">Price</TableHead>
-                <TableHead className="text-right">Subtotal</TableHead>
-                <TableHead className="w-[1%]" />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {items.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={5} className="text-center text-muted-foreground py-6">
-                    No items.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                items.map((it, idx) => {
-                  const detailsMap = (it.details || {}) as Record<string, any>;
-                  const bahan = (detailsMap.Bahan ?? detailsMap.bahan) as
-                    | { Name?: string; Color?: string; name?: string; color?: string }
-                    | string
-                    | undefined;
-                  let bahanName = "";
-                  let warna = "";
-                  if (typeof bahan === "string") {
-                    bahanName = bahan;
-                    warna = (detailsMap.Warna ?? detailsMap.warna ?? "") as string;
-                  } else if (bahan && typeof bahan === "object") {
-                    bahanName = bahan.Name ?? bahan.name ?? "";
-                    warna = bahan.Color ?? bahan.color ?? "";
-                  }
-                  const parts: string[] = [];
-                  if (bahanName) parts.push(`Bahan: ${bahanName}`);
-                  if (warna) parts.push(`Warna: ${warna}`);
-                  return (
-                    <TableRow key={it.id ?? idx}>
-                      <TableCell>
-                        <div className="font-medium">
-                          {it.product_name || it.product?.name || "—"}
-                        </div>
-                        {parts.length > 0 && (
-                          <div className="text-xs text-muted-foreground mt-0.5">
-                            {parts.join(" · ")}
-                          </div>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-center">{it.qty}</TableCell>
-                      <TableCell className="text-right">{formatIDR(it.price)}</TableCell>
-                      <TableCell className="text-right font-medium">
-                        {formatIDR(it.qty * it.price)}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex gap-1 justify-end">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                            onClick={() => {
-                              setEditItem(it);
-                              setItemOpen(true);
-                            }}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                            onClick={() => {
-                              if (confirm("Delete this item?")) {
-                                deleteItemMut.mutate(it.id!);
-                              }
-                            }}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
+          {/* Line Items Card */}
+          <Card className="border-border/80 shadow-sm">
+            <CardHeader className="pb-3 flex flex-row items-center justify-between border-b bg-muted/20">
+              <CardTitle className="text-base font-semibold">Line Items</CardTitle>
+              <Button size="sm" variant="outline" onClick={() => {
+                setEditItem(null);
+                setItemOpen(true);
+              }}>
+                <Plus className="h-4 w-4 mr-1" /> Add Item
+              </Button>
+            </CardHeader>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/40">
+                    <TableHead className="w-[45%]">Product &amp; Variations</TableHead>
+                    <TableHead className="text-center">Qty</TableHead>
+                    <TableHead className="text-right">Price</TableHead>
+                    <TableHead className="text-right">Subtotal</TableHead>
+                    <TableHead className="w-[1%]" />
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {items.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                        No items added to this order.
                       </TableCell>
                     </TableRow>
-                  );
-                })
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+                  ) : (
+                    items.map((it, idx) => {
+                      const parsedParts = parseDetailsFromBackend(it.details);
+                      const rawDetails = (it.details || {}) as Record<string, any>;
+                      const bordir = rawDetails.bordir ?? rawDetails.Bordir;
+                      const benang = rawDetails.benang ?? rawDetails.Benang;
+                      const jahitan = rawDetails.jahitan ?? rawDetails.Jahitan;
 
-      {/* Totals */}
-      <Card>
-        <CardContent className="p-6 space-y-2 text-sm">
-          <div className="flex justify-between text-muted-foreground">
-            <span>Subtotal</span>
-            <span className="text-foreground font-medium">{formatIDR(subtotal)}</span>
-          </div>
-          <div className="flex justify-between text-muted-foreground">
-            <span>Shipping</span>
-            <span className="text-foreground font-medium">{formatIDR(shipping)}</span>
-          </div>
-          <div className="flex justify-between border-t pt-2 text-base font-semibold">
-            <span>Total</span>
-            <span>{formatIDR(total)}</span>
-          </div>
-          <div className="flex justify-between text-muted-foreground">
-            <span>Paid</span>
-            <span className="text-foreground font-medium">{formatIDR(paid)}</span>
-          </div>
-          <div className="flex justify-between text-base font-semibold">
-            <span>Outstanding</span>
-            <span className={remaining > 0 ? "text-amber-600" : "text-emerald-600"}>
-              {formatIDR(remaining)}
-            </span>
-          </div>
-        </CardContent>
-      </Card>
+                      return (
+                        <TableRow key={it.id ?? idx} className="align-top">
+                          <TableCell className="py-3">
+                            <div className="font-semibold text-foreground text-sm">
+                              {it.product_name || it.product?.name || "—"}
+                            </div>
+                            
+                            {/* Custom Name Display */}
+                            {it.custom_name && (
+                              <div className="mt-1">
+                                <span className="inline-flex items-center rounded-md bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700 ring-1 ring-inset ring-blue-700/10">
+                                  Custom Name: {it.custom_name}
+                                </span>
+                              </div>
+                            )}
 
-      {/* Payments */}
-      <Card>
-        <CardHeader className="pb-3 flex flex-row items-center justify-between">
-          <CardTitle className="text-base">Payments</CardTitle>
-          <Button size="sm" variant="outline" onClick={() => setPayOpen(true)} disabled={remaining <= 0}>
-            <Plus className="h-4 w-4 mr-1" /> Add Payment
-          </Button>
-        </CardHeader>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Date</TableHead>
-                <TableHead>Reference</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Bank Account</TableHead>
-                <TableHead className="text-right">Amount</TableHead>
-                <TableHead className="w-[1%]" />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {paymentsQ.isLoading ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">
-                    Loading payments…
-                  </TableCell>
-                </TableRow>
-              ) : payments.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">
-                    No payments recorded yet.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                payments.map((p) => (
-                  <TableRow key={p.id}>
-                    <TableCell className="text-xs font-mono whitespace-nowrap">
-                      {formatDateISO(p.payment_date || p.created_at)}
-                    </TableCell>
-                    <TableCell className="text-sm font-mono">
-                      {p.reference_number || "—"}
-                    </TableCell>
-                    <TableCell className="capitalize">{p.payment_type}</TableCell>
-                    <TableCell>
-                      <StatusBadge status={p.status} />
-                    </TableCell>
-                    <TableCell className="text-sm">
-                      {p.bank_account
-                        ? `${p.bank_account.bank_name} · ${p.bank_account.account_number}`
-                        : p.bank_account_id?.slice(0, 8) || "—"}
-                    </TableCell>
-                    <TableCell className="text-right font-medium">
-                      {formatIDR(p.amount)}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex justify-end gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                          onClick={() => {
-                            setSelectedPayment(p);
-                            setKwitansiOpen(true);
-                          }}
-                        >
-                          <Printer className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                          onClick={() => {
-                            if (confirm("Delete this payment?")) deletePayment.mutate(p.id);
-                          }}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
+                            {/* Material Parts Breakdown */}
+                            {parsedParts.length > 0 && parsedParts.some(p => p.material_name || p.part || p.spec || p.warna) && (
+                              <div className="mt-1.5 space-y-1 text-xs text-muted-foreground bg-muted/30 p-2 rounded-md border border-muted/50">
+                                {parsedParts.map((p, pIdx) => {
+                                  const label = p.part ? p.part : `Part ${pIdx + 1}`;
+                                  const matStr = [
+                                    p.material_name,
+                                    p.warna ? `(${p.warna})` : null,
+                                  ].filter(Boolean).join(" ");
+                                  
+                                  if (!p.material_name && !p.spec && !p.warna) return null;
+                                  return (
+                                    <div key={pIdx} className="leading-tight">
+                                      <span className="font-medium text-foreground">{label}:</span>{" "}
+                                      <span>{matStr || "—"}</span>
+                                      {p.spec && <span className="text-muted-foreground block text-[11px] mt-0.5 pl-2 border-l border-muted-foreground/30">{p.spec}</span>}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+
+                            {/* Additional Specs: Bordir, Benang, Jahitan */}
+                            {(bordir || benang || jahitan) && (
+                              <div className="mt-1.5 text-[11px] text-muted-foreground space-y-0.5">
+                                {bordir && <div><span className="font-medium text-foreground">Bordir:</span> {bordir}</div>}
+                                {benang && <div><span className="font-medium text-foreground">Benang:</span> {benang}</div>}
+                                {jahitan && <div><span className="font-medium text-foreground">Jahitan:</span> {jahitan}</div>}
+                              </div>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-center font-medium py-3">{it.qty}</TableCell>
+                          <TableCell className="text-right py-3">{formatIDR(it.price)}</TableCell>
+                          <TableCell className="text-right font-semibold text-foreground py-3">
+                            {formatIDR(it.qty * it.price)}
+                          </TableCell>
+                          <TableCell className="py-3">
+                            <div className="flex gap-1 justify-end">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                                onClick={() => {
+                                  setEditItem(it);
+                                  setItemOpen(true);
+                                }}
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                                onClick={() => {
+                                  if (confirm("Delete this item?")) {
+                                    deleteItemMut.mutate(it.id!);
+                                  }
+                                }}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+
+          {/* Quotation Details Card */}
+          {(order.valid_until || order.terms_conditions) && (
+            <Card className="border-border/80 shadow-sm">
+              <CardHeader className="pb-3 border-b bg-muted/20">
+                <CardTitle className="text-base font-semibold">Quotation Details</CardTitle>
+              </CardHeader>
+              <CardContent className="p-4 space-y-2 text-sm">
+                {order.valid_until && (
+                  <p>
+                    <span className="text-muted-foreground">Valid until:</span>{" "}
+                    <span className="font-medium">{formatDate(order.valid_until)}</span>
+                  </p>
+                )}
+                {order.terms_conditions && (
+                  <div>
+                    <p className="text-muted-foreground mb-1">Terms &amp; Conditions:</p>
+                    <p className="whitespace-pre-wrap rounded-md bg-muted/40 p-3 text-xs leading-relaxed">
+                      {order.terms_conditions}
+                    </p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Payments Card */}
+          <Card className="border-border/80 shadow-sm">
+            <CardHeader className="pb-3 flex flex-row items-center justify-between border-b bg-muted/20">
+              <CardTitle className="text-base font-semibold">Payments History</CardTitle>
+              <Button size="sm" variant="outline" onClick={() => setPayOpen(true)} disabled={remaining <= 0}>
+                <Plus className="h-4 w-4 mr-1" /> Add Payment
+              </Button>
+            </CardHeader>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/40">
+                    <TableHead>Date</TableHead>
+                    <TableHead>Reference</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Bank Account</TableHead>
+                    <TableHead className="text-right">Amount</TableHead>
+                    <TableHead className="w-[1%]" />
                   </TableRow>
-                ))
+                </TableHeader>
+                <TableBody>
+                  {paymentsQ.isLoading ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center py-6 text-muted-foreground">
+                        Loading payments…
+                      </TableCell>
+                    </TableRow>
+                  ) : payments.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center py-6 text-muted-foreground">
+                        No payments recorded yet.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    payments.map((p) => (
+                      <TableRow key={p.id}>
+                        <TableCell className="text-xs font-mono whitespace-nowrap">
+                          {formatDateISO(p.payment_date || p.created_at)}
+                        </TableCell>
+                        <TableCell className="text-sm font-mono">
+                          {p.reference_number || "—"}
+                        </TableCell>
+                        <TableCell className="capitalize text-xs font-medium">{p.payment_type}</TableCell>
+                        <TableCell>
+                          <StatusBadge status={p.status} />
+                        </TableCell>
+                        <TableCell className="text-xs">
+                          {p.bank_account
+                            ? `${p.bank_account.bank_name} · ${p.bank_account.account_number}`
+                            : p.bank_account_id?.slice(0, 8) || "—"}
+                        </TableCell>
+                        <TableCell className="text-right font-semibold text-foreground">
+                          {formatIDR(p.amount)}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                              onClick={() => {
+                                setSelectedPayment(p);
+                                setKwitansiOpen(true);
+                              }}
+                            >
+                              <Printer className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                              onClick={() => {
+                                if (confirm("Delete this payment?")) deletePayment.mutate(p.id);
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Right Column (30% Sidebar Summary Cards) */}
+        <div className="lg:col-span-3 space-y-6">
+          {/* Sidebar Financial Summary Card */}
+          <Card className="border-primary/30 shadow-sm bg-gradient-to-b from-primary/5 to-transparent">
+            <CardHeader className="pb-3 border-b bg-muted/20">
+              <CardTitle className="text-base font-semibold text-foreground">Financial Summary</CardTitle>
+            </CardHeader>
+            <CardContent className="p-4 space-y-3 text-sm">
+              <div className="flex justify-between text-muted-foreground">
+                <span>Subtotal</span>
+                <span className="text-foreground font-medium">{formatIDR(subtotal)}</span>
+              </div>
+              <div className="flex justify-between text-muted-foreground">
+                <span>Shipping Cost</span>
+                <span className="text-foreground font-medium">{formatIDR(shipping)}</span>
+              </div>
+              <div className="flex justify-between border-t pt-2 text-base font-bold text-foreground">
+                <span>Total Amount</span>
+                <span>{formatIDR(total)}</span>
+              </div>
+              <div className="flex justify-between text-muted-foreground">
+                <span>Total Paid</span>
+                <span className="text-emerald-700 font-semibold">{formatIDR(paid)}</span>
+              </div>
+              <div className="flex justify-between border-t pt-2 items-center">
+                <span className="font-semibold text-foreground">Outstanding</span>
+                <span className={cn(
+                  "px-2.5 py-1 rounded-full text-xs font-bold border",
+                  remaining > 0 ? "bg-amber-100 text-amber-900 border-amber-300" : "bg-emerald-100 text-emerald-900 border-emerald-300"
+                )}>
+                  {formatIDR(remaining)}
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Customer Info Card */}
+          <Card className="border-border/80 shadow-sm">
+            <CardHeader className="pb-3 border-b bg-muted/20">
+              <CardTitle className="text-base font-semibold">Informasi Customer</CardTitle>
+            </CardHeader>
+            <CardContent className="p-4 space-y-2 text-sm">
+              <p className="font-semibold text-foreground text-base">{order.customer?.name ?? "—"}</p>
+              {order.customer?.phone && (
+                <p className="text-muted-foreground text-xs">
+                  📞 {order.customer.phone}
+                </p>
               )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+              {order.customer?.email && (
+                <p className="text-muted-foreground text-xs">
+                  ✉️ {order.customer.email}
+                </p>
+              )}
+              {order.customer?.address && (
+                <p className="text-muted-foreground text-xs pt-2 border-t leading-relaxed">
+                  <span className="font-medium text-foreground block mb-0.5">Alamat Customer:</span>
+                  {order.customer.address}
+                </p>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Sales & Pengiriman Card */}
+          <Card className="border-border/80 shadow-sm">
+            <CardHeader className="pb-3 border-b bg-muted/20 flex flex-row items-center justify-between">
+              <CardTitle className="text-base font-semibold">Sales &amp; Pengiriman</CardTitle>
+              <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => setShippingOpen(true)}>
+                <Pencil className="h-4 w-4" />
+              </Button>
+            </CardHeader>
+            <CardContent className="p-4 space-y-2.5 text-sm">
+              <div>
+                <span className="text-muted-foreground text-xs block">Sales Officer</span>
+                <span className="font-medium text-foreground">{order.sales?.name ?? "—"}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground text-xs block">Courier / Ekspedisi</span>
+                <span className="font-medium text-foreground">{order.courier_name ?? "—"}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground text-xs block">Ongkos Kirim</span>
+                <span className="font-medium text-foreground">{formatIDR(shipping)}</span>
+              </div>
+              {order.batch_po && (
+                <div>
+                  <span className="text-muted-foreground text-xs block">Batch PO</span>
+                  <span className="font-medium text-foreground flex items-center gap-1">
+                    {order.batch_po.name}
+                    <span
+                      title="PO dapat berubah otomatis ke periode aktif saat pelanggan membayar DP (Auto Re-allocate PO)."
+                      className="inline-flex cursor-help text-muted-foreground hover:text-foreground"
+                    >
+                      <Info className="h-3.5 w-3.5" />
+                    </span>
+                  </span>
+                </div>
+              )}
+              {order.shipping_address && (
+                <div className="border-t pt-2">
+                  <span className="text-muted-foreground text-xs block font-medium">Alamat Pengiriman</span>
+                  <p className="text-xs text-muted-foreground leading-relaxed mt-0.5">{order.shipping_address}</p>
+                </div>
+              )}
+              {order.notes && (
+                <div className="border-t pt-2">
+                  <span className="text-muted-foreground text-xs block font-medium">Catatan Order</span>
+                  <p className="text-xs text-muted-foreground leading-relaxed mt-0.5">{order.notes}</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
 
       <UpdateShippingDialog
         order={order}
