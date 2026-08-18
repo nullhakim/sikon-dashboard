@@ -119,40 +119,22 @@ function LoginPage() {
   }
 
   return (
-    <div className="relative min-h-screen flex items-center justify-center overflow-hidden bg-[#0a0a0f]">
-      {/* Animated background blobs */}
+    <div className="relative min-h-screen flex items-center justify-center overflow-hidden bg-slate-50">
+      {/* Subtle background gradient accents */}
       <div
-        className="pointer-events-none absolute -top-40 -left-40 h-[600px] w-[600px] rounded-full opacity-20"
+        className="pointer-events-none absolute -top-40 -left-40 h-[600px] w-[600px] rounded-full opacity-40 blur-3xl"
         style={{
           background:
-            "radial-gradient(circle at center, hsl(250 84% 60%) 0%, transparent 70%)",
+            "radial-gradient(circle at center, rgba(16, 185, 129, 0.15) 0%, transparent 70%)",
           animation: "pulse 8s ease-in-out infinite",
         }}
       />
       <div
-        className="pointer-events-none absolute -bottom-40 -right-40 h-[500px] w-[500px] rounded-full opacity-15"
+        className="pointer-events-none absolute -bottom-40 -right-40 h-[500px] w-[500px] rounded-full opacity-30 blur-3xl"
         style={{
           background:
-            "radial-gradient(circle at center, hsl(220 84% 55%) 0%, transparent 70%)",
+            "radial-gradient(circle at center, rgba(59, 130, 246, 0.15) 0%, transparent 70%)",
           animation: "pulse 10s ease-in-out infinite 2s",
-        }}
-      />
-      <div
-        className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[300px] w-[300px] rounded-full opacity-10"
-        style={{
-          background:
-            "radial-gradient(circle at center, hsl(280 70% 65%) 0%, transparent 70%)",
-          animation: "pulse 12s ease-in-out infinite 4s",
-        }}
-      />
-
-      {/* Grid pattern overlay */}
-      <div
-        className="pointer-events-none absolute inset-0 opacity-[0.03]"
-        style={{
-          backgroundImage:
-            "linear-gradient(hsl(0 0% 100%) 1px, transparent 1px), linear-gradient(90deg, hsl(0 0% 100%) 1px, transparent 1px)",
-          backgroundSize: "60px 60px",
         }}
       />
 
@@ -161,31 +143,17 @@ function LoginPage() {
         className="relative z-10 w-full max-w-md mx-4"
         style={{ animation: "fadeInUp 0.5s ease-out" }}
       >
-        <div
-          className="rounded-2xl border border-white/10 p-8 shadow-2xl"
-          style={{
-            background: "rgba(255,255,255,0.04)",
-            backdropFilter: "blur(24px)",
-            WebkitBackdropFilter: "blur(24px)",
-          }}
-        >
+        <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-md">
           {/* Logo */}
           <div className="mb-8 flex flex-col items-center gap-3">
-            <div
-              className="flex h-14 w-14 items-center justify-center rounded-2xl font-bold text-2xl text-white shadow-lg"
-              style={{
-                background:
-                  "linear-gradient(135deg, hsl(250 84% 60%), hsl(220 84% 55%))",
-                boxShadow: "0 0 32px hsla(250, 84%, 60%, 0.4)",
-              }}
-            >
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl font-bold text-2xl text-white shadow-md bg-gradient-to-br from-emerald-500 to-teal-600">
               S
             </div>
             <div className="text-center">
-              <h1 className="text-2xl font-bold tracking-tight text-white">
+              <h1 className="text-2xl font-bold tracking-tight text-slate-900">
                 SIKOn ERP
               </h1>
-              <p className="mt-1 text-sm text-white/50">
+              <p className="mt-1 text-sm text-slate-500">
                 Sistem Integrasi Konveksi Online
               </p>
             </div>
@@ -197,7 +165,7 @@ function LoginPage() {
             <div className="space-y-2">
               <label
                 htmlFor="login-email"
-                className="block text-sm font-medium text-white/70"
+                className="block text-sm font-medium text-slate-700"
               >
                 Email
               </label>
@@ -208,10 +176,10 @@ function LoginPage() {
                 autoFocus
                 placeholder="nama@perusahaan.com"
                 {...register("email")}
-                className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder-white/25 outline-none transition-all duration-200 focus:border-violet-500/60 focus:bg-white/8 focus:ring-2 focus:ring-violet-500/20"
+                className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 outline-none transition-all duration-200 focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/20"
               />
               {errors.email?.message && (
-                <p className="text-xs text-rose-400">{errors.email.message}</p>
+                <p className="text-xs text-rose-500 font-medium">{errors.email.message}</p>
               )}
             </div>
 
@@ -219,7 +187,7 @@ function LoginPage() {
             <div className="space-y-2">
               <label
                 htmlFor="login-password"
-                className="block text-sm font-medium text-white/70"
+                className="block text-sm font-medium text-slate-700"
               >
                 Password
               </label>
@@ -230,13 +198,13 @@ function LoginPage() {
                   autoComplete="current-password"
                   placeholder="••••••••"
                   {...register("password")}
-                  className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 pr-12 text-sm text-white placeholder-white/25 outline-none transition-all duration-200 focus:border-violet-500/60 focus:bg-white/8 focus:ring-2 focus:ring-violet-500/20"
+                  className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 pr-12 text-sm text-slate-900 placeholder:text-slate-400 outline-none transition-all duration-200 focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/20"
                 />
                 <button
                   type="button"
                   tabIndex={-1}
                   onClick={() => setShowPassword((v) => !v)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 transition-colors hover:text-white/70"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 transition-colors hover:text-slate-600"
                 >
                   {showPassword ? (
                     <EyeOff className="h-4 w-4" />
@@ -246,7 +214,7 @@ function LoginPage() {
                 </button>
               </div>
               {errors.password?.message && (
-                <p className="text-xs text-rose-400">{errors.password.message}</p>
+                <p className="text-xs text-rose-500 font-medium">{errors.password.message}</p>
               )}
             </div>
 
@@ -255,15 +223,8 @@ function LoginPage() {
               id="login-submit"
               type="submit"
               disabled={isLoading}
-              className="group relative w-full overflow-hidden rounded-xl py-3 text-sm font-semibold text-white shadow-lg transition-all duration-200 hover:scale-[1.02] hover:shadow-violet-500/30 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:scale-100"
-              style={{
-                background:
-                  "linear-gradient(135deg, hsl(250 84% 58%), hsl(220 84% 53%))",
-                boxShadow: "0 4px 20px hsla(250, 84%, 60%, 0.35)",
-              }}
+              className="group relative w-full overflow-hidden rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:bg-emerald-700 hover:shadow-md active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-emerald-600"
             >
-              {/* Shine effect */}
-              <span className="absolute inset-0 translate-x-[-100%] skew-x-[-20deg] bg-white/10 transition-transform duration-700 group-hover:translate-x-[120%]" />
               <span className="relative flex items-center justify-center gap-2">
                 {isLoading ? (
                   <>
@@ -281,7 +242,7 @@ function LoginPage() {
           </form>
 
           {/* Footer */}
-          <p className="mt-6 text-center text-xs text-white/25">
+          <p className="mt-6 text-center text-xs text-slate-400">
             © {new Date().getFullYear()} SIKOn ERP · Internal System
           </p>
         </div>
