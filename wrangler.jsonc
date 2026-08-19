@@ -5,8 +5,8 @@
   "compatibility_flags": [
     "nodejs_compat"
   ],
-  "main": ".output/server/index.mjs",
+  "main": "dist/server/index.js", // atau dist/index.js (sesuai output vite)
   "assets": {
-    "directory": ".output/public"
+    "directory": "dist/client"
   }
 }
