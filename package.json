@@ -11,7 +11,8 @@
   },
   "scripts": {
     "dev": "vite dev",
-    "build": "vite build",
+    "build": "vinxi build",
+    "deploy": "vinxi build && wrangler deploy",
     "build:dev": "vite build --mode development",
     "preview": "vite preview",
     "lint": "eslint .",
