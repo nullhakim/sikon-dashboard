@@ -63,7 +63,7 @@ import { generateInvoicePDF, generateKwitansiPDF } from "@/lib/invoice";
 import { printSpkSuratJalan } from "@/lib/quotation";
 import { QuotationPdfDialog } from "@/components/QuotationPdfDialog";
 import { Item, buildItemDetails, ItemDetailsFields, parseDetailsFromBackend } from "@/routes/orders.index";
-import { StatusBadge } from "./payments";
+import { StatusBadge } from "@/routes/payments";
 export const Route = createFileRoute("/orders/$orderId")({
   head: () => ({
     meta: [

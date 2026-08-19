@@ -1,6 +1,24 @@
 // Service layer mapping Swagger endpoints to typed functions.
 import { api, API_BASE_URL, type ApiPaginated, type ApiSuccess } from "./api";
 import type { AuthUser } from "./types/auth";
+import type {
+  BankAccount,
+  Category,
+  Customer,
+  Order,
+  OrderStatus,
+  Payment,
+  Product,
+  SpecTemplate,
+  User,
+  BatchPO,
+} from "./types";
+import type { DashboardOverviewData } from "./types/dashboard";
+import type { AccountingReportResponse } from "./types/accounting-report";
+import type { ProductionReportResponse } from "./types/production-report";
+import type { ExpenseCategory, Expense } from "./types/expense";
+import type { DailyReportResponse } from "./types/daily-report";
+import type { POSummaryResponse } from "./types/po-summary";
 
 // Auth
 export interface LoginResponse {
@@ -17,18 +35,6 @@ export const authService = {
   login: (email: string, password: string) =>
     api.postPublic<LoginResponse>("/auth/login", { email, password }),
 };
-import type {
-  BankAccount,
-  Category,
-  Customer,
-  Order,
-  OrderStatus,
-  Payment,
-  Product,
-  SpecTemplate,
-  User,
-  BatchPO,
-} from "./types";
 
 export interface PageParams {
   page?: number;
@@ -260,7 +266,6 @@ export const paymentsService = {
 };
 
 // Dashboard / Reports
-import type { DashboardOverviewData } from "./types/dashboard";
 
 export const dashboardService = {
   overview: () => api.get<ApiSuccess<DashboardOverviewData>>("/dashboard/overview"),
@@ -272,8 +277,6 @@ export const dashboardService = {
 };
 
 // Accounting Report
-import type { AccountingReportResponse } from "./types/accounting-report";
-import type { ProductionReportResponse } from "./types/production-report";
 
 export const accountingReportService = {
   /**
@@ -389,7 +392,6 @@ export const uploadService = {
 };
 
 // Expense Categories
-import type { ExpenseCategory, Expense } from "./types/expense";
 
 export const expenseCategoriesService = {
   list: () =>
@@ -429,7 +431,6 @@ export const expensesService = {
 };
 
 // Daily Report
-import type { DailyReportResponse } from "./types/daily-report";
 
 export const dailyReportService = {
   /**
@@ -441,7 +442,6 @@ export const dailyReportService = {
 };
 
 // PO Summary Report
-import type { POSummaryResponse } from "./types/po-summary";
 
 export const poSummaryService = {
   /**

@@ -9,89 +9,34 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as IndexRouteImport } from './routes/index'
-import { Route as BankAccountsRouteImport } from './routes/bank-accounts'
-import { Route as BatchPosRouteImport } from './routes/batch-pos'
-import { Route as CategoriesRouteImport } from './routes/categories'
-import { Route as CustomersRouteImport } from './routes/customers'
-import { Route as ExpenseCategoriesRouteImport } from './routes/expense-categories'
-import { Route as ExpensesRouteImport } from './routes/expenses'
-import { Route as ForbiddenRouteImport } from './routes/forbidden'
-import { Route as LoginRouteImport } from './routes/login'
-import { Route as MaterialCatalogsRouteImport } from './routes/material-catalogs'
-import { Route as PaymentsRouteImport } from './routes/payments'
-import { Route as ReceivablesRouteImport } from './routes/receivables'
-import { Route as ReportsRouteImport } from './routes/reports'
 import { Route as UsersRouteImport } from './routes/users'
-import { Route as OrdersIndexRouteImport } from './routes/orders.index'
-import { Route as OrdersOrderIdRouteImport } from './routes/orders.$orderId'
+import { Route as ReportsRouteImport } from './routes/reports'
+import { Route as ReceivablesRouteImport } from './routes/receivables'
+import { Route as PaymentsRouteImport } from './routes/payments'
+import { Route as MaterialCatalogsRouteImport } from './routes/material-catalogs'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as ForbiddenRouteImport } from './routes/forbidden'
+import { Route as ExpensesRouteImport } from './routes/expenses'
+import { Route as ExpenseCategoriesRouteImport } from './routes/expense-categories'
+import { Route as CustomersRouteImport } from './routes/customers'
+import { Route as CategoriesRouteImport } from './routes/categories'
+import { Route as BatchPosRouteImport } from './routes/batch-pos'
+import { Route as BankAccountsRouteImport } from './routes/bank-accounts'
+import { Route as IndexRouteImport } from './routes/index'
 import { Route as ProductsIndexRouteImport } from './routes/products.index'
-import { Route as ProductsProductIdRouteImport } from './routes/products.$productId'
-import { Route as ReportsAccountingRouteImport } from './routes/reports.accounting'
-import { Route as ReportsDailyRouteImport } from './routes/reports.daily'
-import { Route as ReportsPoSummaryRouteImport } from './routes/reports.po-summary'
+import { Route as OrdersIndexRouteImport } from './routes/orders.index'
 import { Route as ReportsProductionRouteImport } from './routes/reports.production'
+import { Route as ReportsPoSummaryRouteImport } from './routes/reports.po-summary'
+import { Route as ReportsDailyRouteImport } from './routes/reports.daily'
+import { Route as ReportsAccountingRouteImport } from './routes/reports.accounting'
+import { Route as ProductsProductIdRouteImport } from './routes/products.$productId'
+import { Route as OrdersOrderIdRouteImport } from './routes/orders.$orderId'
 import { Route as ReportsPoSummaryIndexRouteImport } from './routes/reports.po-summary.index'
 import { Route as ReportsPoSummaryPoIdRouteImport } from './routes/reports.po-summary.$poId'
 
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const BankAccountsRoute = BankAccountsRouteImport.update({
-  id: '/bank-accounts',
-  path: '/bank-accounts',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const BatchPosRoute = BatchPosRouteImport.update({
-  id: '/batch-pos',
-  path: '/batch-pos',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const CategoriesRoute = CategoriesRouteImport.update({
-  id: '/categories',
-  path: '/categories',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const CustomersRoute = CustomersRouteImport.update({
-  id: '/customers',
-  path: '/customers',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ExpenseCategoriesRoute = ExpenseCategoriesRouteImport.update({
-  id: '/expense-categories',
-  path: '/expense-categories',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ExpensesRoute = ExpensesRouteImport.update({
-  id: '/expenses',
-  path: '/expenses',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ForbiddenRoute = ForbiddenRouteImport.update({
-  id: '/forbidden',
-  path: '/forbidden',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const LoginRoute = LoginRouteImport.update({
-  id: '/login',
-  path: '/login',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const MaterialCatalogsRoute = MaterialCatalogsRouteImport.update({
-  id: '/material-catalogs',
-  path: '/material-catalogs',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PaymentsRoute = PaymentsRouteImport.update({
-  id: '/payments',
-  path: '/payments',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ReceivablesRoute = ReceivablesRouteImport.update({
-  id: '/receivables',
-  path: '/receivables',
+const UsersRoute = UsersRouteImport.update({
+  id: '/users',
+  path: '/users',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ReportsRoute = ReportsRouteImport.update({
@@ -99,19 +44,64 @@ const ReportsRoute = ReportsRouteImport.update({
   path: '/reports',
   getParentRoute: () => rootRouteImport,
 } as any)
-const UsersRoute = UsersRouteImport.update({
-  id: '/users',
-  path: '/users',
+const ReceivablesRoute = ReceivablesRouteImport.update({
+  id: '/receivables',
+  path: '/receivables',
   getParentRoute: () => rootRouteImport,
 } as any)
-const OrdersIndexRoute = OrdersIndexRouteImport.update({
-  id: '/orders/',
-  path: '/orders/',
+const PaymentsRoute = PaymentsRouteImport.update({
+  id: '/payments',
+  path: '/payments',
   getParentRoute: () => rootRouteImport,
 } as any)
-const OrdersOrderIdRoute = OrdersOrderIdRouteImport.update({
-  id: '/orders/$orderId',
-  path: '/orders/$orderId',
+const MaterialCatalogsRoute = MaterialCatalogsRouteImport.update({
+  id: '/material-catalogs',
+  path: '/material-catalogs',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ForbiddenRoute = ForbiddenRouteImport.update({
+  id: '/forbidden',
+  path: '/forbidden',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ExpensesRoute = ExpensesRouteImport.update({
+  id: '/expenses',
+  path: '/expenses',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ExpenseCategoriesRoute = ExpenseCategoriesRouteImport.update({
+  id: '/expense-categories',
+  path: '/expense-categories',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CustomersRoute = CustomersRouteImport.update({
+  id: '/customers',
+  path: '/customers',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CategoriesRoute = CategoriesRouteImport.update({
+  id: '/categories',
+  path: '/categories',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BatchPosRoute = BatchPosRouteImport.update({
+  id: '/batch-pos',
+  path: '/batch-pos',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BankAccountsRoute = BankAccountsRouteImport.update({
+  id: '/bank-accounts',
+  path: '/bank-accounts',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ProductsIndexRoute = ProductsIndexRouteImport.update({
@@ -119,19 +109,14 @@ const ProductsIndexRoute = ProductsIndexRouteImport.update({
   path: '/products/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ProductsProductIdRoute = ProductsProductIdRouteImport.update({
-  id: '/products/$productId',
-  path: '/products/$productId',
+const OrdersIndexRoute = OrdersIndexRouteImport.update({
+  id: '/orders/',
+  path: '/orders/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ReportsAccountingRoute = ReportsAccountingRouteImport.update({
-  id: '/accounting',
-  path: '/accounting',
-  getParentRoute: () => ReportsRoute,
-} as any)
-const ReportsDailyRoute = ReportsDailyRouteImport.update({
-  id: '/daily',
-  path: '/daily',
+const ReportsProductionRoute = ReportsProductionRouteImport.update({
+  id: '/production',
+  path: '/production',
   getParentRoute: () => ReportsRoute,
 } as any)
 const ReportsPoSummaryRoute = ReportsPoSummaryRouteImport.update({
@@ -139,10 +124,25 @@ const ReportsPoSummaryRoute = ReportsPoSummaryRouteImport.update({
   path: '/po-summary',
   getParentRoute: () => ReportsRoute,
 } as any)
-const ReportsProductionRoute = ReportsProductionRouteImport.update({
-  id: '/production',
-  path: '/production',
+const ReportsDailyRoute = ReportsDailyRouteImport.update({
+  id: '/daily',
+  path: '/daily',
   getParentRoute: () => ReportsRoute,
+} as any)
+const ReportsAccountingRoute = ReportsAccountingRouteImport.update({
+  id: '/accounting',
+  path: '/accounting',
+  getParentRoute: () => ReportsRoute,
+} as any)
+const ProductsProductIdRoute = ProductsProductIdRouteImport.update({
+  id: '/products/$productId',
+  path: '/products/$productId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OrdersOrderIdRoute = OrdersOrderIdRouteImport.update({
+  id: '/orders/$orderId',
+  path: '/orders/$orderId',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const ReportsPoSummaryIndexRoute = ReportsPoSummaryIndexRouteImport.update({
   id: '/',
@@ -336,88 +336,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/bank-accounts': {
-      id: '/bank-accounts'
-      path: '/bank-accounts'
-      fullPath: '/bank-accounts'
-      preLoaderRoute: typeof BankAccountsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/batch-pos': {
-      id: '/batch-pos'
-      path: '/batch-pos'
-      fullPath: '/batch-pos'
-      preLoaderRoute: typeof BatchPosRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/categories': {
-      id: '/categories'
-      path: '/categories'
-      fullPath: '/categories'
-      preLoaderRoute: typeof CategoriesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/customers': {
-      id: '/customers'
-      path: '/customers'
-      fullPath: '/customers'
-      preLoaderRoute: typeof CustomersRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/expense-categories': {
-      id: '/expense-categories'
-      path: '/expense-categories'
-      fullPath: '/expense-categories'
-      preLoaderRoute: typeof ExpenseCategoriesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/expenses': {
-      id: '/expenses'
-      path: '/expenses'
-      fullPath: '/expenses'
-      preLoaderRoute: typeof ExpensesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/forbidden': {
-      id: '/forbidden'
-      path: '/forbidden'
-      fullPath: '/forbidden'
-      preLoaderRoute: typeof ForbiddenRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/login': {
-      id: '/login'
-      path: '/login'
-      fullPath: '/login'
-      preLoaderRoute: typeof LoginRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/material-catalogs': {
-      id: '/material-catalogs'
-      path: '/material-catalogs'
-      fullPath: '/material-catalogs'
-      preLoaderRoute: typeof MaterialCatalogsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/payments': {
-      id: '/payments'
-      path: '/payments'
-      fullPath: '/payments'
-      preLoaderRoute: typeof PaymentsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/receivables': {
-      id: '/receivables'
-      path: '/receivables'
-      fullPath: '/receivables'
-      preLoaderRoute: typeof ReceivablesRouteImport
+    '/users': {
+      id: '/users'
+      path: '/users'
+      fullPath: '/users'
+      preLoaderRoute: typeof UsersRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/reports': {
@@ -427,25 +350,88 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ReportsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/users': {
-      id: '/users'
-      path: '/users'
-      fullPath: '/users'
-      preLoaderRoute: typeof UsersRouteImport
+    '/receivables': {
+      id: '/receivables'
+      path: '/receivables'
+      fullPath: '/receivables'
+      preLoaderRoute: typeof ReceivablesRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/orders/': {
-      id: '/orders/'
-      path: '/orders'
-      fullPath: '/orders/'
-      preLoaderRoute: typeof OrdersIndexRouteImport
+    '/payments': {
+      id: '/payments'
+      path: '/payments'
+      fullPath: '/payments'
+      preLoaderRoute: typeof PaymentsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/orders/$orderId': {
-      id: '/orders/$orderId'
-      path: '/orders/$orderId'
-      fullPath: '/orders/$orderId'
-      preLoaderRoute: typeof OrdersOrderIdRouteImport
+    '/material-catalogs': {
+      id: '/material-catalogs'
+      path: '/material-catalogs'
+      fullPath: '/material-catalogs'
+      preLoaderRoute: typeof MaterialCatalogsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/forbidden': {
+      id: '/forbidden'
+      path: '/forbidden'
+      fullPath: '/forbidden'
+      preLoaderRoute: typeof ForbiddenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/expenses': {
+      id: '/expenses'
+      path: '/expenses'
+      fullPath: '/expenses'
+      preLoaderRoute: typeof ExpensesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/expense-categories': {
+      id: '/expense-categories'
+      path: '/expense-categories'
+      fullPath: '/expense-categories'
+      preLoaderRoute: typeof ExpenseCategoriesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/customers': {
+      id: '/customers'
+      path: '/customers'
+      fullPath: '/customers'
+      preLoaderRoute: typeof CustomersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/categories': {
+      id: '/categories'
+      path: '/categories'
+      fullPath: '/categories'
+      preLoaderRoute: typeof CategoriesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/batch-pos': {
+      id: '/batch-pos'
+      path: '/batch-pos'
+      fullPath: '/batch-pos'
+      preLoaderRoute: typeof BatchPosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/bank-accounts': {
+      id: '/bank-accounts'
+      path: '/bank-accounts'
+      fullPath: '/bank-accounts'
+      preLoaderRoute: typeof BankAccountsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/products/': {
@@ -455,25 +441,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProductsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/products/$productId': {
-      id: '/products/$productId'
-      path: '/products/$productId'
-      fullPath: '/products/$productId'
-      preLoaderRoute: typeof ProductsProductIdRouteImport
+    '/orders/': {
+      id: '/orders/'
+      path: '/orders'
+      fullPath: '/orders/'
+      preLoaderRoute: typeof OrdersIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/reports/accounting': {
-      id: '/reports/accounting'
-      path: '/accounting'
-      fullPath: '/reports/accounting'
-      preLoaderRoute: typeof ReportsAccountingRouteImport
-      parentRoute: typeof ReportsRoute
-    }
-    '/reports/daily': {
-      id: '/reports/daily'
-      path: '/daily'
-      fullPath: '/reports/daily'
-      preLoaderRoute: typeof ReportsDailyRouteImport
+    '/reports/production': {
+      id: '/reports/production'
+      path: '/production'
+      fullPath: '/reports/production'
+      preLoaderRoute: typeof ReportsProductionRouteImport
       parentRoute: typeof ReportsRoute
     }
     '/reports/po-summary': {
@@ -483,12 +462,33 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ReportsPoSummaryRouteImport
       parentRoute: typeof ReportsRoute
     }
-    '/reports/production': {
-      id: '/reports/production'
-      path: '/production'
-      fullPath: '/reports/production'
-      preLoaderRoute: typeof ReportsProductionRouteImport
+    '/reports/daily': {
+      id: '/reports/daily'
+      path: '/daily'
+      fullPath: '/reports/daily'
+      preLoaderRoute: typeof ReportsDailyRouteImport
       parentRoute: typeof ReportsRoute
+    }
+    '/reports/accounting': {
+      id: '/reports/accounting'
+      path: '/accounting'
+      fullPath: '/reports/accounting'
+      preLoaderRoute: typeof ReportsAccountingRouteImport
+      parentRoute: typeof ReportsRoute
+    }
+    '/products/$productId': {
+      id: '/products/$productId'
+      path: '/products/$productId'
+      fullPath: '/products/$productId'
+      preLoaderRoute: typeof ProductsProductIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/orders/$orderId': {
+      id: '/orders/$orderId'
+      path: '/orders/$orderId'
+      fullPath: '/orders/$orderId'
+      preLoaderRoute: typeof OrdersOrderIdRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/reports/po-summary/': {
       id: '/reports/po-summary/'
