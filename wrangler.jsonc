@@ -5,7 +5,7 @@
   "compatibility_flags": [
     "nodejs_compat"
   ],
-  "main": "dist/server/index.js", // atau dist/index.js (sesuai output vite)
+  "main": "dist/server/server.js",
   "assets": {
     "directory": "dist/client"
   }
