@@ -1,13 +1,12 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "sikon-dashboard",
-  "compatibility_date": "2025-09-24",
+  "compatibility_date": "2026-01-01",
   "compatibility_flags": [
     "nodejs_compat"
   ],
-  "main": "src/server.ts",
-  "alias": {
-    "#tanstack-router-entry": "./src/router.tsx",
-    "#tanstack-start-entry": "./src/start.ts"
+  "main": ".output/server/index.mjs",
+  "assets": {
+    "directory": ".output/public"
   }
 }
