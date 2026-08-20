@@ -55,6 +55,12 @@ export async function apiRequest<T>(
     skipAuth?: boolean;
   } = {},
 ): Promise<T> {
+  // Guard: never make API calls during SSR — no auth token is available on the server,
+  // and outbound fetch failures cause h3 to swallow the error as HTTPError 500.
+  if (typeof window === "undefined") {
+    throw new Error(`SSR: apiRequest called on server for ${path}. Use 'enabled: typeof window !== "undefined"' in useQuery to prevent this.`);
+  }
+
   const { method = "GET", query, body, headers, skipAuth = false } = opts;
 
   // Auto-inject Authorization header from auth store

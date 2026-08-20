@@ -19,6 +19,7 @@ import type { ProductionReportResponse } from "./types/production-report";
 import type { ExpenseCategory, Expense } from "./types/expense";
 import type { DailyReportResponse } from "./types/daily-report";
 import type { POSummaryResponse } from "./types/po-summary";
+import type { AnnualTaxReportResponse } from "./types/tax-report";
 
 // Auth
 export interface LoginResponse {
@@ -288,6 +289,16 @@ export const accountingReportService = {
       start_date: startDate,
       end_date: endDate,
     }),
+};
+
+// Tax Report
+export const taxReportService = {
+  /**
+   * Fetch annual tax estimation report from /reports/tax-annual.
+   * `year` is YYYY (e.g. 2026).
+   */
+  getAnnual: (year: number) =>
+    api.get<AnnualTaxReportResponse>("/reports/tax-annual", { year }),
 };
 
 // Production Report
