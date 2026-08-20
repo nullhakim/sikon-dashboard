@@ -14,6 +14,8 @@ export interface DashboardOverviewActiveBatchPO {
   name?: string;
   status?: string;
   quota?: number;
+  total_qty_ordered?: number;
+  remaining_quota?: number;
   used_quota?: number;
   current_qty?: number;
   filled_quota?: number;

@@ -144,12 +144,15 @@ function Dashboard() {
 
   // Active PO calculations
   const poUsed =
+    activeBatchPO?.total_qty_ordered ??
     activeBatchPO?.used_quota ??
     activeBatchPO?.current_qty ??
     activeBatchPO?.filled_quota ??
     activeBatchPO?.orders_count ??
     0;
   const poQuota = activeBatchPO?.quota ?? 0;
+  const poRemaining =
+    activeBatchPO?.remaining_quota ?? Math.max(0, poQuota - poUsed);
   const poProgressPct =
     poQuota > 0 ? Math.min(100, Math.round((poUsed / poQuota) * 100)) : 0;
 
@@ -312,9 +315,9 @@ function Dashboard() {
                     </p>
                     <div className="mt-2 space-y-1">
                       <Progress value={poProgressPct} className="h-1.5" />
-                      <div className="flex justify-between text-[10px] text-muted-foreground">
-                        <span>Kuota PO Aktif</span>
-                        <span>{poUsed.toLocaleString("id-ID")} / {poQuota.toLocaleString("id-ID")} Pcs</span>
+                      <div className="flex justify-between text-[10px] text-muted-foreground font-medium">
+                        <span>Terpesan: {poUsed.toLocaleString("id-ID")} Pcs</span>
+                        <span>Sisa Quota: {poRemaining.toLocaleString("id-ID")} Pcs</span>
                       </div>
                     </div>
                   </>
