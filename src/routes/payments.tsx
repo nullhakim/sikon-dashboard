@@ -48,6 +48,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Pagination } from "@/components/ui/pagination-custom";
 
 import { paymentsService, ordersService, bankAccountsService } from "@/lib/services";
 import { formatIDR, formatDateISO, datetimeLocalToISO, formatDate } from "@/lib/format";
@@ -725,27 +726,14 @@ function PaymentsPage() {
       </Card>
 
       {/* Pagination */}
-      <div className="flex items-center justify-end gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={searchParams.page <= 1}
-          onClick={() => navigate({ search: (prev) => ({ ...prev, page: Math.max(1, prev.page - 1) }) })}
-        >
-          <ChevronLeft className="h-4 w-4" />
-        </Button>
-        <span className="text-sm text-muted-foreground">
-          Page {searchParams.page} of {totalPage}
-        </span>
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={searchParams.page >= totalPage}
-          onClick={() => navigate({ search: (prev) => ({ ...prev, page: prev.page + 1 }) })}
-        >
-          <ChevronRight className="h-4 w-4" />
-        </Button>
-      </div>
+      <Pagination
+        page={searchParams.page}
+        limit={searchParams.limit || 10}
+        totalData={data?.paging?.total_data ?? payments.length}
+        totalPage={totalPage}
+        onPageChange={(p) => navigate({ search: (prev) => ({ ...prev, page: p }) })}
+        onLimitChange={(l) => navigate({ search: (prev) => ({ ...prev, limit: l, page: 1 }) })}
+      />
 
       {/* Dialogs */}
       <CreatePaymentDialog open={createOpen} onClose={() => setCreateOpen(false)} />

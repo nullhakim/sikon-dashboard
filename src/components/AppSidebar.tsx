@@ -17,6 +17,7 @@ import {
   CalendarDays,
   FileBarChart,
   Receipt,
+  Banknote,
 } from "lucide-react";
 
 import {
@@ -67,9 +68,12 @@ const transactions: NavItem[] = [
   { title: "Batch PO", url: "/batch-pos", icon: Layers, roles: ["owner", "accounting"] },
   { title: "Payments", url: "/payments", icon: CreditCard, roles: ["owner", "accounting"] },
   { title: "Expenses", url: "/expenses", icon: Wallet, roles: ["owner", "accounting"] },
+  { title: "Work Logs", url: "/work-logs", icon: ClipboardList, roles: ["owner", "accounting"] },
+  { title: "Payrolls", url: "/payrolls", icon: Banknote, roles: ["owner", "accounting"] },
 ];
 
 const people: NavItem[] = [
+  { title: "Workers", url: "/workers", icon: Users, roles: ["owner", "accounting"] },
   { title: "Customers", url: "/customers", icon: Users },
   { title: "Users & Sales", url: "/users", icon: UserCog, roles: ["owner"] },
 ];
