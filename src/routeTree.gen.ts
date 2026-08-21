@@ -20,9 +20,12 @@ import { Route as ForbiddenRouteImport } from './routes/forbidden'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as MaterialCatalogsRouteImport } from './routes/material-catalogs'
 import { Route as PaymentsRouteImport } from './routes/payments'
+import { Route as PayrollsRouteImport } from './routes/payrolls'
 import { Route as ReceivablesRouteImport } from './routes/receivables'
 import { Route as ReportsRouteImport } from './routes/reports'
 import { Route as UsersRouteImport } from './routes/users'
+import { Route as WorkLogsRouteImport } from './routes/work-logs'
+import { Route as WorkersRouteImport } from './routes/workers'
 import { Route as OrdersIndexRouteImport } from './routes/orders.index'
 import { Route as OrdersOrderIdRouteImport } from './routes/orders.$orderId'
 import { Route as ProductsIndexRouteImport } from './routes/products.index'
@@ -89,6 +92,11 @@ const PaymentsRoute = PaymentsRouteImport.update({
   path: '/payments',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PayrollsRoute = PayrollsRouteImport.update({
+  id: '/payrolls',
+  path: '/payrolls',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ReceivablesRoute = ReceivablesRouteImport.update({
   id: '/receivables',
   path: '/receivables',
@@ -102,6 +110,16 @@ const ReportsRoute = ReportsRouteImport.update({
 const UsersRoute = UsersRouteImport.update({
   id: '/users',
   path: '/users',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const WorkLogsRoute = WorkLogsRouteImport.update({
+  id: '/work-logs',
+  path: '/work-logs',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const WorkersRoute = WorkersRouteImport.update({
+  id: '/workers',
+  path: '/workers',
   getParentRoute: () => rootRouteImport,
 } as any)
 const OrdersIndexRoute = OrdersIndexRouteImport.update({
@@ -167,9 +185,12 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/material-catalogs': typeof MaterialCatalogsRoute
   '/payments': typeof PaymentsRoute
+  '/payrolls': typeof PayrollsRoute
   '/receivables': typeof ReceivablesRoute
   '/reports': typeof ReportsRouteWithChildren
   '/users': typeof UsersRoute
+  '/work-logs': typeof WorkLogsRoute
+  '/workers': typeof WorkersRoute
   '/orders/$orderId': typeof OrdersOrderIdRoute
   '/products/$productId': typeof ProductsProductIdRoute
   '/reports/accounting': typeof ReportsAccountingRoute
@@ -193,9 +214,12 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/material-catalogs': typeof MaterialCatalogsRoute
   '/payments': typeof PaymentsRoute
+  '/payrolls': typeof PayrollsRoute
   '/receivables': typeof ReceivablesRoute
   '/reports': typeof ReportsRouteWithChildren
   '/users': typeof UsersRoute
+  '/work-logs': typeof WorkLogsRoute
+  '/workers': typeof WorkersRoute
   '/orders/$orderId': typeof OrdersOrderIdRoute
   '/products/$productId': typeof ProductsProductIdRoute
   '/reports/accounting': typeof ReportsAccountingRoute
@@ -219,9 +243,12 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/material-catalogs': typeof MaterialCatalogsRoute
   '/payments': typeof PaymentsRoute
+  '/payrolls': typeof PayrollsRoute
   '/receivables': typeof ReceivablesRoute
   '/reports': typeof ReportsRouteWithChildren
   '/users': typeof UsersRoute
+  '/work-logs': typeof WorkLogsRoute
+  '/workers': typeof WorkersRoute
   '/orders/$orderId': typeof OrdersOrderIdRoute
   '/products/$productId': typeof ProductsProductIdRoute
   '/reports/accounting': typeof ReportsAccountingRoute
@@ -247,9 +274,12 @@ export interface FileRouteTypes {
     | '/login'
     | '/material-catalogs'
     | '/payments'
+    | '/payrolls'
     | '/receivables'
     | '/reports'
     | '/users'
+    | '/work-logs'
+    | '/workers'
     | '/orders/$orderId'
     | '/products/$productId'
     | '/reports/accounting'
@@ -273,9 +303,12 @@ export interface FileRouteTypes {
     | '/login'
     | '/material-catalogs'
     | '/payments'
+    | '/payrolls'
     | '/receivables'
     | '/reports'
     | '/users'
+    | '/work-logs'
+    | '/workers'
     | '/orders/$orderId'
     | '/products/$productId'
     | '/reports/accounting'
@@ -298,9 +331,12 @@ export interface FileRouteTypes {
     | '/login'
     | '/material-catalogs'
     | '/payments'
+    | '/payrolls'
     | '/receivables'
     | '/reports'
     | '/users'
+    | '/work-logs'
+    | '/workers'
     | '/orders/$orderId'
     | '/products/$productId'
     | '/reports/accounting'
@@ -325,9 +361,12 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   MaterialCatalogsRoute: typeof MaterialCatalogsRoute
   PaymentsRoute: typeof PaymentsRoute
+  PayrollsRoute: typeof PayrollsRoute
   ReceivablesRoute: typeof ReceivablesRoute
   ReportsRoute: typeof ReportsRouteWithChildren
   UsersRoute: typeof UsersRoute
+  WorkLogsRoute: typeof WorkLogsRoute
+  WorkersRoute: typeof WorkersRoute
   OrdersOrderIdRoute: typeof OrdersOrderIdRoute
   ProductsProductIdRoute: typeof ProductsProductIdRoute
   OrdersIndexRoute: typeof OrdersIndexRoute
@@ -413,6 +452,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PaymentsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/payrolls': {
+      id: '/payrolls'
+      path: '/payrolls'
+      fullPath: '/payrolls'
+      preLoaderRoute: typeof PayrollsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/receivables': {
       id: '/receivables'
       path: '/receivables'
@@ -432,6 +478,20 @@ declare module '@tanstack/react-router' {
       path: '/users'
       fullPath: '/users'
       preLoaderRoute: typeof UsersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/work-logs': {
+      id: '/work-logs'
+      path: '/work-logs'
+      fullPath: '/work-logs'
+      preLoaderRoute: typeof WorkLogsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/workers': {
+      id: '/workers'
+      path: '/workers'
+      fullPath: '/workers'
+      preLoaderRoute: typeof WorkersRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/orders/': {
@@ -549,9 +609,12 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   MaterialCatalogsRoute: MaterialCatalogsRoute,
   PaymentsRoute: PaymentsRoute,
+  PayrollsRoute: PayrollsRoute,
   ReceivablesRoute: ReceivablesRoute,
   ReportsRoute: ReportsRouteWithChildren,
   UsersRoute: UsersRoute,
+  WorkLogsRoute: WorkLogsRoute,
+  WorkersRoute: WorkersRoute,
   OrdersOrderIdRoute: OrdersOrderIdRoute,
   ProductsProductIdRoute: ProductsProductIdRoute,
   OrdersIndexRoute: OrdersIndexRoute,

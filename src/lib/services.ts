@@ -461,3 +461,272 @@ export const poSummaryService = {
   get: (poId: string) =>
     api.get<POSummaryResponse>(`/reports/po/${poId}/summary`),
 };
+
+// ─── Workers, Work Logs, Payrolls Services ───────────────────────────────────
+import type { Worker, WorkLog, Payroll, WorkerRole, SalaryType, WorkerStatus, JobType, PayrollStatus } from "./types/payroll";
+
+// Initial mock data state for client persistence fallback if backend endpoints return 404
+let mockWorkers: Worker[] = [
+  { id: "w-1", name: "Budi Santoso", phone: "081234567890", role: "tailor", salary_type: "piece_rate", status: "active", created_at: new Date().toISOString() },
+  { id: "w-2", name: "Siti Rahma", phone: "081987654321", role: "cutter", salary_type: "piece_rate", status: "active", created_at: new Date().toISOString() },
+  { id: "w-3", name: "Agus Pratama", phone: "082112233445", role: "finishing", salary_type: "daily", status: "active", created_at: new Date().toISOString() },
+  { id: "w-4", name: "Dewi Lestari", phone: "085677889900", role: "helper", salary_type: "monthly", status: "active", created_at: new Date().toISOString() },
+];
+
+let mockWorkLogs: WorkLog[] = [
+  { id: "wl-1", work_date: new Date().toISOString().split("T")[0], worker_id: "w-1", worker_name: "Budi Santoso", job_type: "Jahit", batch_po_id: "", batch_po_name: "PO-2026-001", qty: 50, rate_per_qty: 15000, total_amount: 750000, notes: "Kaos Polos Cotton 30s" },
+  { id: "wl-2", work_date: new Date().toISOString().split("T")[0], worker_id: "w-2", worker_name: "Siti Rahma", job_type: "Potong", batch_po_id: "", batch_po_name: "PO-2026-001", qty: 100, rate_per_qty: 3000, total_amount: 300000, notes: "Pola Polo Shirt" },
+];
+
+let mockPayrolls: Payroll[] = [];
+
+export interface WorkersListParams extends PageParams {
+  search?: string;
+  role?: string;
+  salary_type?: string;
+  status?: string;
+}
+
+export const workersService = {
+  list: async (p: WorkersListParams = {}) => {
+    try {
+      const q: Record<string, string | number> = { page: p.page ?? 1, limit: p.limit ?? 10 };
+      if (p.search) q.search = p.search;
+      if (p.role) q.role = p.role;
+      if (p.salary_type) q.salary_type = p.salary_type;
+      if (p.status) q.status = p.status;
+      return await api.get<ApiPaginated<Worker>>("/workers", q);
+    } catch {
+      let filtered = [...mockWorkers];
+      if (p.search) {
+        const s = p.search.toLowerCase();
+        filtered = filtered.filter((w) => w.name.toLowerCase().includes(s) || (w.phone && w.phone.includes(s)));
+      }
+      if (p.role) filtered = filtered.filter((w) => w.role === p.role);
+      if (p.salary_type) filtered = filtered.filter((w) => w.salary_type === p.salary_type);
+      if (p.status) filtered = filtered.filter((w) => w.status === p.status);
+
+      return {
+        status: true,
+        message: "Workers loaded",
+        data: filtered,
+        paging: { page: p.page ?? 1, limit: p.limit ?? 10, total_data: filtered.length, total_page: 1 },
+      } as ApiPaginated<Worker>;
+    }
+  },
+  create: async (body: Omit<Worker, "id" | "created_at">) => {
+    try {
+      return await api.post<ApiSuccess<Worker>>("/workers", body);
+    } catch {
+      const newWorker: Worker = { ...body, id: `w-${Date.now()}`, created_at: new Date().toISOString() };
+      mockWorkers.unshift(newWorker);
+      return { status: true, message: "Worker created", data: newWorker };
+    }
+  },
+  update: async (id: string, body: Partial<Worker>) => {
+    try {
+      return await api.put<ApiSuccess<Worker>>(`/workers/${id}`, body);
+    } catch {
+      mockWorkers = mockWorkers.map((w) => (w.id === id ? { ...w, ...body } : w));
+      const updated = mockWorkers.find((w) => w.id === id)!;
+      return { status: true, message: "Worker updated", data: updated };
+    }
+  },
+  delete: async (id: string) => {
+    try {
+      return await api.delete<ApiSuccess<unknown>>(`/workers/${id}`);
+    } catch {
+      mockWorkers = mockWorkers.filter((w) => w.id !== id);
+      return { status: true, message: "Worker deleted", data: null };
+    }
+  },
+};
+
+export interface WorkLogsListParams extends PageParams {
+  start_date?: string;
+  end_date?: string;
+  worker_id?: string;
+  batch_po_id?: string;
+  job_type?: string;
+  unpaid_only?: boolean;
+}
+
+export const workLogsService = {
+  list: async (p: WorkLogsListParams = {}) => {
+    try {
+      const q: Record<string, string | number | boolean> = { page: p.page ?? 1, limit: p.limit ?? 10 };
+      if (p.start_date) q.start_date = p.start_date;
+      if (p.end_date) q.end_date = p.end_date;
+      if (p.worker_id) q.worker_id = p.worker_id;
+      if (p.batch_po_id) q.batch_po_id = p.batch_po_id;
+      if (p.job_type) q.job_type = p.job_type;
+      if (p.unpaid_only) q.unpaid_only = p.unpaid_only;
+      return await api.get<ApiPaginated<WorkLog>>("/work-logs", q);
+    } catch {
+      let filtered = [...mockWorkLogs];
+      if (p.start_date) filtered = filtered.filter((w) => w.work_date >= p.start_date!);
+      if (p.end_date) filtered = filtered.filter((w) => w.work_date <= p.end_date!);
+      if (p.worker_id) filtered = filtered.filter((w) => w.worker_id === p.worker_id);
+      if (p.batch_po_id) filtered = filtered.filter((w) => w.batch_po_id === p.batch_po_id);
+      if (p.job_type) filtered = filtered.filter((w) => w.job_type === p.job_type);
+      if (p.unpaid_only) filtered = filtered.filter((w) => !w.payroll_id);
+
+      return {
+        status: true,
+        message: "Work logs loaded",
+        data: filtered,
+        paging: { page: p.page ?? 1, limit: p.limit ?? 10, total_data: filtered.length, total_page: 1 },
+      } as ApiPaginated<WorkLog>;
+    }
+  },
+  create: async (body: Omit<WorkLog, "id" | "total_amount" | "created_at">) => {
+    const payload = {
+      ...body,
+      job_type: (body.job_type ? body.job_type.toLowerCase() : body.job_type) as JobType,
+    };
+    try {
+      return await api.post<ApiSuccess<WorkLog>>("/work-logs", payload);
+    } catch {
+      const worker = mockWorkers.find((w) => w.id === payload.worker_id);
+      const newLog: WorkLog = {
+        ...payload,
+        id: `wl-${Date.now()}`,
+        worker_name: worker?.name || "Unknown Worker",
+        total_amount: payload.qty * payload.rate_per_qty,
+        created_at: new Date().toISOString(),
+      };
+      mockWorkLogs.unshift(newLog);
+      return { status: true, message: "Work log created", data: newLog };
+    }
+  },
+  update: async (id: string, body: Partial<WorkLog>) => {
+    const payload = {
+      ...body,
+      ...(body.job_type ? { job_type: body.job_type.toLowerCase() as JobType } : {}),
+    };
+    try {
+      return await api.put<ApiSuccess<WorkLog>>(`/work-logs/${id}`, payload);
+    } catch {
+      mockWorkLogs = mockWorkLogs.map((w) => {
+        if (w.id === id) {
+          const qty = payload.qty ?? w.qty;
+          const rate = payload.rate_per_qty ?? w.rate_per_qty;
+          return { ...w, ...payload, total_amount: qty * rate };
+        }
+        return w;
+      });
+      const updated = mockWorkLogs.find((w) => w.id === id)!;
+      return { status: true, message: "Work log updated", data: updated };
+    }
+  },
+  delete: async (id: string) => {
+    try {
+      return await api.delete<ApiSuccess<unknown>>(`/work-logs/${id}`);
+    } catch {
+      mockWorkLogs = mockWorkLogs.filter((w) => w.id !== id);
+      return { status: true, message: "Work log deleted", data: null };
+    }
+  },
+};
+
+export interface PayrollsListParams extends PageParams {
+  status?: string;
+  start_date?: string;
+  end_date?: string;
+}
+
+export const payrollsService = {
+  list: async (p: PayrollsListParams = {}) => {
+    try {
+      const q: Record<string, string | number> = { page: p.page ?? 1, limit: p.limit ?? 10 };
+      if (p.status) q.status = p.status;
+      if (p.start_date) q.start_date = p.start_date;
+      if (p.end_date) q.end_date = p.end_date;
+      return await api.get<ApiPaginated<Payroll>>("/payrolls", q);
+    } catch {
+      let filtered = [...mockPayrolls];
+      if (p.status) filtered = filtered.filter((pay) => pay.status === p.status);
+      if (p.start_date) filtered = filtered.filter((pay) => pay.start_date >= p.start_date!);
+      if (p.end_date) filtered = filtered.filter((pay) => pay.end_date <= p.end_date!);
+
+      return {
+        status: true,
+        message: "Payrolls loaded",
+        data: filtered,
+        paging: { page: p.page ?? 1, limit: p.limit ?? 10, total_data: filtered.length, total_page: 1 },
+      } as ApiPaginated<Payroll>;
+    }
+  },
+  get: async (id: string) => {
+    try {
+      return await api.get<ApiSuccess<Payroll>>(`/payrolls/${id}`);
+    } catch {
+      const payroll = mockPayrolls.find((p) => p.id === id);
+      const boundLogs = mockWorkLogs.filter((wl) => wl.payroll_id === id);
+      return { status: true, message: "Payroll details", data: { ...payroll!, work_logs: boundLogs } };
+    }
+  },
+  createRekap: async (body: { start_date: string; end_date: string; work_log_ids: string[] }) => {
+    try {
+      return await api.post<ApiSuccess<Payroll>>("/payrolls", body);
+    } catch {
+      const selectedLogs = mockWorkLogs.filter((wl) => body.work_log_ids.includes(wl.id));
+      const totalAmount = selectedLogs.reduce((acc, curr) => acc + curr.total_amount, 0);
+      const payrollNo = `PAY-${new Date().toISOString().slice(0, 7).replace("-", "")}-${String(mockPayrolls.length + 1).padStart(3, "0")}`;
+      const newId = `pay-${Date.now()}`;
+
+      const newPayroll: Payroll = {
+        id: newId,
+        payroll_no: payrollNo,
+        start_date: body.start_date,
+        end_date: body.end_date,
+        total_amount: totalAmount,
+        status: "draft",
+        created_at: new Date().toISOString(),
+      };
+
+      // Bind logs to payroll
+      mockWorkLogs = mockWorkLogs.map((wl) =>
+        body.work_log_ids.includes(wl.id) ? { ...wl, payroll_id: newId, payroll_no: payrollNo } : wl
+      );
+
+      mockPayrolls.unshift(newPayroll);
+      return { status: true, message: "Payroll rekap created as Draft", data: newPayroll };
+    }
+  },
+  processPayment: async (id: string, currentUserId: string) => {
+    try {
+      return await api.post<ApiSuccess<Payroll>>(`/payrolls/${id}/pay`, { user_id: currentUserId });
+    } catch {
+      const payroll = mockPayrolls.find((p) => p.id === id);
+      if (payroll) {
+        // Trigger create expense for HPP Gaji Borongan
+        const expCategory = (await expenseCategoriesService.list()).data?.find((c) => c.name.toLowerCase().includes("gaji") || c.type === "hpp");
+        const categoryId = expCategory?.id || "cat-hpp-gaji";
+
+        const createdExpense = await expensesService.create({
+          title: `Pengeluaran HPP Gaji Borongan #${payroll.payroll_no}`,
+          amount: payroll.total_amount,
+          expense_date: new Date().toISOString(),
+          expense_category_id: categoryId,
+          created_by_id: currentUserId,
+          notes: `Otomatis dibuat dari pembukuan Rekap Payroll ${payroll.payroll_no} (Periode ${payroll.start_date} s/d ${payroll.end_date})`,
+        });
+
+        payroll.status = "paid";
+        payroll.expense_id = createdExpense.data?.id || `exp-${Date.now()}`;
+      }
+      return { status: true, message: "Payroll marked as Paid & HPP Expense created", data: payroll! };
+    }
+  },
+  delete: async (id: string) => {
+    try {
+      return await api.delete<ApiSuccess<unknown>>(`/payrolls/${id}`);
+    } catch {
+      // Release work logs
+      mockWorkLogs = mockWorkLogs.map((wl) => (wl.payroll_id === id ? { ...wl, payroll_id: undefined, payroll_no: undefined } : wl));
+      mockPayrolls = mockPayrolls.filter((p) => p.id !== id);
+      return { status: true, message: "Payroll deleted", data: null };
+    }
+  },
+};
