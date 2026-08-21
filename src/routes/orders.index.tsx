@@ -1,13 +1,14 @@
 import { useState, useEffect } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, ChevronLeft, ChevronRight, Trash2, Eye, Pencil, Search, Filter, X, CalendarIcon, FileText, Check, ChevronsUpDown } from "lucide-react";
+import { Plus, ChevronLeft, ChevronRight, Trash2, Eye, Pencil, Search, Filter, X, CalendarIcon, FileText, Check, ChevronsUpDown, Banknote } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { AddPaymentDialog } from "@/components/AddPaymentDialog";
 import {
   Command,
   CommandEmpty,
@@ -1625,15 +1626,22 @@ const paymentBadgeVariant: Record<string, string> = {
   pending: "bg-purple-100 text-purple-800 border-purple-200",
 };
 
-function PaymentStatusBadge({ status }: { status?: string }) {
+function PaymentStatusBadge({ status, onClick }: { status?: string; onClick?: () => void }) {
   if (!status) return <span className="text-muted-foreground text-xs">—</span>;
   const cls = paymentBadgeVariant[status.toLowerCase()] ?? "bg-muted text-foreground border-border";
   return (
-    <span
-      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium capitalize ${cls}`}
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={!onClick}
+      title={onClick ? "+ Record Payment" : undefined}
+      className={cn(
+        `inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium capitalize transition-all ${cls}`,
+        onClick && "hover:ring-2 hover:ring-primary/40 hover:shadow-sm cursor-pointer"
+      )}
     >
       {status}
-    </span>
+    </button>
   );
 }
 
@@ -1655,6 +1663,7 @@ function OrdersPage() {
 
   const [editOrder, setEditOrder] = useState<{ id: string; type: "order" | "quotation" } | null>(null);
   const [createModeOpen, setCreateModeOpen] = useState(false);
+  const [recordPaymentOrder, setRecordPaymentOrder] = useState<import("@/lib/types").Order | null>(null);
 
   // Local input state for debounced search box
   const [searchInput, setSearchInput] = useState(search.search);
@@ -2191,10 +2200,19 @@ function OrdersPage() {
                       {formatIDR(o.total_amount)}
                     </TableCell>
                     <TableCell className="text-center">
-                      <PaymentStatusBadge status={o.payment_status} />
+                      <PaymentStatusBadge status={o.payment_status} onClick={() => setRecordPaymentOrder(o)} />
                     </TableCell>
                     <TableCell>
                       <div className="flex justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+                          title="+ Payment (Record Payment)"
+                          onClick={() => setRecordPaymentOrder(o)}
+                        >
+                          <Banknote className="h-4 w-4" />
+                        </Button>
                         {canEdit && (
                           <Button
                             variant="ghost"
@@ -2266,10 +2284,29 @@ function OrdersPage() {
         type={editOrder?.type ?? "order"}
       />
 
-
       <CreateOrderDialog
         open={createModeOpen}
         onClose={() => setCreateModeOpen(false)}
+      />
+
+      <AddPaymentDialog
+        orderId={recordPaymentOrder?.id ?? null}
+        salesId={recordPaymentOrder?.sales_id}
+        remaining={
+          recordPaymentOrder
+            ? Math.max(
+                0,
+                recordPaymentOrder.total_amount -
+                  (recordPaymentOrder.payments || [])
+                    .filter((p) => (p.status || "").toLowerCase() === "verified")
+                    .reduce((acc, p) => acc + (p.amount || 0), 0)
+              )
+            : 0
+        }
+        currentStatus={recordPaymentOrder?.order_status}
+        orderNumber={recordPaymentOrder?.order_number}
+        open={!!recordPaymentOrder}
+        onClose={() => setRecordPaymentOrder(null)}
       />
     </div>
   );
