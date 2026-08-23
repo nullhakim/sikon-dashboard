@@ -108,7 +108,9 @@ export async function apiRequest<T>(
 
   if (!res.ok) {
     const msg =
-      (payload as { message?: string } | null)?.message ?? `Request failed (${res.status})`;
+      (payload as { error?: string; message?: string } | null)?.error ??
+      (payload as { error?: string; message?: string } | null)?.message ??
+      `Request failed (${res.status})`;
     throw new ApiError(msg, res.status, payload);
   }
 

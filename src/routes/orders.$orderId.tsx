@@ -10,9 +10,13 @@ import {
   Trash2,
   Info,
   Check,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { useAuth } from "@/hooks/use-auth";
+import { AddPaymentDialog } from "@/components/AddPaymentDialog";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -186,214 +190,7 @@ function OrderLifecycleStepper({ currentStatus }: { currentStatus?: string }) {
   );
 }
 
-function AddPaymentDialog({
-  orderId,
-  salesId,
-  remaining,
-  currentStatus,
-  open,
-  onClose,
-}: {
-  orderId: string;
-  salesId?: string | null;
-  remaining: number;
-  currentStatus?: string;
-  open: boolean;
-  onClose: () => void;
-}) {
-  const qc = useQueryClient();
 
-  // Bank accounts scoped to the order's sales user.
-  const bankAccounts = useQuery({
-    queryKey: ["bank-accounts", "user", salesId],
-    queryFn: () => bankAccountsService.byUser(salesId!),
-    enabled: open && !!salesId,
-  });
-
-  const globalBankAccounts = useQuery({
-    queryKey: ["bank-accounts", "global"],
-    queryFn: () => bankAccountsService.global(),
-    enabled: open,
-  });
-
-  const [bankAccountId, setBankAccountId] = useState("");
-  const [amount, setAmount] = useState<number | "">("");
-  const [paymentType, setPaymentType] = useState("");
-  const [referenceNumber, setReferenceNumber] = useState("");
-  const [paymentDate, setPaymentDate] = useState("");
-
-  useEffect(() => {
-    if (!open) {
-      setBankAccountId("");
-      setAmount("");
-      setPaymentType("");
-      setReferenceNumber("");
-      setPaymentDate("");
-    }
-  }, [open]);
-
-  const createMut = useMutation({
-    mutationFn: async () => {
-      await paymentsService.create({
-        order_id: orderId,
-        bank_account_id: bankAccountId,
-        amount: Number(amount),
-        payment_type: paymentType,
-        reference_number: referenceNumber,
-        payment_date: datetimeLocalToISO(paymentDate),
-      });
-      if (currentStatus === "quotation" && (paymentType === "dp" || paymentType === "settlement")) {
-        try {
-          await ordersService.updateStatus(orderId, "pending");
-          toast.success("Order automatically moved to pending");
-        } catch (e) {
-          // ignore
-        }
-      }
-    },
-    onSuccess: () => {
-      toast.success("Payment recorded");
-      qc.invalidateQueries({ queryKey: ["order-payments", orderId] });
-      qc.invalidateQueries({ queryKey: ["order", orderId] });
-      qc.invalidateQueries({ queryKey: ["orders"] });
-      qc.invalidateQueries({ queryKey: ["payments"] });
-      onClose();
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!bankAccountId) return toast.error("Select a sales bank account");
-    if (!amount || Number(amount) <= 0) return toast.error("Enter a valid amount");
-    if (!paymentType) return toast.error("Choose a payment type");
-    if (!referenceNumber.trim()) return toast.error("Enter a reference number");
-    createMut.mutate();
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={(v) => (v ? null : onClose())}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>Add Payment</DialogTitle>
-          <DialogDescription>
-            Record a DP, settlement, or installment payment for this order.
-            {remaining > 0 && (
-              <span className="block mt-1 text-foreground">
-                Outstanding balance: <strong>{formatIDR(remaining)}</strong>
-              </span>
-            )}
-          </DialogDescription>
-        </DialogHeader>
-
-        <form id="add-payment-form" onSubmit={handleSubmit} className="space-y-4 py-2">
-          <div className="space-y-2">
-            <Label>Bank Account (Sales)</Label>
-            <Select
-              value={bankAccountId}
-              onValueChange={setBankAccountId}
-              disabled={(bankAccounts.isLoading || globalBankAccounts.isLoading)}
-            >
-              <SelectTrigger>
-                <SelectValue
-                  placeholder={
-                    bankAccounts.isLoading || globalBankAccounts.isLoading
-                      ? "Loading…"
-                      : "Select bank account"
-                  }
-                />
-              </SelectTrigger>
-              <SelectContent>
-                {globalBankAccounts.data?.data && globalBankAccounts.data.data.length > 0 && (
-                  <SelectGroup>
-                    <SelectLabel>Global / Perusahaan</SelectLabel>
-                    {globalBankAccounts.data.data.map((ba) => (
-                      <SelectItem key={ba.id} value={ba.id}>
-                        {ba.bank_name} — {ba.account_number} ({ba.account_name})
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                )}
-                {bankAccounts.data?.data && bankAccounts.data.data.length > 0 && (
-                  <SelectGroup>
-                    <SelectLabel>Sales</SelectLabel>
-                    {bankAccounts.data.data.map((ba) => (
-                      <SelectItem key={ba.id} value={ba.id}>
-                        {ba.bank_name} — {ba.account_number} ({ba.account_name})
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                )}
-                {(!globalBankAccounts.data?.data || globalBankAccounts.data.data.length === 0) &&
-                 (!bankAccounts.data?.data || bankAccounts.data.data.length === 0) && (
-                  <div className="px-3 py-2 text-xs text-muted-foreground">
-                    No bank accounts available.
-                  </div>
-                )}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label>Amount</Label>
-              <Input
-                type="number"
-                min={1}
-                placeholder="0"
-                value={amount}
-                onChange={(e) => setAmount(Number(e.target.value))}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Payment Type</Label>
-              <Select value={paymentType} onValueChange={setPaymentType}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select type" />
-                </SelectTrigger>
-                <SelectContent>
-                  {paymentTypeList.map((t) => (
-                    <SelectItem key={t} value={t}>
-                      {t.toUpperCase()}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label>Reference Number</Label>
-              <Input
-                placeholder="TRX-0987654321"
-                value={referenceNumber}
-                onChange={(e) => setReferenceNumber(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Payment Date</Label>
-              <Input
-                type="datetime-local"
-                value={paymentDate}
-                onChange={(e) => setPaymentDate(e.target.value)}
-              />
-            </div>
-          </div>
-        </form>
-
-        <DialogFooter>
-          <Button type="button" variant="outline" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button type="submit" form="add-payment-form" disabled={createMut.isPending}>
-            {createMut.isPending ? "Saving…" : "Save Payment"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
 
 function UpdateShippingDialog({
   order,
@@ -1145,6 +942,7 @@ function OrderDetailPage() {
   const [quotationOpen, setQuotationOpen] = useState(false);
   const [itemOpen, setItemOpen] = useState(false);
   const [editItem, setEditItem] = useState<any>(null);
+  const { canVerifyPayment } = useAuth();
   const [updateQuotationOpen, setUpdateQuotationOpen] = useState(false);
   const [kwitansiOpen, setKwitansiOpen] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState<any>(null);
@@ -1154,6 +952,23 @@ function OrderDetailPage() {
   const [useGlobalBank, setUseGlobalBank] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+
+  const verifyPaymentMut = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: "verified" | "rejected" }) =>
+      paymentsService.verify(id, status),
+    onSuccess: (_, variables) => {
+      toast.success(
+        variables.status === "verified"
+          ? "Pembayaran berhasil diverifikasi"
+          : "Pembayaran telah ditolak"
+      );
+      qc.invalidateQueries({ queryKey: ["order-payments", orderId] });
+      qc.invalidateQueries({ queryKey: ["order", orderId] });
+      qc.invalidateQueries({ queryKey: ["orders"] });
+      qc.invalidateQueries({ queryKey: ["payments"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
 
   const orderQ = useQuery({
     queryKey: ["order", orderId],
@@ -1635,7 +1450,69 @@ function OrderDetailPage() {
                           {formatIDR(p.amount)}
                         </TableCell>
                         <TableCell>
-                          <div className="flex justify-end gap-1">
+                          <div className="flex justify-end gap-1.5 items-center">
+                            {canVerifyPayment && (p.status || "pending").toLowerCase() === "pending" && (
+                              <>
+                                <Popover>
+                                  <PopoverTrigger asChild>
+                                    <Button
+                                      size="sm"
+                                      className="h-7 px-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium gap-1 shadow-xs"
+                                      title="Setujui Pembayaran"
+                                    >
+                                      <Check className="h-3.5 w-3.5" /> Approve
+                                    </Button>
+                                  </PopoverTrigger>
+                                  <PopoverContent className="w-64 p-3 space-y-2" align="end">
+                                    <p className="text-xs font-semibold text-emerald-800">Setujui Pembayaran?</p>
+                                    <p className="text-xs text-muted-foreground">
+                                      Verifikasi pembayaran <strong>{formatIDR(p.amount)}</strong> untuk pesanan ini.
+                                    </p>
+                                    <div className="flex justify-end gap-2 pt-1">
+                                      <Button
+                                        size="sm"
+                                        className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
+                                        onClick={() => verifyPaymentMut.mutate({ id: p.id, status: "verified" })}
+                                        disabled={verifyPaymentMut.isPending}
+                                      >
+                                        {verifyPaymentMut.isPending ? "Proses..." : "Ya, Setujui"}
+                                      </Button>
+                                    </div>
+                                  </PopoverContent>
+                                </Popover>
+
+                                <Popover>
+                                  <PopoverTrigger asChild>
+                                    <Button
+                                      size="sm"
+                                      variant="destructive"
+                                      className="h-7 px-2.5 text-xs font-medium gap-1 shadow-xs"
+                                      title="Tolak Pembayaran"
+                                    >
+                                      <X className="h-3.5 w-3.5" /> Reject
+                                    </Button>
+                                  </PopoverTrigger>
+                                  <PopoverContent className="w-64 p-3 space-y-2" align="end">
+                                    <p className="text-xs font-semibold text-destructive">Tolak Pembayaran?</p>
+                                    <p className="text-xs text-muted-foreground">
+                                      Tolak pembayaran <strong>{formatIDR(p.amount)}</strong> ini?
+                                    </p>
+                                    <div className="flex justify-end gap-2 pt-1">
+                                      <Button
+                                        size="sm"
+                                        variant="destructive"
+                                        className="h-7 text-xs"
+                                        onClick={() => verifyPaymentMut.mutate({ id: p.id, status: "rejected" })}
+                                        disabled={verifyPaymentMut.isPending}
+                                      >
+                                        {verifyPaymentMut.isPending ? "Proses..." : "Ya, Tolak"}
+                                      </Button>
+                                    </div>
+                                  </PopoverContent>
+                                </Popover>
+                              </>
+                            )}
+
                             <Button
                               variant="ghost"
                               size="icon"
@@ -1918,6 +1795,15 @@ function OrderDetailPage() {
         payments={payments}
       />
 
+      <AddPaymentDialog
+        orderId={orderId}
+        salesId={salesId}
+        remaining={remaining}
+        currentStatus={order?.order_status}
+        orderNumber={order?.order_number}
+        open={payOpen}
+        onClose={() => setPayOpen(false)}
+      />
     </div>
   );
 }

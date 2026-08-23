@@ -229,6 +229,7 @@ export const ordersService = {
 export interface PaymentsListParams extends PageParams {
   search?: string;
   payment_type?: string;
+  status?: string;
   start_date?: string;
   end_date?: string;
 }
@@ -241,6 +242,7 @@ export const paymentsService = {
     };
     if (p.search) q.search = p.search;
     if (p.payment_type) q.payment_type = p.payment_type;
+    if (p.status) q.status = p.status;
     if (p.start_date) q.start_date = p.start_date;
     if (p.end_date) q.end_date = p.end_date;
     return api.get<ApiPaginated<Payment>>("/payments", q);

@@ -37,6 +37,9 @@ import { Badge } from "@/components/ui/badge";
 import { useAuthStore } from "@/lib/auth-store";
 import type { UserRole } from "@/lib/types/auth";
 
+import { useQuery } from "@tanstack/react-query";
+import { paymentsService } from "@/lib/services";
+
 // ─── Role badge config ─────────────────────────────────────────────────────────
 
 const ROLE_BADGE: Record<UserRole, { label: string; className: string }> = {
@@ -93,6 +96,16 @@ export function AppSidebar() {
   const { user } = useAuthStore();
   const role = user?.role as UserRole | undefined;
 
+  const paymentsQ = useQuery({
+    queryKey: ["payments", "sidebar-pending-count"],
+    queryFn: () => paymentsService.list({ limit: 100 }),
+    enabled: role === "owner" || role === "accounting",
+  });
+
+  const pendingCount = (paymentsQ.data?.data ?? []).filter(
+    (p) => (p.status || "pending").toLowerCase() === "pending"
+  ).length;
+
   const isActive = (url: string) => {
     if (url === "/") return pathname === "/";
     if (url === "/reports") return pathname === "/reports" || pathname === "/reports/";
@@ -116,9 +129,16 @@ export function AppSidebar() {
             {visible.map((item) => (
               <SidebarMenuItem key={item.url}>
                 <SidebarMenuButton asChild isActive={isActive(item.url)}>
-                  <Link to={item.url} className="flex items-center gap-2">
-                    <item.icon className="h-4 w-4" />
-                    <span>{item.title}</span>
+                  <Link to={item.url} className="flex items-center gap-2 w-full justify-between">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <item.icon className="h-4 w-4 shrink-0" />
+                      <span className="truncate">{item.title}</span>
+                    </div>
+                    {item.url === "/payments" && pendingCount > 0 && (
+                      <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-600 px-1 text-[10px] font-bold text-white leading-none shrink-0">
+                        {pendingCount}
+                      </span>
+                    )}
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
