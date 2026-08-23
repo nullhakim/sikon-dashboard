@@ -42,3 +42,37 @@ export function datetimeLocalToISO(value: string | undefined | null): string | u
   if (Number.isNaN(d.getTime())) return undefined;
   return d.toISOString().replace(/\.\d{3}Z$/, "Z");
 }
+
+export function translateOrderErrorMessage(msg?: string): string {
+  if (!msg) return "Gagal memperbarui status pesanan";
+  const lower = msg.toLowerCase();
+
+  if (
+    lower.includes("minimum deposit") ||
+    lower.includes("dp payment required") ||
+    lower.includes("minimum dp") ||
+    lower.includes("deposit (dp)")
+  ) {
+    return "Tidak dapat memproses ke antrean: Diperlukan pembayaran uang muka (DP) minimal.";
+  }
+  if (
+    lower.includes("remaining balance must be fully paid") ||
+    lower.includes("must be fully paid")
+  ) {
+    return "Tidak dapat menyelesaikan pesanan: Sisa tagihan harus dilunasi sebelum pengiriman.";
+  }
+  if (
+    lower.includes("invalid status transition") ||
+    lower.includes("cannot be updated") ||
+    lower.includes("invalid transition")
+  ) {
+    return "Perubahan status pesanan tidak valid.";
+  }
+  if (lower.includes("already canceled") || lower.includes("already cancelled")) {
+    return "Pesanan ini sudah dibatalkan.";
+  }
+  if (lower.includes("already completed")) {
+    return "Pesanan ini sudah selesai.";
+  }
+  return msg;
+}

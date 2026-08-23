@@ -62,7 +62,7 @@ import {
   productsService,
   specTemplatesService,
 } from "@/lib/services";
-import { formatIDR, formatDate, formatDateISO, datetimeLocalToISO } from "@/lib/format";
+import { formatIDR, formatDate, formatDateISO, datetimeLocalToISO, translateOrderErrorMessage } from "@/lib/format";
 import { generateInvoicePDF, generateKwitansiPDF } from "@/lib/invoice";
 import { printSpkSuratJalan } from "@/lib/quotation";
 import { QuotationPdfDialog } from "@/components/QuotationPdfDialog";
@@ -1009,20 +1009,23 @@ function OrderDetailPage() {
   const statusMut = useMutation({
     mutationFn: (status: string) => ordersService.updateStatus(orderId, status as import("@/lib/types").OrderStatus),
     onSuccess: () => {
-      toast.success("Order status updated");
+      toast.success("Status pesanan berhasil diperbarui");
       qc.invalidateQueries({ queryKey: ["order", orderId] });
       qc.invalidateQueries({ queryKey: ["orders"] });
     },
-    onError: (e: any) => toast.error(e?.payload?.error || e.message),
+    onError: (e: any) => {
+      const rawMsg = e?.response?.data?.error || e?.payload?.error || e?.response?.data?.message || e?.message;
+      toast.error(translateOrderErrorMessage(rawMsg));
+    },
   });
 
   const handleTransition = (targetStatus: string) => {
     if (!order) return;
     if (targetStatus === "pending" && order.payment_status === "unpaid") {
-      return toast.error("Cannot process to queue: Minimum deposit (DP) payment required.");
+      return toast.error("Tidak dapat memproses ke antrean: Diperlukan pembayaran uang muka (DP) minimal.");
     }
     if (targetStatus === "completed" && order.payment_status !== "paid") {
-      return toast.error("Cannot complete order: Remaining balance must be fully paid before delivery.");
+      return toast.error("Tidak dapat menyelesaikan pesanan: Sisa tagihan harus dilunasi sebelum pengiriman.");
     }
     statusMut.mutate(targetStatus);
   };

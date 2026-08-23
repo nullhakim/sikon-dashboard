@@ -27,8 +27,13 @@ import { Label } from "@/components/ui/label";
 import { bankAccountsService, ordersService, paymentsService } from "@/lib/services";
 import { datetimeLocalToISO, formatIDR, isoToDatetimeLocal } from "@/lib/format";
 import { CurrencyInput } from "@/components/CurrencyInput";
+import { useLanguage } from "@/lib/language-context";
 
-const paymentTypeList = ["dp", "settlement", "installment"] as const;
+const paymentTypeOptions: { value: string; labelId: string; labelEn: string }[] = [
+  { value: "dp", labelId: "DP (Uang Muka)", labelEn: "DP (Down Payment)" },
+  { value: "settlement", labelId: "Pelunasan", labelEn: "Settlement" },
+  { value: "installment", labelId: "Cicilan", labelEn: "Installment" },
+];
 
 export interface AddPaymentDialogProps {
   orderId: string | null;
@@ -184,6 +189,8 @@ export function AddPaymentDialog({
     }
   };
 
+  const { language } = useLanguage();
+
   return (
     <Dialog open={open} onOpenChange={(v) => (v ? null : onClose())}>
       <DialogContent className="sm:max-w-lg">
@@ -291,9 +298,9 @@ export function AddPaymentDialog({
                   <SelectValue placeholder="Pilih tipe" />
                 </SelectTrigger>
                 <SelectContent>
-                  {paymentTypeList.map((t) => (
-                    <SelectItem key={t} value={t}>
-                      {t.toUpperCase()}
+                  {paymentTypeOptions.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {language === "id" ? opt.labelId : opt.labelEn}
                     </SelectItem>
                   ))}
                 </SelectContent>

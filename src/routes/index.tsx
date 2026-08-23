@@ -42,6 +42,7 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
+import { useLanguage } from "@/lib/language-context";
 import { dashboardService } from "@/lib/services";
 import { formatIDR, formatDate } from "@/lib/format";
 
@@ -55,7 +56,9 @@ export const Route = createFileRoute("/")({
   component: Dashboard,
 });
 
+
 const statusVariant: Record<string, string> = {
+  quotation: "bg-violet-100 text-violet-800 border-violet-200 dark:bg-violet-900/40 dark:text-violet-300",
   pending: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 border-amber-200 dark:border-amber-800",
   production: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 border-blue-200 dark:border-blue-800",
   ready: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800",
@@ -63,33 +66,36 @@ const statusVariant: Record<string, string> = {
   canceled: "bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300 border-rose-200 dark:border-rose-800",
 };
 
-const paymentTypeVariant: Record<string, { label: string; className: string }> = {
-  dp: { label: "DP", className: "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300 border-purple-200 dark:border-purple-800" },
-  settlement: { label: "Pelunasan", className: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800" },
-  installment: { label: "Cicilan", className: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 border-blue-200 dark:border-blue-800" },
+const paymentTypeVariant: Record<string, string> = {
+  dp: "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300 border-purple-200 dark:border-purple-800",
+  settlement: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800",
+  installment: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 border-blue-200 dark:border-blue-800",
 };
 
 function StatusBadge({ status }: { status: string }) {
+  const { t } = useLanguage();
+  const key = `order_status.${status?.toLowerCase()}` as any;
+  const label = t(key, status ?? "—");
   const cls = statusVariant[status?.toLowerCase()] ?? "bg-muted text-muted-foreground border-border";
   return (
     <span
-      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold capitalize ${cls}`}
+      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold ${cls}`}
     >
-      {status ?? "—"}
+      {label}
     </span>
   );
 }
 
 function PaymentTypeBadge({ type }: { type: string }) {
-  const cfg = paymentTypeVariant[type?.toLowerCase()] ?? {
-    label: type || "—",
-    className: "bg-muted text-muted-foreground border-border",
-  };
+  const { t } = useLanguage();
+  const key = `payment_type.${type?.toLowerCase()}` as any;
+  const label = t(key, type?.toUpperCase() ?? "—");
+  const cls = paymentTypeVariant[type?.toLowerCase()] ?? "bg-muted text-muted-foreground border-border";
   return (
     <span
-      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase ${cfg.className}`}
+      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold ${cls}`}
     >
-      {cfg.label}
+      {label}
     </span>
   );
 }
@@ -116,6 +122,8 @@ const chartConfig = {
 };
 
 function Dashboard() {
+  const { t } = useLanguage();
+
   // Single aggregated API call to GET /api/dashboard/overview
   const overviewQuery = useQuery({
     queryKey: ["dashboard-overview"],
@@ -161,14 +169,14 @@ function Dashboard() {
       {/* ── Header ── */}
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Dashboard Overview</h1>
+          <h1 className="text-2xl font-bold tracking-tight">{t("dashboard.title")}</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Ringkasan operasional konveksi, tren omset, dan tindakan yang membutuhkan perhatian.
+            {t("dashboard.subtitle")}
           </p>
         </div>
         <Button asChild variant="outline" className="gap-2">
           <Link to="/orders" search={{ page: 1, search: "", order_status: "", payment_status: "", start_date: "", end_date: "", sales_id: "", batch_po_id: "" }}>
-            Kelola Orders <ArrowRight className="h-4 w-4" />
+            {t("dashboard.manage_orders")} <ArrowRight className="h-4 w-4" />
           </Link>
         </Button>
       </div>
@@ -194,7 +202,7 @@ function Dashboard() {
               size="sm"
               className="gap-2 border-destructive/30 hover:bg-destructive/10 text-xs mt-2"
             >
-              <RotateCcw className="h-3.5 w-3.5" /> Coba Lagi
+              <RotateCcw className="h-3.5 w-3.5" /> {t("action.try_again")}
             </Button>
           </div>
         </Card>
@@ -217,7 +225,7 @@ function Dashboard() {
                   </div>
                 ) : (
                   <>
-                    <p className="text-xs text-muted-foreground font-medium mb-0.5">Active Orders & Revenue</p>
+                    <p className="text-xs text-muted-foreground font-medium mb-0.5">{t("dashboard.active_orders_revenue")}</p>
                     <p className="text-xl font-bold tabular-nums leading-tight text-violet-700 dark:text-violet-300">
                       {(summary?.total_active_orders ?? summary?.active_orders_count ?? 0).toLocaleString("id-ID")} orders
                     </p>
@@ -246,11 +254,11 @@ function Dashboard() {
                   </div>
                 ) : (
                   <>
-                    <p className="text-xs text-muted-foreground font-medium mb-0.5">Card Total Revenue</p>
+                    <p className="text-xs text-muted-foreground font-medium mb-0.5">{t("dashboard.total_revenue")}</p>
                     <p className="text-xl font-bold tabular-nums leading-tight text-emerald-700 dark:text-emerald-300">
                       {formatIDR(summary?.total_revenue ?? summary?.total_omset ?? summary?.total_payment_received ?? 0)}
                     </p>
-                    <p className="text-xs text-muted-foreground mt-1">Total revenue terkumpul</p>
+                    <p className="text-xs text-muted-foreground mt-1">Total omset terkumpul</p>
                   </>
                 )}
               </div>
@@ -274,7 +282,7 @@ function Dashboard() {
                     </div>
                   ) : (
                     <>
-                      <p className="text-xs text-muted-foreground font-medium mb-0.5">Card Total Receivables</p>
+                      <p className="text-xs text-muted-foreground font-medium mb-0.5">{t("dashboard.total_receivables")}</p>
                       <p className="text-xl font-bold tabular-nums leading-tight text-amber-700 dark:text-amber-300">
                         {formatIDR(summary?.total_receivable ?? 0)}
                       </p>
@@ -343,15 +351,15 @@ function Dashboard() {
               <div>
                 <CardTitle className="text-base flex items-center gap-2">
                   <BarChart2 className="h-4 w-4 text-primary" />
-                  Tren Omset & Cash-In (14 Hari Terakhir)
+                  {t("dashboard.chart_title")}
                 </CardTitle>
                 <CardDescription className="mt-0.5">
-                  Perbandingan performa penjualan dan penerimaan kas harian
+                  {t("dashboard.chart_subtitle")}
                 </CardDescription>
               </div>
               <Button asChild variant="ghost" size="sm" className="text-xs gap-1">
                 <Link to="/reports/accounting">
-                  Detail <ChevronRight className="h-3.5 w-3.5" />
+                  {t("action.detail")} <ChevronRight className="h-3.5 w-3.5" />
                 </Link>
               </Button>
             </div>
@@ -441,10 +449,10 @@ function Dashboard() {
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2 text-amber-600 dark:text-amber-400">
               <AlertCircle className="h-4 w-4" />
-              Butuh Tindakan Operasional
+              {t("dashboard.action_required")}
             </CardTitle>
             <CardDescription className="mt-0.5">
-              Daftar antrean transaksi yang memerlukan verifikasi atau pengiriman
+              {t("dashboard.action_required_sub")}
             </CardDescription>
           </CardHeader>
 
@@ -539,10 +547,10 @@ function Dashboard() {
               <div>
                 <CardTitle className="text-base flex items-center gap-2">
                   <Package className="h-4 w-4 text-primary" />
-                  Recent Orders
+                  {t("dashboard.recent_orders")}
                 </CardTitle>
                 <CardDescription className="mt-0.5">
-                  6 data pesanan terbaru di seluruh Batch PO
+                  {t("dashboard.recent_orders_sub")}
                 </CardDescription>
               </div>
               {!isLoading && (
@@ -557,7 +565,7 @@ function Dashboard() {
               <TableHeader>
                 <TableRow className="bg-muted/30 hover:bg-muted/30">
                   <TableHead className="font-semibold whitespace-nowrap pl-5 py-3 text-xs">Invoice</TableHead>
-                  <TableHead className="font-semibold whitespace-nowrap py-3 text-xs">Customer</TableHead>
+                  <TableHead className="font-semibold whitespace-nowrap py-3 text-xs">Pelanggan</TableHead>
                   <TableHead className="font-semibold whitespace-nowrap py-3 text-center text-xs">Status</TableHead>
                   <TableHead className="text-right font-semibold whitespace-nowrap pr-5 py-3 text-xs">Total</TableHead>
                 </TableRow>
@@ -613,10 +621,10 @@ function Dashboard() {
               <div>
                 <CardTitle className="text-base flex items-center gap-2">
                   <Wallet className="h-4 w-4 text-primary" />
-                  Recent Payments
+                  {t("dashboard.recent_payments")}
                 </CardTitle>
                 <CardDescription className="mt-0.5">
-                  6 data transaksi pembayaran terbaru
+                  {t("dashboard.recent_payments_sub")}
                 </CardDescription>
               </div>
               {!isLoading && (

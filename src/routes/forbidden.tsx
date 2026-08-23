@@ -1,5 +1,7 @@
+import { useEffect } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ShieldX, ArrowLeft } from "lucide-react";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/forbidden")({
   head: () => ({
@@ -12,6 +14,14 @@ export const Route = createFileRoute("/forbidden")({
 });
 
 function ForbiddenPage() {
+  useEffect(() => {
+    const reason = sessionStorage.getItem("sikon_forbidden_reason");
+    if (reason) {
+      sessionStorage.removeItem("sikon_forbidden_reason");
+      toast.error("Akses Ditolak (403)", { description: reason });
+    }
+  }, []);
+
   return (
     <div className="flex min-h-[60vh] flex-col items-center justify-center gap-6 px-4 text-center">
       <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-destructive/10 text-destructive">

@@ -55,6 +55,8 @@ import { formatIDR, formatDateISO, datetimeLocalToISO, formatDate, isoToDatetime
 import type { Payment } from "@/lib/types";
 import { CurrencyInput } from "@/components/CurrencyInput";
 
+import { useLanguage } from "@/lib/language-context";
+
 const searchSchema = z.object({
   search: z.string().optional().catch(""),
   payment_type: z.string().optional().catch(""),
@@ -85,10 +87,13 @@ const typeVariant: Record<string, string> = {
 };
 
 function TypeBadge({ type }: { type: string }) {
+  const { t } = useLanguage();
+  const key = `payment_type.${type?.toLowerCase()}` as any;
+  const label = t(key, type ?? "—");
   const cls = typeVariant[type?.toLowerCase()] ?? "bg-muted text-foreground";
   return (
-    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium uppercase ${cls}`}>
-      {type ?? "—"}
+    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${cls}`}>
+      {label}
     </span>
   );
 }
@@ -100,11 +105,14 @@ const statusVariantMap: Record<string, string> = {
 };
 
 export function StatusBadge({ status }: { status?: string }) {
+  const { t } = useLanguage();
   const s = (status || "pending").toLowerCase();
+  const key = `payment_status.${s}` as any;
+  const label = t(key, s);
   const cls = statusVariantMap[s] ?? "bg-muted text-foreground";
   return (
-    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium capitalize ${cls}`}>
-      {s}
+    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${cls}`}>
+      {label}
     </span>
   );
 }
@@ -112,6 +120,7 @@ export function StatusBadge({ status }: { status?: string }) {
 // ─── Create Payment Dialog ──────────────────────────────────────────────
 
 function CreatePaymentDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { t } = useLanguage();
   const qc = useQueryClient();
 
   const orders = useQuery({
@@ -241,9 +250,9 @@ function CreatePaymentDialog({ open, onClose }: { open: boolean; onClose: () => 
                     <SelectValue placeholder="Select type" />
                   </SelectTrigger>
                   <SelectContent>
-                    {paymentTypeList.map((t) => (
-                      <SelectItem key={t} value={t}>
-                        {t.toUpperCase()}
+                    {paymentTypeList.map((tVal) => (
+                      <SelectItem key={tVal} value={tVal}>
+                        {t(`payment_type.${tVal}` as any, tVal.toUpperCase())}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -296,6 +305,7 @@ function EditPaymentDialog({
   open: boolean;
   onClose: () => void;
 }) {
+  const { t } = useLanguage();
   const qc = useQueryClient();
 
   const [referenceNumber, setReferenceNumber] = useState("");
@@ -350,9 +360,9 @@ function EditPaymentDialog({
                 <SelectValue placeholder="Select type" />
               </SelectTrigger>
               <SelectContent>
-                {paymentTypeList.map((t) => (
-                  <SelectItem key={t} value={t}>
-                    {t.toUpperCase()}
+                {paymentTypeList.map((tVal) => (
+                  <SelectItem key={tVal} value={tVal}>
+                    {t(`payment_type.${tVal}` as any, tVal.toUpperCase())}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -488,11 +498,13 @@ function PaymentsPage() {
   const rejectedCount = summaryPayments.filter((p) => (p.status || "").toLowerCase() === "rejected").length;
   const totalCount = summaryPayments.length;
 
+  const { t } = useLanguage();
+
   const tabs = [
-    { label: "Need Verification", value: "pending", count: pendingCount, highlight: true },
-    { label: "All Payments", value: "all", count: totalCount },
-    { label: "Verified", value: "verified", count: verifiedCount },
-    { label: "Rejected", value: "rejected", count: rejectedCount },
+    { label: t("dashboard.unverified_payments", "Menunggu Verifikasi"), value: "pending", count: pendingCount, highlight: true },
+    { label: t("status.all", "Semua Pembayaran"), value: "all", count: totalCount },
+    { label: t("payment_status.verified", "Terverifikasi"), value: "verified", count: verifiedCount },
+    { label: t("payment_status.rejected", "Ditolak"), value: "rejected", count: rejectedCount },
   ];
 
   const startDate = searchParams.start_date ? new Date(searchParams.start_date) : undefined;
@@ -618,10 +630,10 @@ function PaymentsPage() {
                         <SelectValue placeholder="All Types" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">All</SelectItem>
-                        {paymentTypeList.map((t) => (
-                          <SelectItem key={t} value={t} className="uppercase">
-                            {t}
+                        <SelectItem value="all">{t("status.all", "Semua Tipe")}</SelectItem>
+                        {paymentTypeList.map((tVal) => (
+                          <SelectItem key={tVal} value={tVal}>
+                            {t(`payment_type.${tVal}` as any, tVal.toUpperCase())}
                           </SelectItem>
                         ))}
                       </SelectContent>
