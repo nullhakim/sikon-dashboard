@@ -228,13 +228,16 @@ export async function generateInvoicePDF({
   doc.text("Ditagihkan kepada:", col1, y);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(11);
-  doc.text(customer?.name || "-", col1, y + 7);
+  const customerNameMaxWidth = col2 - col1 - 10;
+  const customerNameLines = doc.splitTextToSize(customer?.name || "-", customerNameMaxWidth);
+  doc.text(customerNameLines, col1, y + 7, { maxWidth: customerNameMaxWidth });
   doc.setFontSize(9);
   doc.setTextColor(100, 100, 100);
+  const customerDetailsY = y + 7 + customerNameLines.length * 5 + 2;
   // if (customer?.address) doc.text(customer.address, col1, y + 14, { maxWidth: 80 });
   // if (customer?.phone) doc.text(`Tel: ${customer.phone}`, col1, y + 22);
-  doc.text("Address: ", col1, y + 14, { maxWidth: 80 });
-  doc.text("Phone: ", col1, y + 22);
+  doc.text("Address: ", col1, customerDetailsY, { maxWidth: 80 });
+  doc.text("Phone: ", col1, customerDetailsY + 8);
 
   doc.setTextColor(30, 41, 59);
   doc.setFontSize(9);
@@ -274,7 +277,7 @@ export async function generateInvoicePDF({
   });
 
   // === 3. ITEMS TABLE ===
-  y = y + 38;
+  y = y + Math.max(38, customerDetailsY - y + 18);
 
   const tableBody = items.map((item, idx) => {
     const subtotal = item.subtotal ?? item.qty * item.price;
@@ -660,7 +663,9 @@ export async function generateKwitansiPDF({
       try {
         const size = 35;
         doc.addImage(stempelData, "PNG", sigX - 35, sigY + 5, size, size, undefined, "FAST");
-      } catch {}
+      } catch {
+        // Ignore invalid stamp images and continue generating the invoice.
+      }
     }
   }
 
@@ -671,7 +676,9 @@ export async function generateKwitansiPDF({
         const w = 35;
         const h = 25;
         doc.addImage(sigData, "PNG", sigX - w / 2, sigY + 7, w, h, undefined, "FAST");
-      } catch {}
+      } catch {
+        // Ignore invalid signature images and continue generating the invoice.
+      }
     }
   }
 
