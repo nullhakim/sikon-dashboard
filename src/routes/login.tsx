@@ -52,6 +52,25 @@ function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      // Always clear the intentional logout marker set by handleLogout()
+      const wasIntentional = sessionStorage.getItem("sikon_intentional_logout") === "1";
+      sessionStorage.removeItem("sikon_intentional_logout");
+
+      // Only show "session expired" toast if the logout was NOT triggered by the user
+      const expired = sessionStorage.getItem("sikon_session_expired");
+      if (expired && !wasIntentional) {
+        sessionStorage.removeItem("sikon_session_expired");
+        toast.error("Sesi Berakhir", {
+          description: "Sesi Anda telah berakhir atau token tidak valid. Silakan login kembali.",
+        });
+      } else {
+        sessionStorage.removeItem("sikon_session_expired");
+      }
+    }
+  }, []);
+
   const {
     register,
     handleSubmit,
@@ -99,20 +118,31 @@ function LoginPage() {
       });
       await router.navigate({ to: "/" });
     } catch (err: any) {
-      const msg: string = err?.message ?? "Terjadi kesalahan. Coba lagi.";
-      if (
-        msg.toLowerCase().includes("password") ||
-        msg.toLowerCase().includes("email") ||
-        msg.toLowerCase().includes("invalid") ||
-        msg.toLowerCase().includes("salah") ||
-        msg.toLowerCase().includes("tidak valid") ||
-        err?.status === 400 ||
-        err?.status === 401
-      ) {
+      const serverMsg: string =
+        err?.payload?.error ??
+        err?.payload?.message ??
+        err?.message ??
+        "Terjadi kesalahan. Coba lagi.";
+
+      const status = err?.status;
+
+      if (status === 401) {
+        // Case 1: Login gagal - email / password salah
+        const message = "Email atau password yang Anda masukkan salah.";
         setError("email", { message: "" });
-        setError("password", { message: "Email atau password tidak valid" });
+        setError("password", { message });
+        toast.error("Login Gagal", { description: message });
+      } else if (status === 403) {
+        // Case 2: User dinonaktifkan / tidak aktif
+        const message =
+          serverMsg && serverMsg !== "Request failed (403)"
+            ? serverMsg
+            : "Akun Anda telah dinonaktifkan. Silakan hubungi administrator.";
+        toast.error("Akses Ditolak (403)", { description: message });
+      } else {
+        // Fallback for other errors
+        toast.error("Login Gagal", { description: serverMsg });
       }
-      toast.error("Login gagal", { description: msg });
     } finally {
       setIsLoading(false);
     }

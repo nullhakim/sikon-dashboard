@@ -52,6 +52,11 @@ export async function apiRequest<T>(
     query?: Query;
     body?: unknown;
     headers?: Record<string, string>;
+    /**
+     * skipAuth = true → skip Authorization header injection AND
+     * skip the global 401/403 interceptors (used for public endpoints like /auth/login).
+     * The caller is responsible for handling error status codes themselves.
+     */
     skipAuth?: boolean;
   } = {},
 ): Promise<T> {
@@ -85,14 +90,20 @@ export async function apiRequest<T>(
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
 
-  // Handle 401 — auto logout and redirect to login
-  if (res.status === 401) {
-    console.warn("API returned 401 Unauthorized. Logging out...", { path, res });
+  // Global 401 interceptor — only for authenticated (non-public) requests.
+  // skipAuth endpoints (e.g. /auth/login) handle their own 401/403 in the caller.
+  if (!skipAuth && res.status === 401) {
+    console.warn("API returned 401 Unauthorized. Logging out...", { path });
     const { getAuthState } = await import("@/lib/auth-store");
     getAuthState().logout();
-    if (typeof window !== "undefined") {
-      window.location.href = "/login";
+    // Only flag session-expired if this was NOT a deliberate user logout.
+    // handleLogout() sets sikon_intentional_logout before clearing the token so
+    // any in-flight requests that 401 don't incorrectly show the expired-toast.
+    const isIntentional = sessionStorage.getItem("sikon_intentional_logout") === "1";
+    if (!isIntentional) {
+      sessionStorage.setItem("sikon_session_expired", "1");
     }
+    window.location.href = "/login";
     throw new ApiError("Sesi berakhir. Silakan login kembali.", 401, null);
   }
 
@@ -108,7 +119,19 @@ export async function apiRequest<T>(
 
   if (!res.ok) {
     const msg =
-      (payload as { message?: string } | null)?.message ?? `Request failed (${res.status})`;
+      (payload as { error?: string; message?: string } | null)?.error ??
+      (payload as { error?: string; message?: string } | null)?.message ??
+      `Request failed (${res.status})`;
+
+    // Global 403 interceptor — only for authenticated requests.
+    // For public endpoints (skipAuth=true), the caller handles its own 403.
+    if (!skipAuth && res.status === 403) {
+      // Redirect to /forbidden page (same UX as the route-guard RBAC check).
+      // Store the server message so the forbidden page can display it.
+      sessionStorage.setItem("sikon_forbidden_reason", msg || "Anda tidak memiliki wewenang untuk mengakses sumber daya ini.");
+      window.location.href = "/forbidden";
+    }
+
     throw new ApiError(msg, res.status, payload);
   }
 

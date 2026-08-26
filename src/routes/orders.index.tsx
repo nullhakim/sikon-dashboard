@@ -1,13 +1,14 @@
 import { useState, useEffect } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, ChevronLeft, ChevronRight, Trash2, Eye, Pencil, Search, Filter, X, CalendarIcon, FileText, Check, ChevronsUpDown } from "lucide-react";
+import { Plus, ChevronLeft, ChevronRight, Trash2, Eye, Pencil, Search, Filter, X, CalendarIcon, FileText, Check, ChevronsUpDown, Banknote } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { AddPaymentDialog } from "@/components/AddPaymentDialog";
 import {
   Command,
   CommandEmpty,
@@ -56,10 +57,12 @@ import {
 // ScrollArea import removed
 
 import { ordersService, customersService, productsService, usersService, specTemplatesService, bankAccountsService, paymentsService, batchPosService } from "@/lib/services";
-import { formatIDR, formatDate } from "@/lib/format";
+import { formatIDR, formatDate, translateOrderErrorMessage } from "@/lib/format";
 import type { OrderStatus } from "@/lib/types";
 import { QuickCreateCustomerDialog } from "@/components/QuickCreateCustomerDialog";
 import { useAuth } from "@/hooks/use-auth";
+import { useLanguage } from "@/lib/language-context";
+import type { TranslationKey } from "@/lib/i18n";
 
 // TODO: Replace with real auth context when authentication is implemented.
 const currentUser = { role: "admin" };
@@ -97,12 +100,15 @@ const statusVariant: Record<string, string> = {
 };
 
 function StatusBadge({ status }: { status: string }) {
+  const { t } = useLanguage();
+  const key = `order_status.${status?.toLowerCase()}` as any;
+  const label = t(key, status ?? "—");
   const cls = statusVariant[status?.toLowerCase()] ?? "bg-muted text-foreground";
   return (
     <span
-      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium capitalize ${cls}`}
+      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${cls}`}
     >
-      {status ?? "—"}
+      {label}
     </span>
   );
 }
@@ -1228,6 +1234,7 @@ export function UpdateOrderDialog({
   onClose: () => void;
   type: "order" | "quotation";
 }) {
+  const { t } = useLanguage();
   const qc = useQueryClient();
   const { data, isLoading } = useQuery({
     queryKey: ["order", orderId],
@@ -1362,7 +1369,10 @@ export function UpdateOrderDialog({
       qc.invalidateQueries({ queryKey: ["orders"] });
       onClose();
     },
-    onError: (e: any) => toast.error(e?.payload?.error || e.message),
+    onError: (e: any) => {
+      const rawMsg = e?.response?.data?.error || e?.payload?.error || e?.response?.data?.message || e?.message;
+      toast.error(translateOrderErrorMessage(rawMsg));
+    },
   });
 
   function handleSubmit(e: React.FormEvent) {
@@ -1585,15 +1595,15 @@ export function UpdateOrderDialog({
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>Payment Type</Label>
+                      <Label>Tipe Pembayaran</Label>
                       <Select value={paymentType} onValueChange={setPaymentType}>
                         <SelectTrigger>
-                          <SelectValue placeholder="Select type" />
+                          <SelectValue placeholder="Pilih tipe" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="dp">DP</SelectItem>
-                          <SelectItem value="settlement">SETTLEMENT</SelectItem>
-                          <SelectItem value="installment">INSTALLMENT</SelectItem>
+                          <SelectItem value="dp">DP (Uang Muka)</SelectItem>
+                          <SelectItem value="settlement">Pelunasan</SelectItem>
+                          <SelectItem value="installment">Cicilan</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -1625,28 +1635,39 @@ const paymentBadgeVariant: Record<string, string> = {
   pending: "bg-purple-100 text-purple-800 border-purple-200",
 };
 
-function PaymentStatusBadge({ status }: { status?: string }) {
+function PaymentStatusBadge({ status, onClick }: { status?: string; onClick?: () => void }) {
+  const { t } = useLanguage();
   if (!status) return <span className="text-muted-foreground text-xs">—</span>;
+  const key = `payment_status.${status.toLowerCase()}` as any;
+  const label = t(key, status);
   const cls = paymentBadgeVariant[status.toLowerCase()] ?? "bg-muted text-foreground border-border";
   return (
-    <span
-      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium capitalize ${cls}`}
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={!onClick}
+      title={onClick ? "+ Record Payment" : undefined}
+      className={cn(
+        `inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium transition-all ${cls}`,
+        onClick && "hover:ring-2 hover:ring-primary/40 hover:shadow-sm cursor-pointer"
+      )}
     >
-      {status}
-    </span>
+      {label}
+    </button>
   );
 }
 
-const quickFilterTabs: { label: string; value: string }[] = [
-  { label: "All Orders", value: "" },
-  { label: "Quotation", value: "quotation" },
-  { label: "Pending", value: "pending" },
-  { label: "Production", value: "production" },
-  { label: "Ready", value: "ready" },
-  { label: "Completed", value: "completed" },
+const quickFilterTabs: { labelKey: TranslationKey; defaultLabel: string; value: string }[] = [
+  { labelKey: "status.all", defaultLabel: "Semua Order", value: "" },
+  { labelKey: "order_status.quotation", defaultLabel: "Quotation", value: "quotation" },
+  { labelKey: "order_status.pending", defaultLabel: "Menunggu (Pending)", value: "pending" },
+  { labelKey: "order_status.production", defaultLabel: "Produksi", value: "production" },
+  { labelKey: "order_status.ready", defaultLabel: "Siap Kirim", value: "ready" },
+  { labelKey: "order_status.completed", defaultLabel: "Selesai", value: "completed" },
 ];
 
 function OrdersPage() {
+  const { t } = useLanguage();
   const search = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
   const limit = 10;
@@ -1655,6 +1676,7 @@ function OrdersPage() {
 
   const [editOrder, setEditOrder] = useState<{ id: string; type: "order" | "quotation" } | null>(null);
   const [createModeOpen, setCreateModeOpen] = useState(false);
+  const [recordPaymentOrder, setRecordPaymentOrder] = useState<import("@/lib/types").Order | null>(null);
 
   // Local input state for debounced search box
   const [searchInput, setSearchInput] = useState(search.search);
@@ -1940,7 +1962,7 @@ function OrdersPage() {
                   : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground/30"
               )}
             >
-              <span>{tab.label}</span>
+              <span>{t(tab.labelKey, tab.defaultLabel)}</span>
               <span
                 className={cn(
                   "rounded-full px-2 py-0.5 text-xs font-semibold",
@@ -1995,10 +2017,10 @@ function OrdersPage() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">Semua Status Bayar</SelectItem>
+                        <SelectItem value="all">{t("status.all", "Semua Status Bayar")}</SelectItem>
                         {paymentStatusList.map((s) => (
-                          <SelectItem key={s} value={s} className="capitalize">
-                            {s}
+                          <SelectItem key={s} value={s}>
+                            {t(`payment_status.${s}` as any, s)}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -2191,10 +2213,19 @@ function OrdersPage() {
                       {formatIDR(o.total_amount)}
                     </TableCell>
                     <TableCell className="text-center">
-                      <PaymentStatusBadge status={o.payment_status} />
+                      <PaymentStatusBadge status={o.payment_status} onClick={() => setRecordPaymentOrder(o)} />
                     </TableCell>
                     <TableCell>
                       <div className="flex justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+                          title="+ Payment (Record Payment)"
+                          onClick={() => setRecordPaymentOrder(o)}
+                        >
+                          <Banknote className="h-4 w-4" />
+                        </Button>
                         {canEdit && (
                           <Button
                             variant="ghost"
@@ -2266,10 +2297,29 @@ function OrdersPage() {
         type={editOrder?.type ?? "order"}
       />
 
-
       <CreateOrderDialog
         open={createModeOpen}
         onClose={() => setCreateModeOpen(false)}
+      />
+
+      <AddPaymentDialog
+        orderId={recordPaymentOrder?.id ?? null}
+        salesId={recordPaymentOrder?.sales_id}
+        remaining={
+          recordPaymentOrder
+            ? Math.max(
+                0,
+                recordPaymentOrder.total_amount -
+                  (recordPaymentOrder.payments || [])
+                    .filter((p) => (p.status || "").toLowerCase() === "verified")
+                    .reduce((acc, p) => acc + (p.amount || 0), 0)
+              )
+            : 0
+        }
+        currentStatus={recordPaymentOrder?.order_status}
+        orderNumber={recordPaymentOrder?.order_number}
+        open={!!recordPaymentOrder}
+        onClose={() => setRecordPaymentOrder(null)}
       />
     </div>
   );

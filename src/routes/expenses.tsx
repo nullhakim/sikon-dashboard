@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Trash2, ChevronLeft, ChevronRight, Filter } from "lucide-react";
+import { Plus, Trash2, Filter } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -23,6 +23,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Pagination } from "@/components/ui/pagination-custom";
 
 import {
   expensesService, expenseCategoriesService, batchPosService, usersService,
@@ -32,6 +33,13 @@ import type { Expense } from "@/lib/types/expense";
 import { useAuthStore } from "@/lib/auth-store";
 
 export const Route = createFileRoute("/expenses")({
+  validateSearch: (search: Record<string, unknown>) => ({
+    page: Number(search.page) > 0 ? Number(search.page) : 1,
+    limit: Number(search.limit) > 0 ? Number(search.limit) : 10,
+    start_date: typeof search.start_date === "string" ? search.start_date : "",
+    end_date: typeof search.end_date === "string" ? search.end_date : "",
+    po_id: typeof search.po_id === "string" ? search.po_id : "",
+  }),
   head: () => ({
     meta: [
       { title: "Expenses — SIKOn ERP" },
@@ -49,17 +57,30 @@ interface ExpenseForm {
   expense_date: string;
   expense_category_id: string;
   batch_po_id: string;
-  created_by_id: string;
   notes: string;
+  // Borongan Mode Fields
+  mode: "direct" | "borongan";
+  qty: string;
+  rate: string;
 }
 
+const getTodayDateStr = () => new Date().toISOString().split("T")[0];
+
 const emptyForm: ExpenseForm = {
-  title: "", amount: "", expense_date: "", expense_category_id: "",
-  batch_po_id: "", created_by_id: "", notes: "",
+  title: "",
+  amount: "",
+  expense_date: getTodayDateStr(),
+  expense_category_id: "",
+  batch_po_id: "",
+  notes: "",
+  mode: "direct",
+  qty: "",
+  rate: "",
 };
 
 function AddExpenseDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const qc = useQueryClient();
+  const { user } = useAuthStore();
   const [form, setForm] = useState<ExpenseForm>(emptyForm);
 
   // Fetch dropdown options
@@ -73,15 +94,22 @@ function AddExpenseDialog({ open, onClose }: { open: boolean; onClose: () => voi
     queryFn: () => batchPosService.active(),
     enabled: open,
   });
-  const { data: usersData } = useQuery({
-    queryKey: ["users", "all"],
-    queryFn: () => usersService.list({ page: 1, limit: 100 }),
-    enabled: open,
-  });
 
   const categories = catData?.data ?? [];
   const activePOs = poData?.data ?? [];
-  const users = usersData?.data ?? [];
+
+  const selectedCategory = categories.find((c) => c.id === form.expense_category_id);
+
+  // Calculate Borongan Total and Auto Title
+  const boronganQty = Number(form.qty) || 0;
+  const boronganRate = Number(form.rate) || 0;
+  const boronganTotal = boronganQty * boronganRate;
+
+  const effectiveAmount = form.mode === "borongan" ? boronganTotal : Number(form.amount) || 0;
+  const effectiveTitle =
+    form.mode === "borongan"
+      ? `${selectedCategory?.name ?? "Pengeluaran Borongan"} - ${boronganQty} pcs @ Rp ${boronganRate.toLocaleString("id-ID")}`
+      : form.title;
 
   const createMut = useMutation({
     mutationFn: (body: Parameters<typeof expensesService.create>[0]) =>
@@ -97,19 +125,19 @@ function AddExpenseDialog({ open, onClose }: { open: boolean; onClose: () => voi
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!form.title.trim()) return toast.error("Title is required");
-    if (!form.amount || Number(form.amount) <= 0) return toast.error("Amount must be > 0");
+    if (!user?.id) return toast.error("User session invalid. Please log in again.");
+    if (form.mode === "direct" && !form.title.trim()) return toast.error("Title is required");
+    if (effectiveAmount <= 0) return toast.error("Amount must be > 0");
     if (!form.expense_date) return toast.error("Date is required");
     if (!form.expense_category_id) return toast.error("Category is required");
-    if (!form.created_by_id) return toast.error("Created By is required");
 
     createMut.mutate({
-      title: form.title.trim(),
-      amount: Number(form.amount),
+      title: effectiveTitle.trim(),
+      amount: effectiveAmount,
       expense_date: new Date(form.expense_date).toISOString(),
       expense_category_id: form.expense_category_id,
       batch_po_id: form.batch_po_id || undefined,
-      created_by_id: form.created_by_id,
+      created_by_id: user.id,
       notes: form.notes.trim() || undefined,
     });
   }
@@ -125,23 +153,30 @@ function AddExpenseDialog({ open, onClose }: { open: boolean; onClose: () => voi
             <DialogTitle>New Expense</DialogTitle>
             <DialogDescription>Record a new business expense.</DialogDescription>
           </DialogHeader>
+
+          {/* Mode Switcher */}
+          <div className="flex rounded-lg bg-slate-100 p-1 mt-3 text-xs font-medium border border-slate-200">
+            <button
+              type="button"
+              className={`flex-1 py-1.5 rounded-md transition-all ${
+                form.mode === "direct" ? "bg-white shadow-xs font-semibold text-primary" : "text-slate-600 hover:text-slate-900"
+              }`}
+              onClick={() => setForm((p) => ({ ...p, mode: "direct" }))}
+            >
+              Mode A: Nominal Langsung
+            </button>
+            <button
+              type="button"
+              className={`flex-1 py-1.5 rounded-md transition-all ${
+                form.mode === "borongan" ? "bg-white shadow-xs font-semibold text-primary" : "text-slate-600 hover:text-slate-900"
+              }`}
+              onClick={() => setForm((p) => ({ ...p, mode: "borongan" }))}
+            >
+              Mode B: Hitung Borongan / Pcs
+            </button>
+          </div>
+
           <div className="grid gap-4 py-4">
-            {/* Title */}
-            <div className="space-y-2">
-              <Label htmlFor="exp-title">Title <span className="text-destructive">*</span></Label>
-              <Input id="exp-title" placeholder="e.g. Pembelian Kain" value={form.title} onChange={set("title")} autoFocus />
-            </div>
-            {/* Amount + Date */}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label htmlFor="exp-amount">Amount (Rp) <span className="text-destructive">*</span></Label>
-                <Input id="exp-amount" type="number" min={0} placeholder="0" value={form.amount} onChange={set("amount")} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="exp-date">Date <span className="text-destructive">*</span></Label>
-                <Input id="exp-date" type="date" value={form.expense_date} onChange={set("expense_date")} />
-              </div>
-            </div>
             {/* Category */}
             <div className="space-y-2">
               <Label htmlFor="exp-cat">Category <span className="text-destructive">*</span></Label>
@@ -154,6 +189,58 @@ function AddExpenseDialog({ open, onClose }: { open: boolean; onClose: () => voi
                 </SelectContent>
               </Select>
             </div>
+
+            {form.mode === "direct" ? (
+              <>
+                {/* Title */}
+                <div className="space-y-2">
+                  <Label htmlFor="exp-title">Title <span className="text-destructive">*</span></Label>
+                  <Input id="exp-title" placeholder="e.g. Pembelian Kain" value={form.title} onChange={set("title")} autoFocus />
+                </div>
+                {/* Amount + Date */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="exp-amount">Amount (Rp) <span className="text-destructive">*</span></Label>
+                    <Input id="exp-amount" type="number" min={0} placeholder="0" value={form.amount} onChange={set("amount")} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="exp-date">Date <span className="text-destructive">*</span></Label>
+                    <Input id="exp-date" type="date" value={form.expense_date} onChange={set("expense_date")} />
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                {/* Qty & Tarif */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="exp-qty">Qty (pcs) <span className="text-destructive">*</span></Label>
+                    <Input id="exp-qty" type="number" min={1} placeholder="0" value={form.qty} onChange={set("qty")} autoFocus />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="exp-rate">Tarif per Pcs (Rp) <span className="text-destructive">*</span></Label>
+                    <Input id="exp-rate" type="number" min={0} placeholder="0" value={form.rate} onChange={set("rate")} />
+                  </div>
+                </div>
+                {/* Date & Total Amount (Disabled) */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="exp-date">Date <span className="text-destructive">*</span></Label>
+                    <Input id="exp-date" type="date" value={form.expense_date} onChange={set("expense_date")} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="exp-total">Total Amount (Rp)</Label>
+                    <Input id="exp-total" type="text" disabled className="bg-slate-50 font-semibold" value={`Rp ${boronganTotal.toLocaleString("id-ID")}`} />
+                  </div>
+                </div>
+                {/* Auto Title Preview */}
+                <div className="rounded-md bg-blue-50/70 p-2.5 text-xs text-blue-800 border border-blue-100">
+                  <span className="font-semibold block mb-0.5">Judul Otomatis:</span>
+                  {effectiveTitle || "—"}
+                </div>
+              </>
+            )}
+
             {/* Batch PO */}
             <div className="space-y-2">
               <Label htmlFor="exp-po">Batch PO <span className="text-xs text-muted-foreground">(optional)</span></Label>
@@ -167,18 +254,7 @@ function AddExpenseDialog({ open, onClose }: { open: boolean; onClose: () => voi
                 </SelectContent>
               </Select>
             </div>
-            {/* Created By */}
-            <div className="space-y-2">
-              <Label htmlFor="exp-user">Created By <span className="text-destructive">*</span></Label>
-              <Select value={form.created_by_id} onValueChange={(v) => setForm((p) => ({ ...p, created_by_id: v }))}>
-                <SelectTrigger id="exp-user"><SelectValue placeholder="Select user" /></SelectTrigger>
-                <SelectContent>
-                  {users.map((u) => (
-                    <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+
             {/* Notes */}
             <div className="space-y-2">
               <Label htmlFor="exp-notes">Notes</Label>
@@ -201,16 +277,21 @@ function AddExpenseDialog({ open, onClose }: { open: boolean; onClose: () => voi
 
 function ExpensesPage() {
   const qc = useQueryClient();
-  const [page, setPage] = useState(1);
-  const limit = 10;
-
-  // Filters
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
-  const [poFilter, setPoFilter] = useState("");
+  const navigate = useNavigate({ from: Route.fullPath });
+  const search = Route.useSearch();
+  const { page, limit, start_date, end_date, po_id } = search;
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Expense | null>(null);
+
+  const setFilter = (patch: Partial<typeof search>) =>
+    navigate({ search: (prev) => ({ ...prev, ...patch, page: 1 }), replace: true });
+
+  const setPage = (p: number) =>
+    navigate({ search: (prev) => ({ ...prev, page: p }), replace: true });
+
+  const setLimit = (l: number) =>
+    navigate({ search: (prev) => ({ ...prev, limit: l, page: 1 }), replace: true });
 
   // Fetch active POs for filter dropdown
   const { data: poData } = useQuery({
@@ -220,12 +301,13 @@ function ExpensesPage() {
   const activePOs = poData?.data ?? [];
 
   const { data, isLoading, isError, error } = useQuery({
-    queryKey: ["expenses", "list", { page, limit, startDate, endDate, poFilter }],
+    queryKey: ["expenses", "list", { page, limit, start_date, end_date, po_id }],
     queryFn: () => expensesService.list({
-      page, limit,
-      start_date: startDate || undefined,
-      end_date: endDate || undefined,
-      po_id: poFilter || undefined,
+      page,
+      limit,
+      start_date: start_date || undefined,
+      end_date: end_date || undefined,
+      po_id: po_id || undefined,
     }),
   });
 
@@ -240,13 +322,13 @@ function ExpensesPage() {
   });
 
   const rows = data?.data ?? [];
+  const totalData = data?.paging?.total_data ?? rows.length;
   const totalPage = data?.paging?.total_page ?? 1;
 
+  const hasAnyFilter = !!(start_date || end_date || po_id);
+
   function clearFilters() {
-    setStartDate("");
-    setEndDate("");
-    setPoFilter("");
-    setPage(1);
+    navigate({ search: () => ({ page: 1, limit, start_date: "", end_date: "", po_id: "" }), replace: true });
   }
 
   return (
@@ -268,15 +350,15 @@ function ExpensesPage() {
           <div className="flex flex-wrap items-end gap-3">
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">Start Date</Label>
-              <Input type="date" className="w-40" value={startDate} onChange={(e) => { setStartDate(e.target.value); setPage(1); }} />
+              <Input type="date" className="w-40" value={start_date} onChange={(e) => setFilter({ start_date: e.target.value })} />
             </div>
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">End Date</Label>
-              <Input type="date" className="w-40" value={endDate} onChange={(e) => { setEndDate(e.target.value); setPage(1); }} />
+              <Input type="date" className="w-40" value={end_date} onChange={(e) => setFilter({ end_date: e.target.value })} />
             </div>
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">Batch PO</Label>
-              <Select value={poFilter} onValueChange={(v) => { setPoFilter(v === "__all__" ? "" : v); setPage(1); }}>
+              <Select value={po_id || "__all__"} onValueChange={(v) => setFilter({ po_id: v === "__all__" ? "" : v })}>
                 <SelectTrigger className="w-48"><SelectValue placeholder="All POs" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__all__">All POs</SelectItem>
@@ -286,7 +368,7 @@ function ExpensesPage() {
                 </SelectContent>
               </Select>
             </div>
-            {(startDate || endDate || poFilter) && (
+            {hasAnyFilter && (
               <Button variant="ghost" size="sm" onClick={clearFilters}>
                 <Filter className="mr-1 h-3 w-3" /> Clear
               </Button>
@@ -362,19 +444,14 @@ function ExpensesPage() {
       </Card>
 
       {/* Pagination */}
-      <div className="flex items-center justify-between">
-        <p className="text-xs text-muted-foreground">Page {page} of {totalPage}</p>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" disabled={page <= 1}
-            onClick={() => setPage((p) => Math.max(1, p - 1))}>
-            <ChevronLeft className="h-4 w-4" /> Prev
-          </Button>
-          <Button variant="outline" size="sm" disabled={page >= totalPage}
-            onClick={() => setPage((p) => p + 1)}>
-            Next <ChevronRight className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
+      <Pagination
+        page={page}
+        limit={limit}
+        totalData={totalData}
+        totalPage={totalPage}
+        onPageChange={setPage}
+        onLimitChange={setLimit}
+      />
 
       {/* Add Expense Dialog */}
       <AddExpenseDialog open={dialogOpen} onClose={() => setDialogOpen(false)} />

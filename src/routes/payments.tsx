@@ -48,14 +48,19 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Pagination } from "@/components/ui/pagination-custom";
 
 import { paymentsService, ordersService, bankAccountsService } from "@/lib/services";
-import { formatIDR, formatDateISO, datetimeLocalToISO, formatDate } from "@/lib/format";
+import { formatIDR, formatDateISO, datetimeLocalToISO, formatDate, isoToDatetimeLocal } from "@/lib/format";
 import type { Payment } from "@/lib/types";
+import { CurrencyInput } from "@/components/CurrencyInput";
+
+import { useLanguage } from "@/lib/language-context";
 
 const searchSchema = z.object({
   search: z.string().optional().catch(""),
   payment_type: z.string().optional().catch(""),
+  status: z.string().optional().catch(""),
   start_date: z.string().optional().catch(""),
   end_date: z.string().optional().catch(""),
   page: z.number().catch(1),
@@ -82,10 +87,13 @@ const typeVariant: Record<string, string> = {
 };
 
 function TypeBadge({ type }: { type: string }) {
+  const { t } = useLanguage();
+  const key = `payment_type.${type?.toLowerCase()}` as any;
+  const label = t(key, type ?? "—");
   const cls = typeVariant[type?.toLowerCase()] ?? "bg-muted text-foreground";
   return (
-    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium uppercase ${cls}`}>
-      {type ?? "—"}
+    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${cls}`}>
+      {label}
     </span>
   );
 }
@@ -97,11 +105,14 @@ const statusVariantMap: Record<string, string> = {
 };
 
 export function StatusBadge({ status }: { status?: string }) {
+  const { t } = useLanguage();
   const s = (status || "pending").toLowerCase();
+  const key = `payment_status.${s}` as any;
+  const label = t(key, s);
   const cls = statusVariantMap[s] ?? "bg-muted text-foreground";
   return (
-    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium capitalize ${cls}`}>
-      {s}
+    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${cls}`}>
+      {label}
     </span>
   );
 }
@@ -109,6 +120,7 @@ export function StatusBadge({ status }: { status?: string }) {
 // ─── Create Payment Dialog ──────────────────────────────────────────────
 
 function CreatePaymentDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { t } = useLanguage();
   const qc = useQueryClient();
 
   const orders = useQuery({
@@ -131,7 +143,9 @@ function CreatePaymentDialog({ open, onClose }: { open: boolean; onClose: () => 
   const [paymentDate, setPaymentDate] = useState("");
 
   useEffect(() => {
-    if (!open) {
+    if (open) {
+      setPaymentDate(isoToDatetimeLocal(new Date().toISOString()));
+    } else {
       setOrderId("");
       setBankAccountId("");
       setAmount("");
@@ -156,7 +170,16 @@ function CreatePaymentDialog({ open, onClose }: { open: boolean; onClose: () => 
       qc.invalidateQueries({ queryKey: ["payments"] });
       onClose();
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: any) => {
+      const msg =
+        e?.response?.data?.error ??
+        e?.payload?.error ??
+        e?.response?.data?.message ??
+        e?.payload?.message ??
+        e?.message ??
+        "Payment record failed";
+      toast.error(msg);
+    },
   });
 
   function handleSubmit(e: React.FormEvent) {
@@ -214,12 +237,10 @@ function CreatePaymentDialog({ open, onClose }: { open: boolean; onClose: () => 
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label>Amount</Label>
-                <Input
-                  type="number"
-                  min={1}
-                  placeholder="0"
+                <CurrencyInput
                   value={amount}
-                  onChange={(e) => setAmount(Number(e.target.value))}
+                  onChange={(val) => setAmount(val)}
+                  placeholder="0"
                 />
               </div>
               <div className="space-y-2">
@@ -229,9 +250,9 @@ function CreatePaymentDialog({ open, onClose }: { open: boolean; onClose: () => 
                     <SelectValue placeholder="Select type" />
                   </SelectTrigger>
                   <SelectContent>
-                    {paymentTypeList.map((t) => (
-                      <SelectItem key={t} value={t}>
-                        {t.toUpperCase()}
+                    {paymentTypeList.map((tVal) => (
+                      <SelectItem key={tVal} value={tVal}>
+                        {t(`payment_type.${tVal}` as any, tVal.toUpperCase())}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -284,6 +305,7 @@ function EditPaymentDialog({
   open: boolean;
   onClose: () => void;
 }) {
+  const { t } = useLanguage();
   const qc = useQueryClient();
 
   const [referenceNumber, setReferenceNumber] = useState("");
@@ -338,9 +360,9 @@ function EditPaymentDialog({
                 <SelectValue placeholder="Select type" />
               </SelectTrigger>
               <SelectContent>
-                {paymentTypeList.map((t) => (
-                  <SelectItem key={t} value={t}>
-                    {t.toUpperCase()}
+                {paymentTypeList.map((tVal) => (
+                  <SelectItem key={tVal} value={tVal}>
+                    {t(`payment_type.${tVal}` as any, tVal.toUpperCase())}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -451,23 +473,53 @@ function PaymentsPage() {
     return () => clearTimeout(timeout);
   }, [searchInput, navigate, searchParams.search]);
 
+  // Default tab to 'pending' (Need Verification) for Accounting/Owner roles if no status searchParam set
+  const effectiveStatus = searchParams.status ?? (canVerifyPayment ? "pending" : "all");
+
+  const queryParams = {
+    ...searchParams,
+    status: effectiveStatus === "all" ? undefined : effectiveStatus,
+  };
+
   const { data, isLoading, isError, error } = useQuery({
-    queryKey: ["payments", searchParams],
-    queryFn: () => paymentsService.list(searchParams),
+    queryKey: ["payments", queryParams],
+    queryFn: () => paymentsService.list(queryParams),
   });
+
+  // Query summary for tab counts
+  const summaryQuery = useQuery({
+    queryKey: ["payments", "tab-counts"],
+    queryFn: () => paymentsService.list({ page: 1, limit: 100 }),
+  });
+
+  const summaryPayments = summaryQuery.data?.data ?? [];
+  const pendingCount = summaryPayments.filter((p) => (p.status || "pending").toLowerCase() === "pending").length;
+  const verifiedCount = summaryPayments.filter((p) => (p.status || "").toLowerCase() === "verified").length;
+  const rejectedCount = summaryPayments.filter((p) => (p.status || "").toLowerCase() === "rejected").length;
+  const totalCount = summaryPayments.length;
+
+  const { t } = useLanguage();
+
+  const tabs = [
+    { label: t("dashboard.unverified_payments", "Menunggu Verifikasi"), value: "pending", count: pendingCount, highlight: true },
+    { label: t("status.all", "Semua Pembayaran"), value: "all", count: totalCount },
+    { label: t("payment_status.verified", "Terverifikasi"), value: "verified", count: verifiedCount },
+    { label: t("payment_status.rejected", "Ditolak"), value: "rejected", count: rejectedCount },
+  ];
 
   const startDate = searchParams.start_date ? new Date(searchParams.start_date) : undefined;
   const endDate = searchParams.end_date ? new Date(searchParams.end_date) : undefined;
 
   const activeFilterCount =
     (searchParams.payment_type ? 1 : 0) +
-    (searchParams.start_date || searchParams.end_date ? 1 : 0);
+    (searchParams.start_date || searchParams.end_date ? 1 : 0) +
+    (searchParams.status && searchParams.status !== "all" ? 1 : 0);
 
   const hasAnyFilter = !!searchParams.search || activeFilterCount > 0;
 
   const clearAll = () =>
     navigate({
-      search: () => ({ page: 1, limit: 10 }),
+      search: () => ({ page: 1, limit: 10, status: canVerifyPayment ? "pending" : "all" }),
     });
 
   const setFilter = (patch: Partial<typeof searchParams>) => {
@@ -485,7 +537,10 @@ function PaymentsPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const payments = data?.data ?? [];
+  const payments = (data?.data ?? []).filter((p) => {
+    if (effectiveStatus === "all") return true;
+    return (p.status || "pending").toLowerCase() === effectiveStatus.toLowerCase();
+  });
   const totalPage = data?.paging?.total_page ?? 1;
 
   return (
@@ -500,6 +555,40 @@ function PaymentsPage() {
         <Button onClick={() => setCreateOpen(true)}>
           <Plus className="mr-1 h-4 w-4" /> Record Payment
         </Button>
+      </div>
+
+      {/* Tab Filter System */}
+      <div className="flex flex-wrap items-center gap-2 border-b pb-3">
+        {tabs.map((tab) => {
+          const isSelected = effectiveStatus === tab.value;
+          return (
+            <button
+              key={tab.value}
+              type="button"
+              onClick={() => setFilter({ status: tab.value })}
+              className={cn(
+                "inline-flex items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold transition-all cursor-pointer",
+                isSelected
+                  ? "bg-primary text-primary-foreground shadow-xs"
+                  : "bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground"
+              )}
+            >
+              <span>{tab.label}</span>
+              <span
+                className={cn(
+                  "rounded-full px-2 py-0.5 text-[10px] font-bold leading-none",
+                  isSelected
+                    ? "bg-primary-foreground/20 text-primary-foreground"
+                    : tab.highlight && tab.count > 0
+                    ? "bg-rose-100 text-rose-800"
+                    : "bg-background text-muted-foreground border"
+                )}
+              >
+                {tab.count}
+              </span>
+            </button>
+          );
+        })}
       </div>
 
       <Card>
@@ -541,10 +630,10 @@ function PaymentsPage() {
                         <SelectValue placeholder="All Types" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">All</SelectItem>
-                        {paymentTypeList.map((t) => (
-                          <SelectItem key={t} value={t} className="uppercase">
-                            {t}
+                        <SelectItem value="all">{t("status.all", "Semua Tipe")}</SelectItem>
+                        {paymentTypeList.map((tVal) => (
+                          <SelectItem key={tVal} value={tVal}>
+                            {t(`payment_type.${tVal}` as any, tVal.toUpperCase())}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -725,27 +814,14 @@ function PaymentsPage() {
       </Card>
 
       {/* Pagination */}
-      <div className="flex items-center justify-end gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={searchParams.page <= 1}
-          onClick={() => navigate({ search: (prev) => ({ ...prev, page: Math.max(1, prev.page - 1) }) })}
-        >
-          <ChevronLeft className="h-4 w-4" />
-        </Button>
-        <span className="text-sm text-muted-foreground">
-          Page {searchParams.page} of {totalPage}
-        </span>
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={searchParams.page >= totalPage}
-          onClick={() => navigate({ search: (prev) => ({ ...prev, page: prev.page + 1 }) })}
-        >
-          <ChevronRight className="h-4 w-4" />
-        </Button>
-      </div>
+      <Pagination
+        page={searchParams.page}
+        limit={searchParams.limit || 10}
+        totalData={data?.paging?.total_item ?? payments.length}
+        totalPage={totalPage}
+        onPageChange={(p) => navigate({ search: (prev) => ({ ...prev, page: p }) })}
+        onLimitChange={(l) => navigate({ search: (prev) => ({ ...prev, limit: l, page: 1 }) })}
+      />
 
       {/* Dialogs */}
       <CreatePaymentDialog open={createOpen} onClose={() => setCreateOpen(false)} />
