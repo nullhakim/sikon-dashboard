@@ -142,8 +142,32 @@ export function buildItemDetails(
   it: Item,
   _isQuotation?: boolean,
 ): DetailPartForm[] | undefined {
-  const parts = it.details.filter(
-    (d) => d.part.trim() || d.material_name.trim() || d.spec.trim() || (d.warna && d.warna.trim()),
+  if (!it) return undefined;
+
+  let rawDetails: any = it.details;
+  if (typeof rawDetails === "string") {
+    try {
+      rawDetails = JSON.parse(rawDetails);
+    } catch {
+      rawDetails = [];
+    }
+  }
+
+  let detailsArray: any[] = [];
+  if (Array.isArray(rawDetails)) {
+    detailsArray = rawDetails;
+  } else if (rawDetails && typeof rawDetails === "object" && Array.isArray((rawDetails as any).parts)) {
+    detailsArray = (rawDetails as any).parts;
+  }
+
+  const parts = detailsArray.filter(
+    (d) =>
+      d &&
+      typeof d === "object" &&
+      ((d.part && String(d.part).trim()) ||
+        (d.material_name && String(d.material_name).trim()) ||
+        (d.spec && String(d.spec).trim()) ||
+        (d.warna && String(d.warna).trim())),
   );
   return parts.length > 0 ? parts : undefined;
 }
@@ -208,9 +232,19 @@ export function parseDetailsFromBackend(
   raw: any,
 ): DetailPartForm[] {
   if (!raw) return [{ part: "", material_name: "", warna: "", spec: "" }];
+
+  let parsedRaw = raw;
+  if (typeof raw === "string") {
+    try {
+      parsedRaw = JSON.parse(raw);
+    } catch {
+      return [{ part: "", material_name: "", warna: "", spec: "" }];
+    }
+  }
+
   // New shape: array of {part, material_name, spec}
-  if (Array.isArray(raw)) {
-    const parsed = raw.filter((r: any) => r && typeof r === "object");
+  if (Array.isArray(parsedRaw)) {
+    const parsed = parsedRaw.filter((r: any) => r && typeof r === "object");
     return parsed.length > 0
       ? parsed.map((r: any) => ({
           part: r.part ?? "",
@@ -221,8 +255,8 @@ export function parseDetailsFromBackend(
       : [{ part: "", material_name: "", warna: "", spec: "" }];
   }
   // Object shape with parts array
-  if (raw && typeof raw === "object" && Array.isArray(raw.parts)) {
-    const parsed = raw.parts.filter((r: any) => r && typeof r === "object");
+  if (parsedRaw && typeof parsedRaw === "object" && Array.isArray(parsedRaw.parts)) {
+    const parsed = parsedRaw.parts.filter((r: any) => r && typeof r === "object");
     return parsed.length > 0
       ? parsed.map((r: any) => ({
           part: r.part ?? "",
@@ -233,17 +267,17 @@ export function parseDetailsFromBackend(
       : [{ part: "", material_name: "", warna: "", spec: "" }];
   }
   // Legacy object shape — migrate to single-block array
-  if (typeof raw === "object") {
-    const b = raw.bahan ?? raw.Bahan ?? {};
+  if (parsedRaw && typeof parsedRaw === "object") {
+    const b = parsedRaw.bahan ?? parsedRaw.Bahan ?? {};
     const bahanName =
       (typeof b === "object" ? b.name ?? b.Name : b) ??
-      raw.bahan_name ??
+      parsedRaw.bahan_name ??
       "";
     const spec =
-      (typeof b === "object" ? b.spec ?? b.Spec : "") ??
-      raw["Bahan Kemeja"] ??
-      "";
-    const warna = raw.Warna ?? raw.warna ?? (typeof b === "object" ? b.Color ?? b.color : "") ?? "";
+      (typeof b === "object" ? b.spec ?? b.Spec : undefined) ??
+      parsedRaw["Bahan Kemeja"] ??
+      (parsedRaw.ukuran ? `Ukuran: ${parsedRaw.ukuran}` : "");
+    const warna = parsedRaw.Warna ?? parsedRaw.warna ?? (typeof b === "object" ? b.Color ?? b.color : "") ?? "";
     return [
       {
         part: "",
@@ -275,7 +309,15 @@ export function ItemDetailsFields({
     queryFn: () => specTemplatesService.list({ page: 1, limit: 100 }),
   });
 
-  const details = item.details ?? [{ part: "", material_name: "", warna: "", spec: "" }];
+  let detailsArray: DetailPartForm[] = [];
+  if (Array.isArray(item.details)) {
+    detailsArray = item.details;
+  } else if (item.details) {
+    detailsArray = parseDetailsFromBackend(item.details);
+  } else {
+    detailsArray = [{ part: "", material_name: "", warna: "", spec: "" }];
+  }
+  const details = detailsArray;
 
   const [modalOpen, setModalOpen] = useState(false);
   const [currentPart, setCurrentPart] = useState<DetailPartForm>({ part: "", material_name: "", warna: "", spec: "" });
@@ -1258,23 +1300,8 @@ export function UpdateOrderDialog({
     terms_conditions: "",
   });
   const [items, setItems] = useState<Item[]>([]);
+  const [activeItems, setActiveItems] = useState<string[]>([]);
   const [deletedItemIds, setDeletedItemIds] = useState<string[]>([]);
-  const [paymentAmount, setPaymentAmount] = useState<number | "">("");
-  const [paymentType, setPaymentType] = useState("dp");
-  const [paymentBankId, setPaymentBankId] = useState("");
-  const [paymentReference, setPaymentReference] = useState("");
-
-  const bankAccounts = useQuery({
-    queryKey: ["bank-accounts", "user", order?.sales_id],
-    queryFn: () => bankAccountsService.byUser(order!.sales_id!),
-    enabled: open && !!order?.sales_id && !isQuotation,
-  });
-
-  const globalBankAccounts = useQuery({
-    queryKey: ["bank-accounts", "global"],
-    queryFn: () => bankAccountsService.global(),
-    enabled: open && !isQuotation,
-  });
 
   useEffect(() => {
     if (order && open) {
@@ -1285,31 +1312,53 @@ export function UpdateOrderDialog({
         notes: order.notes || "",
         terms_conditions: order.terms_conditions || "",
       });
-      setPaymentAmount("");
-      setPaymentType("dp");
-      setPaymentBankId("");
-      setPaymentReference("");
       setDeletedItemIds([]);
       if (order.items) {
-        setItems(
-          order.items.map((i: any) => ({
-            id: i.id,
-            product_id: i.product_id,
-            custom_name: i.custom_name ?? "",
-            qty: i.qty,
-            price: i.price,
-            details: parseDetailsFromBackend(i.details),
-          }))
-        );
+        const loadedItems = order.items.map((i: any, idx: number) => ({
+          id: i.id || `item-${idx}`,
+          product_id: i.product_id,
+          custom_name: i.custom_name ?? "",
+          qty: i.qty,
+          price: i.price,
+          details: parseDetailsFromBackend(i.details),
+        }));
+        setItems(loadedItems);
+        setActiveItems([]);
       }
     } else if (!open) {
       setItems([]);
+      setActiveItems([]);
       setDeletedItemIds([]);
     }
   }, [order, open]);
 
   const updateItem = (idx: number, patch: Partial<Item>) =>
     setItems((arr) => arr.map((it, i) => (i === idx ? { ...it, ...patch } : it)));
+
+  const handleAddItem = () => {
+    const tempId = `temp-${Date.now()}`;
+    const newItem: Item = {
+      id: tempId,
+      product_id: "",
+      custom_name: "",
+      qty: 1,
+      price: 0,
+      details: [],
+    };
+    setItems((arr) => [...arr, newItem]);
+    setActiveItems([tempId]);
+
+    setTimeout(() => {
+      const el = document.getElementById(`item-accordion-${tempId}`);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }
+      const selectTrigger = document.getElementById(`select-trigger-${tempId}`);
+      if (selectTrigger) {
+        selectTrigger.focus();
+      }
+    }, 100);
+  };
 
   const subtotal = items.reduce((s, i) => s + i.qty * i.price, 0);
   const total = subtotal + Number(form.shipping_cost || 0);
@@ -1333,7 +1382,7 @@ export function UpdateOrderDialog({
             details: details || undefined,
           };
 
-          if (it.id && order) {
+          if (it.id && !it.id.startsWith("temp-") && order) {
             return ordersService.updateItem(order.id, it.id, itemBody);
           }
 
@@ -1351,20 +1400,9 @@ export function UpdateOrderDialog({
         notes: body.notes,
         terms_conditions: body.terms_conditions,
       });
-
-      if (!isQuotation && Number(paymentAmount) > 0) {
-        await paymentsService.create({
-          order_id: orderId!,
-          amount: Number(paymentAmount),
-          payment_type: paymentType,
-          bank_account_id: paymentBankId,
-          reference_number: paymentReference || "",
-          payment_date: new Date().toISOString(),
-        });
-      }
     },
     onSuccess: () => {
-      toast.success(isQuotation ? "Quotation updated" : "Order & Payment updated");
+      toast.success(isQuotation ? "Quotation updated" : "Order updated");
       qc.invalidateQueries({ queryKey: ["order", orderId] });
       qc.invalidateQueries({ queryKey: ["orders"] });
       onClose();
@@ -1427,189 +1465,106 @@ export function UpdateOrderDialog({
                     type="button"
                     variant="outline"
                     size="sm"
-                    onClick={() => setItems((arr) => [...arr, { product_id: "", qty: 1, price: 0, details: [] }])}
+                    onClick={handleAddItem}
                   >
                     <Plus className="h-4 w-4 mr-1" /> Add item
                   </Button>
                 </div>
-                <Accordion type="multiple" className="w-full space-y-3">
-                  {items.map((it, idx) => (
-                    <AccordionItem value={`item-${idx}`} key={idx} className="border rounded-md px-4 bg-muted/10">
-                      <AccordionTrigger className="hover:no-underline py-3">
-                        <div className="flex flex-col items-start text-left w-full gap-1 pr-4">
-                          <div className="font-medium text-sm">
-                            {products.data?.data?.find(p => p.id === it.product_id)?.name || "Select Product"}
+                <Accordion
+                  type="multiple"
+                  value={activeItems}
+                  onValueChange={setActiveItems}
+                  className="w-full space-y-3"
+                >
+                  {items.map((it, idx) => {
+                    const itemId = String(it.id || `item-${idx}`);
+                    return (
+                      <AccordionItem
+                        value={itemId}
+                        key={itemId}
+                        id={`item-accordion-${itemId}`}
+                        className="border rounded-md px-4 bg-muted/10"
+                      >
+                        <AccordionTrigger className="hover:no-underline py-3">
+                          <div className="flex flex-col items-start text-left w-full gap-1 pr-4">
+                            <div className="font-medium text-sm">
+                              {products.data?.data?.find((p) => p.id === it.product_id)?.name || "Select Product"}
+                            </div>
+                            <div className="flex gap-4 text-xs text-muted-foreground font-normal">
+                              <span>Qty: {it.qty}</span>
+                              <span>Price: {formatIDR(it.price)}</span>
+                            </div>
                           </div>
-                          <div className="flex gap-4 text-xs text-muted-foreground font-normal">
-                            <span>Qty: {it.qty}</span>
-                            <span>Price: {formatIDR(it.price)}</span>
-                          </div>
-                        </div>
-                      </AccordionTrigger>
-                      <AccordionContent className="pt-2 pb-4 space-y-4">
-                        <div className="grid gap-3 sm:grid-cols-[1fr_80px_120px_auto] items-end">
-                          <div className="space-y-1">
-                            <Label className="text-xs">Product</Label>
-                            <Select
-                              value={it.product_id}
-                              onValueChange={(v) => {
-                                const p = products.data?.data?.find((x) => x.id === v);
-                                updateItem(idx, { product_id: v, price: p?.base_price ?? it.price });
+                        </AccordionTrigger>
+                        <AccordionContent className="pt-2 pb-4 space-y-4">
+                          <div className="grid gap-3 sm:grid-cols-[1fr_80px_120px_auto] items-end">
+                            <div className="space-y-1">
+                              <Label className="text-xs">Product</Label>
+                              <Select
+                                value={it.product_id}
+                                onValueChange={(v) => {
+                                  const p = products.data?.data?.find((x) => x.id === v);
+                                  updateItem(idx, { product_id: v, price: p?.base_price ?? it.price });
+                                }}
+                              >
+                                <SelectTrigger id={`select-trigger-${itemId}`}>
+                                  <SelectValue placeholder="Select product" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {products.data?.data?.map((p) => (
+                                    <SelectItem key={p.id} value={p.id}>
+                                      {p.name} — {formatIDR(p.base_price)}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-xs">Qty</Label>
+                              <Input
+                                type="number"
+                                min={1}
+                                value={it.qty}
+                                onChange={(e) => updateItem(idx, { qty: Number(e.target.value) })}
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-xs">Price</Label>
+                              <Input
+                                type="number"
+                                min={0}
+                                value={it.price}
+                                onChange={(e) => updateItem(idx, { price: Number(e.target.value) })}
+                              />
+                            </div>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="text-muted-foreground hover:text-destructive"
+                              onClick={() => {
+                                setItems((arr) => arr.filter((_, i) => i !== idx));
+                                setActiveItems((arr) => arr.filter((val) => val !== itemId));
+                                if (it.id && !it.id.startsWith("temp-")) {
+                                  setDeletedItemIds((ids) => [...ids, it.id!]);
+                                }
                               }}
+                              disabled={items.length === 1}
                             >
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select product" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {products.data?.data?.map((p) => (
-                                  <SelectItem key={p.id} value={p.id}>
-                                    {p.name} — {formatIDR(p.base_price)}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
                           </div>
-                          <div className="space-y-1">
-                            <Label className="text-xs">Qty</Label>
-                            <Input
-                              type="number"
-                              min={1}
-                              value={it.qty}
-                              onChange={(e) => updateItem(idx, { qty: Number(e.target.value) })}
-                            />
-                          </div>
-                          <div className="space-y-1">
-                            <Label className="text-xs">Price</Label>
-                            <Input
-                              type="number"
-                              min={0}
-                              value={it.price}
-                              onChange={(e) => updateItem(idx, { price: Number(e.target.value) })}
-                            />
-                          </div>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="text-muted-foreground hover:text-destructive"
-                            onClick={() => {
-                              setItems((arr) => arr.filter((_, i) => i !== idx));
-                              if (it.id) setDeletedItemIds((ids) => [...ids, it.id!]);
-                            }}
-                            disabled={items.length === 1}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                        <ItemDetailsFields
-                          item={it}
-                          isQuotation={isQuotation}
-                          onChange={(patch) => updateItem(idx, patch)}
-                        />
-                      </AccordionContent>
-                    </AccordionItem>
-                  ))}
+                          <ItemDetailsFields
+                            item={it}
+                            isQuotation={isQuotation}
+                            onChange={(patch) => updateItem(idx, patch)}
+                          />
+                        </AccordionContent>
+                      </AccordionItem>
+                    );
+                  })}
                 </Accordion>
               </div>
-
-              {!isQuotation && (
-                <div className="space-y-4 pt-4 border-t">
-                  <h3 className="font-semibold text-sm">Quick Add Payment (Optional)</h3>
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <div className="space-y-2 sm:col-span-2">
-                      <div className="grid grid-cols-3 gap-2 bg-muted/50 p-3 rounded-md text-sm">
-                        <div>
-                          <div className="text-muted-foreground">Total Order</div>
-                          <div className="font-semibold">{formatIDR(total)}</div>
-                        </div>
-                        <div>
-                          <div className="text-muted-foreground">Quick Payment</div>
-                          <div className="font-semibold text-emerald-600">
-                            {formatIDR(Number(paymentAmount) || 0)}
-                          </div>
-                        </div>
-                        <div>
-                          <div className="text-muted-foreground">Remaining</div>
-                          <div className={`font-semibold ${total - (Number(paymentAmount) || 0) > 0 ? "text-amber-600" : "text-emerald-600"}`}>
-                            {formatIDR(total - (Number(paymentAmount) || 0))}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="space-y-2 sm:col-span-2">
-                      <Label>Bank Account (Sales)</Label>
-                      <Select
-                        value={paymentBankId}
-                        onValueChange={setPaymentBankId}
-                        disabled={(!order?.sales_id && !globalBankAccounts.data?.data?.length) || bankAccounts.isLoading || globalBankAccounts.isLoading}
-                      >
-                        <SelectTrigger>
-                          <SelectValue
-                            placeholder={
-                              (!order?.sales_id && !globalBankAccounts.data?.data?.length)
-                                ? "Select sales first"
-                                : bankAccounts.isLoading || globalBankAccounts.isLoading
-                                  ? "Loading…"
-                                  : "Select bank account"
-                            }
-                          />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {globalBankAccounts.data?.data && globalBankAccounts.data.data.length > 0 && (
-                            <SelectGroup>
-                              <SelectLabel>Global / Perusahaan</SelectLabel>
-                              {globalBankAccounts.data.data.map((ba) => (
-                                <SelectItem key={ba.id} value={ba.id}>
-                                  {ba.bank_name} — {ba.account_number} ({ba.account_name})
-                                </SelectItem>
-                              ))}
-                            </SelectGroup>
-                          )}
-                          {bankAccounts.data?.data && bankAccounts.data.data.length > 0 && (
-                            <SelectGroup>
-                              <SelectLabel>Sales</SelectLabel>
-                              {bankAccounts.data.data.map((ba) => (
-                                <SelectItem key={ba.id} value={ba.id}>
-                                  {ba.bank_name} — {ba.account_number} ({ba.account_name})
-                                </SelectItem>
-                              ))}
-                            </SelectGroup>
-                          )}
-                          {(!globalBankAccounts.data?.data || globalBankAccounts.data.data.length === 0) &&
-                           (!bankAccounts.data?.data || bankAccounts.data.data.length === 0) && (
-                            <div className="px-3 py-2 text-xs text-muted-foreground">
-                              No bank accounts available.
-                            </div>
-                          )}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Amount</Label>
-                      <Input
-                        type="number"
-                        min={0}
-                        placeholder="0"
-                        value={paymentAmount}
-                        onChange={(e) => setPaymentAmount(e.target.value ? Number(e.target.value) : "")}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Tipe Pembayaran</Label>
-                      <Select value={paymentType} onValueChange={setPaymentType}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Pilih tipe" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="dp">DP (Uang Muka)</SelectItem>
-                          <SelectItem value="settlement">Pelunasan</SelectItem>
-                          <SelectItem value="installment">Cicilan</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                </div>
-              )}
             </div>
           )}
         </form>

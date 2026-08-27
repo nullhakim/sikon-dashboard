@@ -341,6 +341,7 @@ function UpdateQuotationDialog({
     valid_until: "",
   });
   const [items, setItems] = useState<any[]>([]);
+  const [activeItems, setActiveItems] = useState<string[]>([]);
 
   useEffect(() => {
     if (order && open) {
@@ -349,29 +350,36 @@ function UpdateQuotationDialog({
         valid_until: order.valid_until ? order.valid_until.slice(0, 10) : "",
       });
       if (order.items) {
-        setItems(
-          order.items.map((i: any) => {
-            return {
-              id: i.id,
-              product_id: i.product_id,
-              product_name: i.product_name || i.product?.name || "—",
-              custom_name: i.custom_name ?? "",
-              qty: i.qty,
-              price: i.price,
-              details: parseDetailsFromBackend(i.details),
-              benang: i.details?.benang ?? i.details?.Benang ?? "",
-              bordir: i.details?.bordir ?? i.details?.Bordir ?? "",
-              jahitan: i.details?.jahitan ?? i.details?.Jahitan ?? "",
-            };
-          }),
-        );
+        const loaded = order.items.map((i: any) => {
+          let rawDetails = i.details;
+          if (typeof rawDetails === "string") {
+            try {
+              rawDetails = JSON.parse(rawDetails);
+            } catch {
+              rawDetails = {};
+            }
+          }
+          return {
+            id: i.id,
+            product_id: i.product_id,
+            product_name: i.product_name || i.product?.name || "—",
+            custom_name: i.custom_name ?? "",
+            qty: i.qty,
+            price: i.price,
+            details: parseDetailsFromBackend(i.details),
+            benang: rawDetails?.benang ?? rawDetails?.Benang ?? "",
+            bordir: rawDetails?.bordir ?? rawDetails?.Bordir ?? "",
+            jahitan: rawDetails?.jahitan ?? rawDetails?.Jahitan ?? "",
+          };
+        });
+        setItems(loaded);
+        setActiveItems([]);
       }
     } else if (!open) {
       setItems([]);
+      setActiveItems([]);
     }
   }, [order, open, specTemplates.data?.data]);
-
-
 
   const updateItem = (idx: number, patch: any) =>
     setItems((arr) => arr.map((it, i) => (i === idx ? { ...it, ...patch } : it)));
@@ -448,7 +456,7 @@ function UpdateQuotationDialog({
           <form id="update-quotation-form" onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-4">
               <h3 className="font-semibold text-sm">Items (Click to edit details)</h3>
-              <Accordion type="multiple" className="w-full space-y-3">
+              <Accordion type="multiple" value={activeItems} onValueChange={setActiveItems} className="w-full space-y-3">
                 {items.map((it, idx) => (
                   <AccordionItem value={`item-${idx}`} key={it.id || idx} className="border rounded-md px-4 bg-muted/10">
                     <AccordionTrigger className="hover:no-underline py-3">
@@ -809,15 +817,23 @@ function OrderItemDialog({
   useEffect(() => {
     if (open) {
       if (item) {
+        let rawDetails = item.details;
+        if (typeof rawDetails === "string") {
+          try {
+            rawDetails = JSON.parse(rawDetails);
+          } catch {
+            rawDetails = {};
+          }
+        }
         setIt({
           product_id: item.product_id || item.product?.id || "",
           custom_name: item.custom_name ?? "",
           qty: item.qty || 1,
           price: item.price || 0,
           details: parseDetailsFromBackend(item.details),
-          benang: item.details?.benang ?? item.details?.Benang ?? "",
-          bordir: item.details?.bordir ?? item.details?.Bordir ?? "",
-          jahitan: item.details?.jahitan ?? item.details?.Jahitan ?? "",
+          benang: rawDetails?.benang ?? rawDetails?.Benang ?? "",
+          bordir: rawDetails?.bordir ?? rawDetails?.Bordir ?? "",
+          jahitan: rawDetails?.jahitan ?? rawDetails?.Jahitan ?? "",
         });
       } else {
         setIt({ product_id: "", qty: 1, price: 0, details: [] });
@@ -1279,10 +1295,18 @@ function OrderDetailPage() {
                   ) : (
                     items.map((it, idx) => {
                       const parsedParts = parseDetailsFromBackend(it.details);
-                      const rawDetails = (it.details || {}) as Record<string, any>;
-                      const bordir = rawDetails.bordir ?? rawDetails.Bordir;
-                      const benang = rawDetails.benang ?? rawDetails.Benang;
-                      const jahitan = rawDetails.jahitan ?? rawDetails.Jahitan;
+                      let rawDetails = it.details;
+                      if (typeof rawDetails === "string") {
+                        try {
+                          rawDetails = JSON.parse(rawDetails);
+                        } catch {
+                          rawDetails = {};
+                        }
+                      }
+                      const detailsObj = (rawDetails || {}) as Record<string, any>;
+                      const bordir = detailsObj.bordir ?? detailsObj.Bordir;
+                      const benang = detailsObj.benang ?? detailsObj.Benang;
+                      const jahitan = detailsObj.jahitan ?? detailsObj.Jahitan;
 
                       return (
                         <TableRow key={it.id ?? idx} className="align-top">
@@ -1672,15 +1696,6 @@ function OrderDetailPage() {
         order={order}
         open={updateQuotationOpen}
         onClose={() => setUpdateQuotationOpen(false)}
-      />
-
-      <AddPaymentDialog
-        orderId={orderId}
-        salesId={salesId}
-        remaining={remaining}
-        currentStatus={order.order_status}
-        open={payOpen}
-        onClose={() => setPayOpen(false)}
       />
 
       <Dialog open={pdfOpen} onOpenChange={(v) => !v && setPdfOpen(false)}>

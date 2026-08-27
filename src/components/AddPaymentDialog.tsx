@@ -29,6 +29,15 @@ import { datetimeLocalToISO, formatIDR, isoToDatetimeLocal } from "@/lib/format"
 import { CurrencyInput } from "@/components/CurrencyInput";
 import { useLanguage } from "@/lib/language-context";
 
+export const cleanNumber = (val: unknown): number => {
+  if (val === undefined || val === null || val === "") return 0;
+  if (typeof val === "number") return isNaN(val) ? 0 : val;
+  const str = String(val).trim();
+  if (!str) return 0;
+  const digits = str.replace(/[^0-9]/g, "");
+  return digits ? parseInt(digits, 10) : 0;
+};
+
 const paymentTypeOptions: { value: string; labelId: string; labelEn: string }[] = [
   { value: "dp", labelId: "DP (Uang Muka)", labelEn: "DP (Down Payment)" },
   { value: "settlement", labelId: "Pelunasan", labelEn: "Settlement" },
@@ -120,27 +129,43 @@ export function AddPaymentDialog({
   const [referenceNumber, setReferenceNumber] = useState("");
   const [paymentDate, setPaymentDate] = useState("");
 
+  const firstAvailableBankAccountId =
+    globalBankAccounts.data?.data?.[0]?.id ||
+    bankAccounts.data?.data?.[0]?.id ||
+    allBankAccounts.data?.data?.[0]?.id ||
+    "";
+
   useEffect(() => {
     if (open) {
       // Default payment date to current local datetime
       setPaymentDate(isoToDatetimeLocal(new Date().toISOString()));
-      setBankAccountId("");
+      if (firstAvailableBankAccountId) {
+        setBankAccountId(firstAvailableBankAccountId);
+      }
       setAmount("");
       setPaymentType("dp");
       setReferenceNumber("");
     }
-  }, [open]);
+  }, [open, firstAvailableBankAccountId]);
+
+  useEffect(() => {
+    if (open && !bankAccountId && firstAvailableBankAccountId) {
+      setBankAccountId(firstAvailableBankAccountId);
+    }
+  }, [open, bankAccountId, firstAvailableBankAccountId]);
 
   const createMut = useMutation({
     mutationFn: async () => {
       if (!orderId) throw new Error("Order ID is missing");
+      const numericAmount = cleanNumber(amount);
+      const refNum = referenceNumber.trim() || "DIRECT-PAYMENT";
       await paymentsService.create({
         order_id: orderId,
         bank_account_id: bankAccountId,
-        amount: Number(amount),
+        amount: numericAmount,
         payment_type: paymentType,
-        reference_number: referenceNumber,
-        payment_date: datetimeLocalToISO(paymentDate),
+        reference_number: refNum,
+        payment_date: paymentDate ? datetimeLocalToISO(paymentDate) : new Date().toISOString(),
       });
       if (effectiveStatus === "quotation" && (paymentType === "dp" || paymentType === "settlement")) {
         try {
@@ -176,15 +201,16 @@ export function AddPaymentDialog({
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!bankAccountId) return toast.error("Pilih rekening bank");
-    if (!amount || Number(amount) <= 0) return toast.error("Masukkan jumlah pembayaran yang valid");
+    const numericAmount = cleanNumber(amount);
+    if (!numericAmount || numericAmount <= 0) return toast.error("Masukkan jumlah pembayaran yang valid");
     if (!paymentType) return toast.error("Pilih jenis pembayaran");
-    if (!referenceNumber.trim()) return toast.error("Masukkan nomor referensi");
     createMut.mutate();
   }
 
   const handleFullPayment = () => {
-    if (effectiveRemaining > 0) {
-      setAmount(effectiveRemaining);
+    const fullAmount = cleanNumber(effectiveRemaining);
+    if (fullAmount > 0) {
+      setAmount(fullAmount);
       setPaymentType("settlement");
     }
   };

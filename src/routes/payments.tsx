@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { z } from "zod";
 
 import { Button } from "@/components/ui/button";
+import { cleanNumber } from "@/components/AddPaymentDialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
@@ -142,9 +143,14 @@ function CreatePaymentDialog({ open, onClose }: { open: boolean; onClose: () => 
   const [referenceNumber, setReferenceNumber] = useState("");
   const [paymentDate, setPaymentDate] = useState("");
 
+  const firstAvailableBankAccountId = bankAccounts.data?.data?.[0]?.id || "";
+
   useEffect(() => {
     if (open) {
       setPaymentDate(isoToDatetimeLocal(new Date().toISOString()));
+      if (firstAvailableBankAccountId) {
+        setBankAccountId(firstAvailableBankAccountId);
+      }
     } else {
       setOrderId("");
       setBankAccountId("");
@@ -155,12 +161,18 @@ function CreatePaymentDialog({ open, onClose }: { open: boolean; onClose: () => 
     }
   }, [open]);
 
+  useEffect(() => {
+    if (open && !bankAccountId && firstAvailableBankAccountId) {
+      setBankAccountId(firstAvailableBankAccountId);
+    }
+  }, [open, bankAccountId, firstAvailableBankAccountId]);
+
   const createMut = useMutation({
     mutationFn: () =>
       paymentsService.create({
         order_id: orderId,
         bank_account_id: bankAccountId,
-        amount: Number(amount),
+        amount: cleanNumber(amount),
         payment_type: paymentType,
         reference_number: referenceNumber,
         payment_date: datetimeLocalToISO(paymentDate),
@@ -186,7 +198,8 @@ function CreatePaymentDialog({ open, onClose }: { open: boolean; onClose: () => 
     e.preventDefault();
     if (!orderId) return toast.error("Select an order");
     if (!bankAccountId) return toast.error("Select a bank account");
-    if (!amount || Number(amount) <= 0) return toast.error("Enter a valid amount");
+    const numericAmount = cleanNumber(amount);
+    if (!numericAmount || numericAmount <= 0) return toast.error("Enter a valid amount");
     if (!paymentType) return toast.error("Choose a payment type");
     if (!referenceNumber.trim()) return toast.error("Enter a reference number");
     createMut.mutate();
