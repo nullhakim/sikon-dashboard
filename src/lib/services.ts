@@ -629,6 +629,39 @@ export const workLogsService = {
       return { status: true, message: "Work log deleted", data: null };
     }
   },
+  distribute: async (body: {
+    batch_po_id: string;
+    job_type: JobType;
+    worker_ids: string[];
+    rate_per_qty: number;
+    work_date: string;
+    notes?: string;
+  }) => {
+    try {
+      return await api.post<ApiSuccess<unknown>>("/work-logs/distribute", body);
+    } catch {
+      const createdLogs: WorkLog[] = [];
+      for (const workerId of body.worker_ids) {
+        const worker = mockWorkers.find((w) => w.id === workerId);
+        const newLog: WorkLog = {
+          id: `wl-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+          work_date: body.work_date,
+          worker_id: workerId,
+          worker_name: worker?.name || "Worker",
+          job_type: body.job_type,
+          batch_po_id: body.batch_po_id,
+          qty: 0,
+          rate_per_qty: body.rate_per_qty,
+          total_amount: 0,
+          notes: body.notes,
+          created_at: new Date().toISOString(),
+        };
+        mockWorkLogs.unshift(newLog);
+        createdLogs.push(newLog);
+      }
+      return { status: true, message: "Work logs distributed successfully", data: createdLogs };
+    }
+  },
 };
 
 export interface PayrollsListParams extends PageParams {

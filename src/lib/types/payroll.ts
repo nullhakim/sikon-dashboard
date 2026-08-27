@@ -1,3 +1,5 @@
+import type { BatchPO, Order } from "../types";
+
 export type WorkerRole = "tailor" | "cutter" | "finishing" | "helper";
 export type SalaryType = "piece_rate" | "daily" | "monthly";
 export type WorkerStatus = "active" | "inactive";
@@ -19,10 +21,22 @@ export interface WorkLog {
   id: string;
   work_date: string;
   worker_id: string;
+  worker?: Worker;
   worker_name?: string;
   job_type: JobType;
   batch_po_id?: string;
+  batch_po?: BatchPO;
   batch_po_name?: string;
+  order_id?: string;
+  order?: Order;
+  order_number?: string;
+  customer_name?: string;
+  creator?: {
+    id: string;
+    name: string;
+    email?: string;
+    role?: string;
+  };
   qty: number;
   rate_per_qty: number;
   total_amount: number;

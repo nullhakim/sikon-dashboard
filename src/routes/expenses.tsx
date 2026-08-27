@@ -58,10 +58,6 @@ interface ExpenseForm {
   expense_category_id: string;
   batch_po_id: string;
   notes: string;
-  // Borongan Mode Fields
-  mode: "direct" | "borongan";
-  qty: string;
-  rate: string;
 }
 
 const getTodayDateStr = () => new Date().toISOString().split("T")[0];
@@ -73,9 +69,6 @@ const emptyForm: ExpenseForm = {
   expense_category_id: "",
   batch_po_id: "",
   notes: "",
-  mode: "direct",
-  qty: "",
-  rate: "",
 };
 
 function AddExpenseDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -98,19 +91,6 @@ function AddExpenseDialog({ open, onClose }: { open: boolean; onClose: () => voi
   const categories = catData?.data ?? [];
   const activePOs = poData?.data ?? [];
 
-  const selectedCategory = categories.find((c) => c.id === form.expense_category_id);
-
-  // Calculate Borongan Total and Auto Title
-  const boronganQty = Number(form.qty) || 0;
-  const boronganRate = Number(form.rate) || 0;
-  const boronganTotal = boronganQty * boronganRate;
-
-  const effectiveAmount = form.mode === "borongan" ? boronganTotal : Number(form.amount) || 0;
-  const effectiveTitle =
-    form.mode === "borongan"
-      ? `${selectedCategory?.name ?? "Pengeluaran Borongan"} - ${boronganQty} pcs @ Rp ${boronganRate.toLocaleString("id-ID")}`
-      : form.title;
-
   const createMut = useMutation({
     mutationFn: (body: Parameters<typeof expensesService.create>[0]) =>
       expensesService.create(body),
@@ -126,14 +106,15 @@ function AddExpenseDialog({ open, onClose }: { open: boolean; onClose: () => voi
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!user?.id) return toast.error("User session invalid. Please log in again.");
-    if (form.mode === "direct" && !form.title.trim()) return toast.error("Title is required");
-    if (effectiveAmount <= 0) return toast.error("Amount must be > 0");
-    if (!form.expense_date) return toast.error("Date is required");
     if (!form.expense_category_id) return toast.error("Category is required");
+    if (!form.title.trim()) return toast.error("Title is required");
+    const numAmount = Number(form.amount) || 0;
+    if (numAmount <= 0) return toast.error("Amount must be > 0");
+    if (!form.expense_date) return toast.error("Date is required");
 
     createMut.mutate({
-      title: effectiveTitle.trim(),
-      amount: effectiveAmount,
+      title: form.title.trim(),
+      amount: numAmount,
       expense_date: new Date(form.expense_date).toISOString(),
       expense_category_id: form.expense_category_id,
       batch_po_id: form.batch_po_id || undefined,
@@ -154,28 +135,6 @@ function AddExpenseDialog({ open, onClose }: { open: boolean; onClose: () => voi
             <DialogDescription>Record a new business expense.</DialogDescription>
           </DialogHeader>
 
-          {/* Mode Switcher */}
-          <div className="flex rounded-lg bg-slate-100 p-1 mt-3 text-xs font-medium border border-slate-200">
-            <button
-              type="button"
-              className={`flex-1 py-1.5 rounded-md transition-all ${
-                form.mode === "direct" ? "bg-white shadow-xs font-semibold text-primary" : "text-slate-600 hover:text-slate-900"
-              }`}
-              onClick={() => setForm((p) => ({ ...p, mode: "direct" }))}
-            >
-              Mode A: Nominal Langsung
-            </button>
-            <button
-              type="button"
-              className={`flex-1 py-1.5 rounded-md transition-all ${
-                form.mode === "borongan" ? "bg-white shadow-xs font-semibold text-primary" : "text-slate-600 hover:text-slate-900"
-              }`}
-              onClick={() => setForm((p) => ({ ...p, mode: "borongan" }))}
-            >
-              Mode B: Hitung Borongan / Pcs
-            </button>
-          </div>
-
           <div className="grid gap-4 py-4">
             {/* Category */}
             <div className="space-y-2">
@@ -190,56 +149,23 @@ function AddExpenseDialog({ open, onClose }: { open: boolean; onClose: () => voi
               </Select>
             </div>
 
-            {form.mode === "direct" ? (
-              <>
-                {/* Title */}
-                <div className="space-y-2">
-                  <Label htmlFor="exp-title">Title <span className="text-destructive">*</span></Label>
-                  <Input id="exp-title" placeholder="e.g. Pembelian Kain" value={form.title} onChange={set("title")} autoFocus />
-                </div>
-                {/* Amount + Date */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-2">
-                    <Label htmlFor="exp-amount">Amount (Rp) <span className="text-destructive">*</span></Label>
-                    <Input id="exp-amount" type="number" min={0} placeholder="0" value={form.amount} onChange={set("amount")} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="exp-date">Date <span className="text-destructive">*</span></Label>
-                    <Input id="exp-date" type="date" value={form.expense_date} onChange={set("expense_date")} />
-                  </div>
-                </div>
-              </>
-            ) : (
-              <>
-                {/* Qty & Tarif */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-2">
-                    <Label htmlFor="exp-qty">Qty (pcs) <span className="text-destructive">*</span></Label>
-                    <Input id="exp-qty" type="number" min={1} placeholder="0" value={form.qty} onChange={set("qty")} autoFocus />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="exp-rate">Tarif per Pcs (Rp) <span className="text-destructive">*</span></Label>
-                    <Input id="exp-rate" type="number" min={0} placeholder="0" value={form.rate} onChange={set("rate")} />
-                  </div>
-                </div>
-                {/* Date & Total Amount (Disabled) */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-2">
-                    <Label htmlFor="exp-date">Date <span className="text-destructive">*</span></Label>
-                    <Input id="exp-date" type="date" value={form.expense_date} onChange={set("expense_date")} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="exp-total">Total Amount (Rp)</Label>
-                    <Input id="exp-total" type="text" disabled className="bg-slate-50 font-semibold" value={`Rp ${boronganTotal.toLocaleString("id-ID")}`} />
-                  </div>
-                </div>
-                {/* Auto Title Preview */}
-                <div className="rounded-md bg-blue-50/70 p-2.5 text-xs text-blue-800 border border-blue-100">
-                  <span className="font-semibold block mb-0.5">Judul Otomatis:</span>
-                  {effectiveTitle || "—"}
-                </div>
-              </>
-            )}
+            {/* Title */}
+            <div className="space-y-2">
+              <Label htmlFor="exp-title">Title <span className="text-destructive">*</span></Label>
+              <Input id="exp-title" placeholder="e.g. Pembelian Kain / Listrik / Perlengkapan" value={form.title} onChange={set("title")} autoFocus />
+            </div>
+
+            {/* Amount + Date */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="exp-amount">Amount (Rp) <span className="text-destructive">*</span></Label>
+                <Input id="exp-amount" type="number" min={0} placeholder="0" value={form.amount} onChange={set("amount")} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="exp-date">Date <span className="text-destructive">*</span></Label>
+                <Input id="exp-date" type="date" value={form.expense_date} onChange={set("expense_date")} />
+              </div>
+            </div>
 
             {/* Batch PO */}
             <div className="space-y-2">
