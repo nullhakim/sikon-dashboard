@@ -465,7 +465,7 @@ export const poSummaryService = {
 };
 
 // ─── Workers, Work Logs, Payrolls Services ───────────────────────────────────
-import type { Worker, WorkLog, Payroll, WorkerRole, SalaryType, WorkerStatus, JobType, PayrollStatus } from "./types/payroll";
+import type { Worker, WorkLog, Payroll, WorkerRole, SalaryType, WorkerStatus, JobType, PayrollStatus, Attendance, AttendanceStatus, AttendanceCreatePayload, AttendanceBatchPayload } from "./types/payroll";
 
 // Initial mock data state for client persistence fallback if backend endpoints return 404
 let mockWorkers: Worker[] = [
@@ -476,8 +476,8 @@ let mockWorkers: Worker[] = [
 ];
 
 let mockWorkLogs: WorkLog[] = [
-  { id: "wl-1", work_date: new Date().toISOString().split("T")[0], worker_id: "w-1", worker_name: "Budi Santoso", job_type: "Jahit", batch_po_id: "", batch_po_name: "PO-2026-001", qty: 50, rate_per_qty: 15000, total_amount: 750000, notes: "Kaos Polos Cotton 30s" },
-  { id: "wl-2", work_date: new Date().toISOString().split("T")[0], worker_id: "w-2", worker_name: "Siti Rahma", job_type: "Potong", batch_po_id: "", batch_po_name: "PO-2026-001", qty: 100, rate_per_qty: 3000, total_amount: 300000, notes: "Pola Polo Shirt" },
+  { id: "wl-1", work_date: new Date().toISOString().split("T")[0], worker_id: "w-1", worker_name: "Budi Santoso", job_type: "jahit", batch_po_id: "", batch_po_name: "PO-2026-001", qty: 50, rate_per_qty: 15000, total_amount: 750000, notes: "Kaos Polos Cotton 30s" },
+  { id: "wl-2", work_date: new Date().toISOString().split("T")[0], worker_id: "w-2", worker_name: "Siti Rahma", job_type: "potong", batch_po_id: "", batch_po_name: "PO-2026-001", qty: 100, rate_per_qty: 3000, total_amount: 300000, notes: "Pola Polo Shirt" },
 ];
 
 let mockPayrolls: Payroll[] = [];
@@ -509,23 +509,23 @@ export const workersService = {
       if (p.status) filtered = filtered.filter((w) => w.status === p.status);
 
       return {
-        status: true,
+        status: "true",
         message: "Workers loaded",
         data: filtered,
-        paging: { page: p.page ?? 1, limit: p.limit ?? 10, total_data: filtered.length, total_page: 1 },
-      } as ApiPaginated<Worker>;
+        paging: { page: p.page ?? 1, limit: p.limit ?? 10, total_item: filtered.length, total_page: 1 },
+      } as unknown as ApiPaginated<Worker>;
     }
   },
-  create: async (body: Omit<Worker, "id" | "created_at">) => {
+  create: async (body: { name: string; phone?: string; role: WorkerRole; salary_type: SalaryType; status?: WorkerStatus; user_id?: string | null; daily_rate?: number }) => {
     try {
       return await api.post<ApiSuccess<Worker>>("/workers", body);
     } catch {
-      const newWorker: Worker = { ...body, id: `w-${Date.now()}`, created_at: new Date().toISOString() };
+      const newWorker: Worker = { ...body, id: `w-${Date.now()}`, status: body.status || "active", created_at: new Date().toISOString() };
       mockWorkers.unshift(newWorker);
       return { status: true, message: "Worker created", data: newWorker };
     }
   },
-  update: async (id: string, body: Partial<Worker>) => {
+  update: async (id: string, body: Partial<{ name: string; phone: string; role: WorkerRole; salary_type: SalaryType; status: WorkerStatus; user_id: string | null; daily_rate: number }>) => {
     try {
       return await api.put<ApiSuccess<Worker>>(`/workers/${id}`, body);
     } catch {
@@ -541,6 +541,40 @@ export const workersService = {
       mockWorkers = mockWorkers.filter((w) => w.id !== id);
       return { status: true, message: "Worker deleted", data: null };
     }
+  },
+};
+
+// ─── Attendances Service ──────────────────────────────────────────────────────
+
+export interface AttendancesListParams extends PageParams {
+  start_date?: string;
+  end_date?: string;
+  worker_id?: string;
+  status?: string;
+  is_unpaid?: boolean;
+}
+
+export const attendancesService = {
+  list: async (p: AttendancesListParams = {}) => {
+    const q: Record<string, string | number | boolean> = { page: p.page ?? 1, limit: p.limit ?? 10 };
+    if (p.start_date) q.start_date = p.start_date;
+    if (p.end_date) q.end_date = p.end_date;
+    if (p.worker_id) q.worker_id = p.worker_id;
+    if (p.status) q.status = p.status;
+    if (p.is_unpaid) q.is_unpaid = true;
+    return await api.get<ApiPaginated<Attendance>>("/attendances", q);
+  },
+  create: async (body: AttendanceCreatePayload) => {
+    return await api.post<ApiSuccess<Attendance>>("/attendances", body);
+  },
+  createBatch: async (body: AttendanceBatchPayload) => {
+    return await api.post<ApiSuccess<Attendance[]>>("/attendances/batch", body);
+  },
+  update: async (id: string, body: Partial<AttendanceCreatePayload>) => {
+    return await api.put<ApiSuccess<Attendance>>(`/attendances/${id}`, body);
+  },
+  delete: async (id: string) => {
+    return await api.delete<ApiSuccess<unknown>>(`/attendances/${id}`);
   },
 };
 
@@ -574,11 +608,11 @@ export const workLogsService = {
       if (p.unpaid_only) filtered = filtered.filter((w) => !w.payroll_id);
 
       return {
-        status: true,
+        status: "true",
         message: "Work logs loaded",
         data: filtered,
-        paging: { page: p.page ?? 1, limit: p.limit ?? 10, total_data: filtered.length, total_page: 1 },
-      } as ApiPaginated<WorkLog>;
+        paging: { page: p.page ?? 1, limit: p.limit ?? 10, total_item: filtered.length, total_page: 1 },
+      } as unknown as ApiPaginated<WorkLog>;
     }
   },
   create: async (body: Omit<WorkLog, "id" | "total_amount" | "created_at">) => {
@@ -685,11 +719,11 @@ export const payrollsService = {
       if (p.end_date) filtered = filtered.filter((pay) => pay.end_date <= p.end_date!);
 
       return {
-        status: true,
+        status: "true",
         message: "Payrolls loaded",
         data: filtered,
-        paging: { page: p.page ?? 1, limit: p.limit ?? 10, total_data: filtered.length, total_page: 1 },
-      } as ApiPaginated<Payroll>;
+        paging: { page: p.page ?? 1, limit: p.limit ?? 10, total_item: filtered.length, total_page: 1 },
+      } as unknown as ApiPaginated<Payroll>;
     }
   },
   get: async (id: string) => {
@@ -701,11 +735,11 @@ export const payrollsService = {
       return { status: true, message: "Payroll details", data: { ...payroll!, work_logs: boundLogs } };
     }
   },
-  createRekap: async (body: { start_date: string; end_date: string; work_log_ids: string[] }) => {
+  createRekap: async (body: { start_date: string; end_date: string; work_log_ids?: string[]; attendance_ids?: string[] }) => {
     try {
       return await api.post<ApiSuccess<Payroll>>("/payrolls", body);
     } catch {
-      const selectedLogs = mockWorkLogs.filter((wl) => body.work_log_ids.includes(wl.id));
+      const selectedLogs = mockWorkLogs.filter((wl) => body.work_log_ids?.includes(wl.id));
       const totalAmount = selectedLogs.reduce((acc, curr) => acc + curr.total_amount, 0);
       const payrollNo = `PAY-${new Date().toISOString().slice(0, 7).replace("-", "")}-${String(mockPayrolls.length + 1).padStart(3, "0")}`;
       const newId = `pay-${Date.now()}`;

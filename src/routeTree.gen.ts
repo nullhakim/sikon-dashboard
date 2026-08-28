@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AttendancesRouteImport } from './routes/attendances'
 import { Route as BankAccountsRouteImport } from './routes/bank-accounts'
 import { Route as BatchPosRouteImport } from './routes/batch-pos'
 import { Route as CategoriesRouteImport } from './routes/categories'
@@ -40,6 +41,11 @@ import { Route as ReportsPoSummaryPoIdRouteImport } from './routes/reports.po-su
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AttendancesRoute = AttendancesRouteImport.update({
+  id: '/attendances',
+  path: '/attendances',
   getParentRoute: () => rootRouteImport,
 } as any)
 const BankAccountsRoute = BankAccountsRouteImport.update({
@@ -175,6 +181,7 @@ const ReportsPoSummaryPoIdRoute = ReportsPoSummaryPoIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/attendances': typeof AttendancesRoute
   '/bank-accounts': typeof BankAccountsRoute
   '/batch-pos': typeof BatchPosRoute
   '/categories': typeof CategoriesRoute
@@ -204,6 +211,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/attendances': typeof AttendancesRoute
   '/bank-accounts': typeof BankAccountsRoute
   '/batch-pos': typeof BatchPosRoute
   '/categories': typeof CategoriesRoute
@@ -233,6 +241,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/attendances': typeof AttendancesRoute
   '/bank-accounts': typeof BankAccountsRoute
   '/batch-pos': typeof BatchPosRoute
   '/categories': typeof CategoriesRoute
@@ -264,6 +273,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/attendances'
     | '/bank-accounts'
     | '/batch-pos'
     | '/categories'
@@ -293,6 +303,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/attendances'
     | '/bank-accounts'
     | '/batch-pos'
     | '/categories'
@@ -321,6 +332,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/attendances'
     | '/bank-accounts'
     | '/batch-pos'
     | '/categories'
@@ -351,6 +363,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AttendancesRoute: typeof AttendancesRoute
   BankAccountsRoute: typeof BankAccountsRoute
   BatchPosRoute: typeof BatchPosRoute
   CategoriesRoute: typeof CategoriesRoute
@@ -380,6 +393,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/attendances': {
+      id: '/attendances'
+      path: '/attendances'
+      fullPath: '/attendances'
+      preLoaderRoute: typeof AttendancesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/bank-accounts': {
@@ -599,6 +619,7 @@ const ReportsRouteWithChildren =
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AttendancesRoute: AttendancesRoute,
   BankAccountsRoute: BankAccountsRoute,
   BatchPosRoute: BatchPosRoute,
   CategoriesRoute: CategoriesRoute,

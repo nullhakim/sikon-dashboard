@@ -1,15 +1,18 @@
-import type { BatchPO, Order } from "../types";
+import type { BatchPO, Order, User } from "../types";
 
-export type WorkerRole = "tailor" | "cutter" | "finishing" | "helper";
+export type WorkerRole = "tailor" | "cutter" | "finishing" | "sales" | "staff" | "helper";
 export type SalaryType = "piece_rate" | "daily" | "monthly";
 export type WorkerStatus = "active" | "inactive";
 
 export interface Worker {
   id: string;
+  user_id?: string | null;
+  user?: Pick<User, "id" | "name" | "email">;
   name: string;
   phone?: string;
   role: WorkerRole;
   salary_type: SalaryType;
+  daily_rate?: number;
   status: WorkerStatus;
   created_at?: string;
   updated_at?: string;
@@ -57,5 +60,47 @@ export interface Payroll {
   status: PayrollStatus;
   expense_id?: string;
   work_logs?: WorkLog[];
+  attendances?: Attendance[];
   created_at?: string;
+}
+
+// ─── Attendance Types ─────────────────────────────────────────────────────────
+
+export type AttendanceStatus = "present" | "half_day" | "permission" | "alpha";
+
+export interface Attendance {
+  id: string;
+  worker_id: string;
+  worker?: Pick<Worker, "id" | "name" | "role">;
+  payroll_id?: string | null;
+  payroll_no?: string | null;
+  attendance_date: string;
+  status: AttendanceStatus;
+  work_duration_index: number;
+  daily_rate: number;
+  total_amount: number;
+  notes?: string;
+  created_by?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+/** Payload for creating a single attendance record */
+export interface AttendanceCreatePayload {
+  worker_id: string;
+  attendance_date: string;
+  status: AttendanceStatus;
+  work_duration_index?: number;
+  notes?: string;
+}
+
+/** Payload for batch attendance creation */
+export interface AttendanceBatchPayload {
+  attendance_date: string;
+  items: {
+    worker_id: string;
+    status: AttendanceStatus;
+    work_duration_index?: number;
+    notes?: string;
+  }[];
 }

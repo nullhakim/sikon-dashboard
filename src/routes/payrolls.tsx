@@ -25,10 +25,11 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Pagination } from "@/components/ui/pagination-custom";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-import { payrollsService, workLogsService } from "@/lib/services";
+import { payrollsService, workLogsService, attendancesService } from "@/lib/services";
 import { formatDate, formatIDR } from "@/lib/format";
-import type { Payroll, PayrollStatus, WorkLog } from "@/lib/types/payroll";
+import type { Payroll, PayrollStatus, WorkLog, Attendance } from "@/lib/types/payroll";
 import { useAuthStore } from "@/lib/auth-store";
 
 export const Route = createFileRoute("/payrolls")({
@@ -65,8 +66,9 @@ function CreatePayrollModal({ open, onClose }: { open: boolean; onClose: () => v
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
 
-  // Step 2 State - Checklist of work log IDs
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  // Step 2 State - Checklist of work log IDs & attendance IDs
+  const [selectedWorkLogIds, setSelectedWorkLogIds] = useState<string[]>([]);
+  const [selectedAttendanceIds, setSelectedAttendanceIds] = useState<string[]>([]);
 
   // Fetch unpaid logs within date range
   const { data: logsData, isLoading: isLoadingLogs } = useQuery({
@@ -75,22 +77,53 @@ function CreatePayrollModal({ open, onClose }: { open: boolean; onClose: () => v
     enabled: open && step >= 2,
   });
 
-  const availableLogs = logsData?.data ?? [];
+  // Fetch unpaid attendances within date range
+  const { data: attendancesData, isLoading: isLoadingAttendances } = useQuery({
+    queryKey: ["attendances", "unpaid", startDate, endDate],
+    queryFn: () => attendancesService.list({ start_date: startDate || undefined, end_date: endDate || undefined, is_unpaid: true, limit: 200 }),
+    enabled: open && step >= 2,
+  });
 
-  const handleSelectAll = (checked: boolean) => {
+  const availableLogs = logsData?.data ?? [];
+  const availableAttendances = attendancesData?.data ?? [];
+
+  // Next to step 2 helper
+  const handleNextToStep2 = () => {
+    if (new Date(startDate) > new Date(endDate)) return toast.error("Start date must be before end date");
+    setStep(2);
+  };
+
+  // Toggle helpers
+  const handleSelectAllLogs = (checked: boolean) => {
     if (checked) {
-      setSelectedIds(availableLogs.map((l) => l.id));
+      setSelectedWorkLogIds(availableLogs.map((l) => l.id));
     } else {
-      setSelectedIds([]);
+      setSelectedWorkLogIds([]);
     }
   };
 
   const handleToggleLog = (id: string) => {
-    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]));
+    setSelectedWorkLogIds((prev) => (prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]));
   };
 
-  const selectedLogs = availableLogs.filter((l) => selectedIds.includes(l.id));
-  const calculatedTotal = selectedLogs.reduce((acc, curr) => acc + curr.total_amount, 0);
+  const handleSelectAllAttendances = (checked: boolean) => {
+    if (checked) {
+      setSelectedAttendanceIds(availableAttendances.map((a) => a.id));
+    } else {
+      setSelectedAttendanceIds([]);
+    }
+  };
+
+  const handleToggleAttendance = (id: string) => {
+    setSelectedAttendanceIds((prev) => (prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]));
+  };
+
+  const selectedLogs = availableLogs.filter((l) => selectedWorkLogIds.includes(l.id));
+  const selectedAttendances = availableAttendances.filter((a) => selectedAttendanceIds.includes(a.id));
+
+  const workLogsTotal = selectedLogs.reduce((acc, curr) => acc + curr.total_amount, 0);
+  const attendancesTotal = selectedAttendances.reduce((acc, curr) => acc + curr.total_amount, 0);
+  const calculatedTotal = workLogsTotal + attendancesTotal;
 
   const createMut = useMutation({
     mutationFn: (body: Parameters<typeof payrollsService.createRekap>[0]) =>
@@ -99,17 +132,22 @@ function CreatePayrollModal({ open, onClose }: { open: boolean; onClose: () => v
       toast.success("Payroll rekap created as Draft!");
       qc.invalidateQueries({ queryKey: ["payrolls"] });
       qc.invalidateQueries({ queryKey: ["work-logs"] });
+      qc.invalidateQueries({ queryKey: ["attendances"] });
       onClose();
     },
     onError: (e: any) => toast.error(e?.payload?.message || e.message),
   });
 
   function handleSaveDraft() {
-    if (selectedIds.length === 0) return toast.error("Please select at least 1 work log");
+    if (selectedWorkLogIds.length === 0 && selectedAttendanceIds.length === 0) {
+      return toast.error("Pilih minimal 1 item borongan atau absensi untuk membuat rekap payroll");
+    }
+
     createMut.mutate({
       start_date: startDate,
       end_date: endDate,
-      work_log_ids: selectedIds,
+      work_log_ids: selectedWorkLogIds,
+      attendance_ids: selectedAttendanceIds,
     });
   }
 
@@ -119,7 +157,7 @@ function CreatePayrollModal({ open, onClose }: { open: boolean; onClose: () => v
         <DialogHeader>
           <DialogTitle>Create Payroll Rekap</DialogTitle>
           <DialogDescription>
-            Wizard rekapitulasi penggajian borongan berdasarkan catatan kerja harian.
+            Wizard rekapitulasi penggajian borongan & harian berdasarkan catatan kerja dan absensi.
           </DialogDescription>
         </DialogHeader>
 
@@ -132,7 +170,7 @@ function CreatePayrollModal({ open, onClose }: { open: boolean; onClose: () => v
           <div className="w-8 h-px bg-slate-200" />
           <div className={`flex items-center gap-1.5 ${step >= 2 ? "text-primary font-bold" : "text-muted-foreground"}`}>
             <span className="w-5 h-5 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-[11px]">2</span>
-            Checklist Work Logs
+            Checklist Item Gajian (Borongan & Absensi)
           </div>
           <div className="w-8 h-px bg-slate-200" />
           <div className={`flex items-center gap-1.5 ${step >= 3 ? "text-primary font-bold" : "text-muted-foreground"}`}>
@@ -158,52 +196,125 @@ function CreatePayrollModal({ open, onClose }: { open: boolean; onClose: () => v
           </div>
         )}
 
-        {/* STEP 2: Work Logs Checklist */}
+        {/* STEP 2: Work Logs & Attendances Dual Checklist Tabs */}
         {step === 2 && (
-          <div className="space-y-4 py-2">
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-muted-foreground">
-                Menampilkan daftar work logs yang <strong>Belum Digaji</strong> (Periode: {startDate} s/d {endDate})
-              </span>
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="select-all"
-                  checked={availableLogs.length > 0 && selectedIds.length === availableLogs.length}
-                  onCheckedChange={(c) => handleSelectAll(!!c)}
-                />
-                <Label htmlFor="select-all" className="text-xs font-semibold cursor-pointer">Pilih Semua ({availableLogs.length})</Label>
-              </div>
-            </div>
+          <div className="space-y-3 py-2">
+            <p className="text-xs text-muted-foreground">
+              Pilih item yang akan dicairkan pada rekap payroll periode <strong>{startDate} s/d {endDate}</strong>:
+            </p>
 
-            <div className="border rounded-md max-h-60 overflow-y-auto p-2 space-y-2 bg-slate-50">
-              {isLoadingLogs && <Skeleton className="h-12 w-full" />}
-              {!isLoadingLogs && availableLogs.length === 0 && (
-                <div className="text-center py-6 text-xs text-muted-foreground">
-                  Tidak ada catatan kerja (unpaid) pada rentang tanggal tersebut.
-                </div>
-              )}
-              {availableLogs.map((log) => {
-                const checked = selectedIds.includes(log.id);
-                return (
-                  <div
-                    key={log.id}
-                    className={`flex items-center justify-between p-2 rounded-md border bg-white transition-all cursor-pointer ${
-                      checked ? "border-primary bg-blue-50/30" : "border-slate-200"
-                    }`}
-                    onClick={() => handleToggleLog(log.id)}
-                  >
-                    <div className="flex items-center space-x-3">
-                      <Checkbox checked={checked} onCheckedChange={() => handleToggleLog(log.id)} />
-                      <div>
-                        <p className="text-xs font-semibold">{log.worker_name} — <span className="text-muted-foreground font-normal">{log.job_type}</span></p>
-                        <p className="text-[11px] text-muted-foreground">{formatDate(log.work_date)} • {log.batch_po_name || "Non-PO"} • {log.qty} pcs @ {formatIDR(log.rate_per_qty)}</p>
-                      </div>
-                    </div>
-                    <span className="text-xs font-bold tabular-nums text-slate-800">{formatIDR(log.total_amount)}</span>
+            <Tabs defaultValue="work_logs" className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="work_logs" className="text-xs">
+                  Hasil Borongan ({selectedWorkLogIds.length}/{availableLogs.length})
+                </TabsTrigger>
+                <TabsTrigger value="attendances" className="text-xs">
+                  Absensi Harian ({selectedAttendanceIds.length}/{availableAttendances.length})
+                </TabsTrigger>
+              </TabsList>
+
+              {/* Tab 1: Work Logs */}
+              <TabsContent value="work_logs" className="space-y-3 mt-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">
+                    Catatan Kerja Borongan (Penjahit & Pemotong)
+                  </span>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="select-all-logs"
+                      checked={availableLogs.length > 0 && selectedWorkLogIds.length === availableLogs.length}
+                      onCheckedChange={(c) => handleSelectAllLogs(!!c)}
+                    />
+                    <Label htmlFor="select-all-logs" className="text-xs font-semibold cursor-pointer">
+                      Pilih Semua Borongan ({availableLogs.length})
+                    </Label>
                   </div>
-                );
-              })}
-            </div>
+                </div>
+
+                <div className="border rounded-md max-h-60 overflow-y-auto p-2 space-y-2 bg-slate-50">
+                  {isLoadingLogs && <Skeleton className="h-12 w-full" />}
+                  {!isLoadingLogs && availableLogs.length === 0 && (
+                    <div className="text-center py-6 text-xs text-muted-foreground">
+                      Tidak ada catatan kerja borongan (unpaid) pada rentang tanggal tersebut.
+                    </div>
+                  )}
+                  {availableLogs.map((log) => {
+                    const checked = selectedWorkLogIds.includes(log.id);
+                    return (
+                      <div
+                        key={log.id}
+                        className={`flex items-center justify-between p-2 rounded-md border bg-white transition-all cursor-pointer ${
+                          checked ? "border-primary bg-blue-50/30" : "border-slate-200"
+                        }`}
+                        onClick={() => handleToggleLog(log.id)}
+                      >
+                        <div className="flex items-center space-x-3">
+                          <Checkbox checked={checked} onCheckedChange={() => handleToggleLog(log.id)} />
+                          <div>
+                            <p className="text-xs font-semibold">{log.worker_name} — <span className="text-muted-foreground font-normal capitalize">{log.job_type}</span></p>
+                            <p className="text-[11px] text-muted-foreground">{formatDate(log.work_date)} • {log.batch_po_name || "Non-PO"} • {log.qty} pcs @ {formatIDR(log.rate_per_qty)}</p>
+                          </div>
+                        </div>
+                        <span className="text-xs font-bold tabular-nums text-slate-800">{formatIDR(log.total_amount)}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </TabsContent>
+
+              {/* Tab 2: Attendances */}
+              <TabsContent value="attendances" className="space-y-3 mt-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">
+                    Absensi Pekerja Harian (Finishing, Staff, Sales, Helper, dll)
+                  </span>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="select-all-attendances"
+                      checked={availableAttendances.length > 0 && selectedAttendanceIds.length === availableAttendances.length}
+                      onCheckedChange={(c) => handleSelectAllAttendances(!!c)}
+                    />
+                    <Label htmlFor="select-all-attendances" className="text-xs font-semibold cursor-pointer">
+                      Pilih Semua Absensi ({availableAttendances.length})
+                    </Label>
+                  </div>
+                </div>
+
+                <div className="border rounded-md max-h-60 overflow-y-auto p-2 space-y-2 bg-slate-50">
+                  {isLoadingAttendances && <Skeleton className="h-12 w-full" />}
+                  {!isLoadingAttendances && availableAttendances.length === 0 && (
+                    <div className="text-center py-6 text-xs text-muted-foreground">
+                      Tidak ada data absensi harian (unpaid) pada rentang tanggal tersebut.
+                    </div>
+                  )}
+                  {availableAttendances.map((att) => {
+                    const checked = selectedAttendanceIds.includes(att.id);
+                    const workerName = att.worker?.name || att.worker_id;
+                    const workerRole = att.worker?.role || "Staff";
+                    return (
+                      <div
+                        key={att.id}
+                        className={`flex items-center justify-between p-2 rounded-md border bg-white transition-all cursor-pointer ${
+                          checked ? "border-primary bg-emerald-50/30" : "border-slate-200"
+                        }`}
+                        onClick={() => handleToggleAttendance(att.id)}
+                      >
+                        <div className="flex items-center space-x-3">
+                          <Checkbox checked={checked} onCheckedChange={() => handleToggleAttendance(att.id)} />
+                          <div>
+                            <p className="text-xs font-semibold">{workerName} <span className="text-muted-foreground font-normal capitalize">({workerRole})</span></p>
+                            <p className="text-[11px] text-muted-foreground">
+                              {formatDate(att.attendance_date)} • Status: <span className="font-medium capitalize">{att.status}</span> (Index: {att.work_duration_index}) • Rate: {formatIDR(att.daily_rate)}/hari
+                            </p>
+                          </div>
+                        </div>
+                        <span className="text-xs font-bold tabular-nums text-slate-800">{formatIDR(att.total_amount)}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </TabsContent>
+            </Tabs>
           </div>
         )}
 
@@ -217,8 +328,12 @@ function CreatePayrollModal({ open, onClose }: { open: boolean; onClose: () => v
                   <span className="font-semibold">{formatDate(startDate)} — {formatDate(endDate)}</span>
                 </div>
                 <div className="flex justify-between text-xs">
-                  <span className="text-muted-foreground">Jumlah Catatan Kerja (Work Logs):</span>
-                  <span className="font-semibold">{selectedLogs.length} items</span>
+                  <span className="text-muted-foreground">Work Logs (Hasil Borongan):</span>
+                  <span className="font-semibold">{selectedLogs.length} items ({formatIDR(workLogsTotal)})</span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">Absensi Pekerja (Gaji Harian):</span>
+                  <span className="font-semibold">{selectedAttendances.length} records ({formatIDR(attendancesTotal)})</span>
                 </div>
                 <div className="border-t pt-2 flex justify-between items-center">
                   <span className="text-sm font-bold">Total Nominal Gaji Rekap:</span>
@@ -246,26 +361,23 @@ function CreatePayrollModal({ open, onClose }: { open: boolean; onClose: () => v
               <Button
                 size="sm"
                 disabled={!startDate || !endDate}
-                onClick={() => {
-                  if (new Date(startDate) > new Date(endDate)) return toast.error("Start date must be before end date");
-                  setStep(2);
-                }}
+                onClick={handleNextToStep2}
               >
-                Next: Checklist Logs
+                Next: Checklist Items
               </Button>
             )}
             {step === 2 && (
               <Button
                 size="sm"
-                disabled={selectedIds.length === 0}
+                disabled={selectedWorkLogIds.length === 0 && selectedAttendanceIds.length === 0}
                 onClick={() => setStep(3)}
               >
-                Next: Kalkulasi ({selectedIds.length})
+                Next: Kalkulasi & Simpan
               </Button>
             )}
             {step === 3 && (
               <Button size="sm" disabled={createMut.isPending} onClick={handleSaveDraft}>
-                {createMut.isPending ? "Saving Draft…" : "Save as Draft"}
+                {createMut.isPending ? "Saving…" : "Save Draft Payroll"}
               </Button>
             )}
           </div>
@@ -285,6 +397,7 @@ function PayrollDetailModal({ payrollId, onClose }: { payrollId: string; onClose
 
   const payroll = data?.data;
   const logs = payroll?.work_logs ?? [];
+  const attendances = payroll?.attendances ?? [];
 
   return (
     <Dialog open={!!payrollId} onOpenChange={(v) => !v && onClose()}>
@@ -320,33 +433,65 @@ function PayrollDetailModal({ payrollId, onClose }: { payrollId: string; onClose
               )}
             </div>
 
-            <div>
-              <h4 className="text-xs font-semibold mb-2">Terikat Catatan Kerja ({logs.length} Work Logs)</h4>
-              <div className="border rounded-md overflow-hidden text-xs">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Worker</TableHead>
-                      <TableHead>Job</TableHead>
-                      <TableHead className="text-right">Qty & Rate</TableHead>
-                      <TableHead className="text-right">Total</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {logs.map((log) => (
-                      <TableRow key={log.id}>
-                        <TableCell className="text-muted-foreground">{formatDate(log.work_date)}</TableCell>
-                        <TableCell className="font-medium">{log.worker_name}</TableCell>
-                        <TableCell>{log.job_type}</TableCell>
-                        <TableCell className="text-right tabular-nums">{log.qty} pcs @ {formatIDR(log.rate_per_qty)}</TableCell>
-                        <TableCell className="text-right font-semibold tabular-nums">{formatIDR(log.total_amount)}</TableCell>
+            {logs.length > 0 && (
+              <div>
+                <h4 className="text-xs font-semibold mb-2">Terikat Catatan Kerja Borongan ({logs.length} Work Logs)</h4>
+                <div className="border rounded-md overflow-hidden text-xs">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Worker</TableHead>
+                        <TableHead>Job</TableHead>
+                        <TableHead className="text-right">Qty & Rate</TableHead>
+                        <TableHead className="text-right">Total</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {logs.map((log) => (
+                        <TableRow key={log.id}>
+                          <TableCell className="text-muted-foreground">{formatDate(log.work_date)}</TableCell>
+                          <TableCell className="font-medium">{log.worker_name}</TableCell>
+                          <TableCell>{log.job_type}</TableCell>
+                          <TableCell className="text-right tabular-nums">{log.qty} pcs @ {formatIDR(log.rate_per_qty)}</TableCell>
+                          <TableCell className="text-right font-semibold tabular-nums">{formatIDR(log.total_amount)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
               </div>
-            </div>
+            )}
+
+            {attendances.length > 0 && (
+              <div>
+                <h4 className="text-xs font-semibold mb-2">Terikat Absensi Harian ({attendances.length} Attendances)</h4>
+                <div className="border rounded-md overflow-hidden text-xs">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Worker</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead className="text-right">Daily Rate</TableHead>
+                        <TableHead className="text-right">Total</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {attendances.map((att) => (
+                        <TableRow key={att.id}>
+                          <TableCell className="text-muted-foreground">{formatDate(att.attendance_date)}</TableCell>
+                          <TableCell className="font-medium">{att.worker?.name || "Pekerja Harian"}</TableCell>
+                          <TableCell className="capitalize">{att.status} ({att.work_duration_index})</TableCell>
+                          <TableCell className="text-right tabular-nums">{formatIDR(att.daily_rate)}</TableCell>
+                          <TableCell className="text-right font-semibold tabular-nums">{formatIDR(att.total_amount)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -415,7 +560,7 @@ function PayrollsPage() {
   });
 
   const rows = data?.data ?? [];
-  const totalData = data?.paging?.total_data ?? rows.length;
+  const totalData = (data?.paging as any)?.total_item ?? (data?.paging as any)?.total_data ?? rows.length;
   const totalPage = data?.paging?.total_page ?? 1;
 
   const hasAnyFilter = !!(status || start_date || end_date);

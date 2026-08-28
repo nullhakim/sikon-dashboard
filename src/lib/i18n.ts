@@ -19,6 +19,7 @@ export const translations = {
     "nav.payments": "Pembayaran",
     "nav.expenses": "Pengeluaran",
     "nav.work_logs": "Catatan Kerja",
+    "nav.attendances": "Absensi (Attendances)",
     "nav.payrolls": "Penggajian (Payrolls)",
 
     "nav.people": "Sumber Daya & Orang",
@@ -141,6 +142,7 @@ export const translations = {
     "nav.payments": "Payments",
     "nav.expenses": "Expenses",
     "nav.work_logs": "Work Logs",
+    "nav.attendances": "Attendances",
     "nav.payrolls": "Payrolls",
 
     "nav.people": "People & HR",

@@ -15,6 +15,7 @@ import {
   Wallet,
   FolderOpen,
   CalendarDays,
+  CalendarCheck,
   FileBarChart,
   Receipt,
   Banknote,
@@ -75,6 +76,7 @@ const transactions: NavItem[] = [
   { titleKey: "nav.payments", defaultTitle: "Pembayaran", url: "/payments", icon: CreditCard, roles: ["owner", "accounting"] },
   { titleKey: "nav.expenses", defaultTitle: "Pengeluaran", url: "/expenses", icon: Wallet, roles: ["owner", "accounting"] },
   { titleKey: "nav.work_logs", defaultTitle: "Catatan Kerja", url: "/work-logs", icon: ClipboardList, roles: ["owner", "accounting"] },
+  { titleKey: "nav.attendances", defaultTitle: "Absensi (Attendances)", url: "/attendances", icon: CalendarCheck, roles: ["owner", "accounting"] },
   { titleKey: "nav.payrolls", defaultTitle: "Penggajian (Payrolls)", url: "/payrolls", icon: Banknote, roles: ["owner", "accounting"] },
 ];
 

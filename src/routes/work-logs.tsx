@@ -585,7 +585,7 @@ function WorkLogsPage() {
   });
 
   const rows = data?.data ?? [];
-  const totalData = data?.paging?.total_data ?? rows.length;
+  const totalData = (data?.paging as any)?.total_item ?? (data?.paging as any)?.total_data ?? rows.length;
   const totalPage = data?.paging?.total_page ?? 1;
 
   const hasAnyFilter = !!(start_date || end_date || worker_id || batch_po_id || job_type || unpaid_only);

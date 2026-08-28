@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Search, Pencil, Trash2, ChevronLeft, ChevronRight, Filter } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, ChevronLeft, ChevronRight, Filter, Link2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -24,8 +24,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 
-import { workersService } from "@/lib/services";
+import { workersService, usersService } from "@/lib/services";
+import { formatIDR } from "@/lib/format";
 import type { Worker, WorkerRole, SalaryType, WorkerStatus } from "@/lib/types/payroll";
+import type { User } from "@/lib/types";
 
 export const Route = createFileRoute("/workers")({
   head: () => ({
@@ -42,6 +44,8 @@ const ROLE_BADGE: Record<WorkerRole, { label: string; className: string }> = {
   tailor: { label: "Tailor", className: "bg-blue-100 text-blue-800 border-blue-200" },
   cutter: { label: "Cutter", className: "bg-amber-100 text-amber-800 border-amber-200" },
   finishing: { label: "Finishing", className: "bg-purple-100 text-purple-800 border-purple-200" },
+  sales: { label: "Sales", className: "bg-green-100 text-green-800 border-green-200" },
+  staff: { label: "Staff", className: "bg-teal-100 text-teal-800 border-teal-200" },
   helper: { label: "Helper", className: "bg-slate-100 text-slate-700 border-slate-200" },
 };
 
@@ -58,6 +62,8 @@ interface WorkerForm {
   role: WorkerRole;
   salary_type: SalaryType;
   status: WorkerStatus;
+  daily_rate: string;
+  user_id: string;
 }
 
 const emptyForm: WorkerForm = {
@@ -66,6 +72,8 @@ const emptyForm: WorkerForm = {
   role: "tailor",
   salary_type: "piece_rate",
   status: "active",
+  daily_rate: "",
+  user_id: "",
 };
 
 function WorkerModal({
@@ -80,11 +88,18 @@ function WorkerModal({
   const qc = useQueryClient();
   const [form, setForm] = useState<WorkerForm>(emptyForm);
 
-  // Sync form state when modal opens or target changes
   const isEdit = !!target;
 
-  // React state sync on modal view
-  useState(() => {
+  // Fetch users for linking dropdown
+  const { data: usersData } = useQuery({
+    queryKey: ["users", "worker-link"],
+    queryFn: () => usersService.list({ limit: 100 }),
+    enabled: open,
+  });
+  const users = usersData?.data ?? [];
+
+  // Sync form state when modal opens or target changes
+  useEffect(() => {
     if (target) {
       setForm({
         name: target.name,
@@ -92,14 +107,16 @@ function WorkerModal({
         role: target.role,
         salary_type: target.salary_type,
         status: target.status,
+        daily_rate: target.daily_rate != null ? String(target.daily_rate) : "",
+        user_id: target.user_id || "",
       });
     } else {
       setForm(emptyForm);
     }
-  });
+  }, [target]);
 
   const saveMut = useMutation({
-    mutationFn: (body: WorkerForm) =>
+    mutationFn: (body: Parameters<typeof workersService.create>[0]) =>
       isEdit ? workersService.update(target.id, body) : workersService.create(body),
     onSuccess: () => {
       toast.success(isEdit ? "Worker updated successfully" : "Worker created successfully");
@@ -112,12 +129,24 @@ function WorkerModal({
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!form.name.trim()) return toast.error("Name is required");
-    saveMut.mutate(form);
+    if (form.salary_type === "daily" && (!form.daily_rate || Number(form.daily_rate) <= 0)) {
+      return toast.error("Daily Rate wajib diisi jika Salary Type = Harian");
+    }
+
+    saveMut.mutate({
+      name: form.name.trim(),
+      phone: form.phone || undefined,
+      role: form.role,
+      salary_type: form.salary_type,
+      status: form.status,
+      daily_rate: form.daily_rate ? Number(form.daily_rate) : undefined,
+      user_id: form.user_id || null,
+    });
   }
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-lg">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
             <DialogTitle>{isEdit ? "Edit Worker" : "Add Worker"}</DialogTitle>
@@ -157,6 +186,8 @@ function WorkerModal({
                     <SelectItem value="tailor">Tailor (Penjahit)</SelectItem>
                     <SelectItem value="cutter">Cutter (Pemotong)</SelectItem>
                     <SelectItem value="finishing">Finishing</SelectItem>
+                    <SelectItem value="sales">Sales</SelectItem>
+                    <SelectItem value="staff">Staff</SelectItem>
                     <SelectItem value="helper">Helper</SelectItem>
                   </SelectContent>
                 </Select>
@@ -176,18 +207,58 @@ function WorkerModal({
                 </Select>
               </div>
             </div>
+
+            {/* Daily Rate - shown always but required when salary_type=daily */}
             <div className="space-y-2">
-              <Label htmlFor="w-status">Status</Label>
-              <Select
-                value={form.status}
-                onValueChange={(v: WorkerStatus) => setForm((p) => ({ ...p, status: v }))}
-              >
-                <SelectTrigger id="w-status"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="inactive">Inactive</SelectItem>
-                </SelectContent>
-              </Select>
+              <Label htmlFor="w-daily-rate">
+                Tarif Harian / Daily Rate (Rp)
+                {form.salary_type === "daily" && <span className="text-destructive"> *</span>}
+              </Label>
+              <Input
+                id="w-daily-rate"
+                type="number"
+                placeholder="e.g. 66667"
+                min="0"
+                step="0.01"
+                value={form.daily_rate}
+                onChange={(e) => setForm((p) => ({ ...p, daily_rate: e.target.value }))}
+              />
+              {form.salary_type === "daily" && (
+                <p className="text-[11px] text-muted-foreground">Wajib diisi untuk pekerja dengan tipe gaji Harian.</p>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="w-status">Status</Label>
+                <Select
+                  value={form.status}
+                  onValueChange={(v: WorkerStatus) => setForm((p) => ({ ...p, status: v }))}
+                >
+                  <SelectTrigger id="w-status"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="inactive">Inactive</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="w-user">
+                  <span className="flex items-center gap-1"><Link2 className="h-3 w-3" /> Link Akun User</span>
+                </Label>
+                <Select
+                  value={form.user_id || "__none__"}
+                  onValueChange={(v) => setForm((p) => ({ ...p, user_id: v === "__none__" ? "" : v }))}
+                >
+                  <SelectTrigger id="w-user"><SelectValue placeholder="Tidak Ada" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">— Tidak Ada —</SelectItem>
+                    {users.map((u: User) => (
+                      <SelectItem key={u.id} value={u.id}>{u.name} ({u.email})</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </div>
           <DialogFooter>
@@ -300,6 +371,8 @@ function WorkersPage() {
                   <SelectItem value="tailor">Tailor</SelectItem>
                   <SelectItem value="cutter">Cutter</SelectItem>
                   <SelectItem value="finishing">Finishing</SelectItem>
+                  <SelectItem value="sales">Sales</SelectItem>
+                  <SelectItem value="staff">Staff</SelectItem>
                   <SelectItem value="helper">Helper</SelectItem>
                 </SelectContent>
               </Select>
@@ -348,6 +421,7 @@ function WorkersPage() {
                 <TableHead>Worker Name</TableHead>
                 <TableHead>Role</TableHead>
                 <TableHead>Salary Type</TableHead>
+                <TableHead className="text-right">Daily Rate</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -355,39 +429,52 @@ function WorkersPage() {
             <TableBody>
               {isLoading && Array.from({ length: 4 }).map((_, i) => (
                 <TableRow key={`sk-${i}`}>
-                  {Array.from({ length: 5 }).map((_, j) => (
+                  {Array.from({ length: 6 }).map((_, j) => (
                     <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>
                   ))}
                 </TableRow>
               ))}
               {isError && !isLoading && (
                 <TableRow>
-                  <TableCell colSpan={5} className="py-8 text-center text-destructive">
+                  <TableCell colSpan={6} className="py-8 text-center text-destructive">
                     {(error as Error)?.message ?? "Failed to load workers"}
                   </TableCell>
                 </TableRow>
               )}
               {!isLoading && !isError && rows.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={5} className="py-10 text-center text-muted-foreground">
+                  <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
                     <p className="font-medium">No workers found</p>
                   </TableCell>
                 </TableRow>
               )}
               {rows.map((w) => {
-                const rBadge = ROLE_BADGE[w.role];
+                const rBadge = ROLE_BADGE[w.role] || { label: w.role, className: "bg-slate-100 text-slate-700 border-slate-200" };
                 const sBadge = SALARY_BADGE[w.salary_type];
                 return (
                   <TableRow key={w.id}>
                     <TableCell>
                       <div className="font-medium">{w.name}</div>
-                      <div className="text-xs text-muted-foreground">{w.phone || "No phone"}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {w.phone || "No phone"}
+                        {w.user && (
+                          <span className="ml-1.5 inline-flex items-center gap-0.5 text-blue-600">
+                            <Link2 className="h-3 w-3" /> {w.user.name}
+                          </span>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline" className={rBadge.className}>{rBadge.label}</Badge>
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline" className={sBadge.className}>{sBadge.label}</Badge>
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums text-xs">
+                      {w.daily_rate != null && w.daily_rate > 0
+                        ? formatIDR(w.daily_rate)
+                        : <span className="text-muted-foreground">—</span>
+                      }
                     </TableCell>
                     <TableCell>
                       <Badge variant={w.status === "active" ? "default" : "secondary"}>
