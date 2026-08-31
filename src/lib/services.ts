@@ -190,6 +190,9 @@ export const ordersService = {
     terms_conditions?: string;
     valid_until?: string;
     order_status?: string;
+    is_taxable?: boolean;
+    tax_ppn_rate?: number;
+    tax_pph22_rate?: number;
     items: {
       product_id: string;
       custom_name?: string;
@@ -210,6 +213,9 @@ export const ordersService = {
       notes?: string;
       terms_conditions?: string;
       valid_until?: string;
+      is_taxable?: boolean;
+      tax_ppn_rate?: number;
+      tax_pph22_rate?: number;
       items: { product_id: string; custom_name?: string; qty: number; price: number; details?: any[] | Record<string, any> }[];
     },
   ) => api.put<ApiSuccess<unknown>>(`/orders/${id}`, body),
@@ -756,7 +762,7 @@ export const payrollsService = {
 
       // Bind logs to payroll
       mockWorkLogs = mockWorkLogs.map((wl) =>
-        body.work_log_ids.includes(wl.id) ? { ...wl, payroll_id: newId, payroll_no: payrollNo } : wl
+        (body.work_log_ids ?? []).includes(wl.id) ? { ...wl, payroll_id: newId, payroll_no: payrollNo } : wl
       );
 
       mockPayrolls.unshift(newPayroll);

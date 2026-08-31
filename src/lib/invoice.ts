@@ -315,12 +315,22 @@ export async function generateInvoicePDF({
 
   // === 4. TOTALS ===
   const finalY = (doc as any).lastAutoTable?.finalY || y + 40;
-  const totalsX = pageWidth - margin - 80;
+  const totalsX = pageWidth - margin - 85;
 
   const subtotal = items.reduce((s, i) => s + (i.subtotal ?? i.qty * i.price), 0);
   const shippingCost = order.shipping_cost || 0;
+
+  const isTaxable = order.is_taxable ?? false;
+  const ppnRate = order.tax_ppn_rate ?? 12.00;
+  const pph22Rate = order.tax_pph22_rate ?? 1.50;
+
+  const dppPpn = order.dpp_ppn ?? (isTaxable ? subtotal / 1.09 : 0);
+  const ppnAmount = order.ppn_amount ?? (isTaxable ? dppPpn * (ppnRate / 100) : 0);
+  const pph22Amount = order.pph22_amount ?? (isTaxable ? dppPpn * (pph22Rate / 100) : 0);
+
+  const paguBelanja = order.pagu_belanja ?? (isTaxable ? subtotal + shippingCost + ppnAmount : subtotal + shippingCost);
+  const totalAmount = isTaxable ? paguBelanja : (order.total_amount ?? subtotal + shippingCost);
   const amountPaid = payments.reduce((s, p) => s + (p.amount || 0), 0);
-  const totalAmount = order.total_amount ?? subtotal + shippingCost;
 
   let ty = finalY + 10;
   doc.setFontSize(9);
@@ -328,18 +338,34 @@ export async function generateInvoicePDF({
   doc.text("Subtotal", totalsX, ty);
   doc.text(formatCurrency(subtotal), pageWidth - margin, ty, { align: "right" });
 
+  if (isTaxable) {
+    ty += 7;
+    doc.text("DPP PPN", totalsX, ty);
+    doc.text(formatCurrency(dppPpn), pageWidth - margin, ty, { align: "right" });
+
+    ty += 7;
+    doc.text(`PPN (${ppnRate}%)`, totalsX, ty);
+    doc.text(`+ ${formatCurrency(ppnAmount)}`, pageWidth - margin, ty, { align: "right" });
+
+    ty += 7;
+    doc.text(`PPh 22 (${pph22Rate}%)`, totalsX, ty);
+    doc.text(`- ${formatCurrency(pph22Amount)}`, pageWidth - margin, ty, { align: "right" });
+  }
+
   if (shippingCost > 0) {
-    ty += 8;
+    ty += 7;
     const shippingLabel = order.courier_name ? `Ongkir (${order.courier_name})` : "Ongkir";
     doc.text(shippingLabel, totalsX, ty);
     doc.text(formatCurrency(shippingCost), pageWidth - margin, ty, { align: "right" });
   }
 
-  ty += 8;
-  doc.text("Total", totalsX, ty);
+  ty += 7;
+  doc.setFont("helvetica", "bold");
+  doc.text(isTaxable ? "Pagu Belanja" : "Total", totalsX, ty);
   doc.text(formatCurrency(totalAmount), pageWidth - margin, ty, { align: "right" });
 
-  ty += 8;
+  ty += 7;
+  doc.setFont("helvetica", "normal");
   doc.text("Sudah Dibayar", totalsX, ty);
   doc.text(formatCurrency(amountPaid), pageWidth - margin, ty, { align: "right" });
 
@@ -350,40 +376,22 @@ export async function generateInvoicePDF({
 
   ty += 8;
   const sisa = Math.max(0, totalAmount - amountPaid);
-  doc.setFontSize(12);
+  doc.setFontSize(11);
   doc.setFont("helvetica", "bold");
   doc.text("Sisa Tagihan", totalsX, ty);
   doc.text(formatCurrency(sisa), pageWidth - margin, ty, { align: "right" });
 
   // Terbilang (amount in words) — only when there's a remaining balance
   if (sisa > 0) {
-    ty += 8;
+    ty += 7;
     doc.setFontSize(8);
     doc.setFont("helvetica", "italic");
     doc.setTextColor(100, 100, 100);
     const terbilangText = `Terbilang: ${terbilang(sisa)}`;
-    const terbilangLines = doc.splitTextToSize(terbilangText, 80);
+    const terbilangLines = doc.splitTextToSize(terbilangText, 85);
     doc.text(terbilangLines, totalsX, ty);
     doc.setTextColor(30, 41, 59);
   }
-
-  // Payment status badge
-  // ty += 12;
-  // const payStatus = (order.payment_status || "unpaid").toLowerCase();
-  // const badgeColors: Record<string, [number, number, number]> = {
-  //   paid: [34, 197, 94],
-  //   partial: [234, 179, 8],
-  //   unpaid: [239, 68, 68],
-  // };
-  // const badgeColor = badgeColors[payStatus] || badgeColors.unpaid;
-  // doc.setFillColor(badgeColor[0], badgeColor[1], badgeColor[2]);
-  // const statusText = payStatus.toUpperCase();
-  // const statusWidth = doc.getTextWidth(statusText) + 12;
-  // doc.roundedRect(pageWidth - margin - statusWidth, ty - 5, statusWidth, 8, 2, 2, "F");
-  // doc.setTextColor(255, 255, 255);
-  // doc.setFontSize(8);
-  // doc.setFont("helvetica", "bold");
-  // doc.text(statusText, pageWidth - margin - statusWidth / 2, ty, { align: "center" });
 
   // === 5. BANK INFO ===
   const bankY = finalY + 10;
@@ -408,6 +416,18 @@ export async function generateInvoicePDF({
       currentLeftY += splitLines.length * 4.5;
     });
     currentLeftY += 2;
+  }
+
+  if (isTaxable) {
+    currentLeftY += 4;
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(8);
+    doc.setTextColor(71, 85, 105);
+    const taxNote = `Catatan: Transaksi ini termasuk Pengadaan Dinas/Instansi Pemerintah dengan Pemotongan PPh 22 sebesar ${pph22Rate}% (${formatCurrency(pph22Amount)}) dan PPN ${ppnRate}% (${formatCurrency(ppnAmount)}).`;
+    const taxNoteLines = doc.splitTextToSize(taxNote, 80);
+    doc.text(taxNoteLines, margin, currentLeftY);
+    currentLeftY += taxNoteLines.length * 4.5;
+    doc.setTextColor(30, 41, 59);
   }
 
   if (options?.note) {

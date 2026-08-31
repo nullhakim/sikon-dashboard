@@ -158,6 +158,15 @@ export interface Order {
   items?: OrderItem[];
   payments?: Payment[];
   total_qty?: number;
+  /** Fitur Perpajakan Pengadaan Pemerintah */
+  is_taxable?: boolean;
+  tax_ppn_rate?: number;
+  tax_pph22_rate?: number;
+  dpp_ppn?: number;
+  ppn_amount?: number;
+  pph22_amount?: number;
+  pagu_belanja?: number;
+  net_cash_in?: number;
   created_at?: string;
   updated_at?: string;
 }

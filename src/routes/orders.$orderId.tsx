@@ -54,6 +54,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import { Switch } from "@/components/ui/switch";
 
 import {
   ordersService,
@@ -211,6 +212,9 @@ function UpdateShippingDialog({
     notes: "",
     terms_conditions: "",
   });
+  const [isTaxable, setIsTaxable] = useState(false);
+  const [taxPpnRate, setTaxPpnRate] = useState<number | "">(12.00);
+  const [taxPph22Rate, setTaxPph22Rate] = useState<number | "">(1.50);
 
   useEffect(() => {
     if (order && open) {
@@ -221,13 +225,16 @@ function UpdateShippingDialog({
         notes: order.notes || "",
         terms_conditions: order.terms_conditions || "",
       });
+      setIsTaxable(order.is_taxable ?? false);
+      setTaxPpnRate(order.tax_ppn_rate ?? 12.00);
+      setTaxPph22Rate(order.tax_pph22_rate ?? 1.50);
     }
   }, [order, open]);
 
   const updateMut = useMutation({
     mutationFn: (body: any) => ordersService.update(order.id, body),
     onSuccess: () => {
-      toast.success("Shipping & Notes updated");
+      toast.success("Shipping & Tax settings updated");
       qc.invalidateQueries({ queryKey: ["order", order.id] });
       qc.invalidateQueries({ queryKey: ["orders"] });
       onClose();
@@ -253,6 +260,9 @@ function UpdateShippingDialog({
       shipping_address: form.shipping_address || undefined,
       notes: form.notes || undefined,
       terms_conditions: isQuotation ? (form.terms_conditions || undefined) : undefined,
+      is_taxable: isTaxable,
+      tax_ppn_rate: isTaxable ? Number(taxPpnRate || 0) : undefined,
+      tax_pph22_rate: isTaxable ? Number(taxPph22Rate || 0) : undefined,
     });
   }
 
@@ -260,9 +270,52 @@ function UpdateShippingDialog({
     <Dialog open={open} onOpenChange={(v) => (v ? null : onClose())}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Edit Logistics & Notes</DialogTitle>
+          <DialogTitle>Edit Logistics, Notes & Tax</DialogTitle>
         </DialogHeader>
         <form id="shipping-form" onSubmit={handleSubmit} className="space-y-4 py-2">
+          <div className="flex items-center justify-between p-3 rounded-lg border bg-muted/20">
+            <div>
+              <Label htmlFor="taxable-toggle" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground block">
+                Transaksi Pajak / Pengadaan Dinas
+              </Label>
+              <span className="text-[11px] text-muted-foreground">Aktifkan untuk PPN 12% & PPh 22</span>
+            </div>
+            <Switch
+              id="taxable-toggle"
+              checked={isTaxable}
+              onCheckedChange={(checked) => setIsTaxable(checked)}
+            />
+          </div>
+
+          {isTaxable && (
+            <div className="grid gap-3 sm:grid-cols-2 p-3 rounded-lg border bg-amber-50/50 dark:bg-amber-950/20">
+              <div className="space-y-1">
+                <Label className="text-xs">Rate PPN (%)</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  min={0}
+                  value={taxPpnRate}
+                  onChange={(e) => setTaxPpnRate(e.target.value === "" ? "" : Number(e.target.value))}
+                  className="h-8 text-xs font-mono"
+                  placeholder="12.00"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Rate PPh 22 (%)</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  min={0}
+                  value={taxPph22Rate}
+                  onChange={(e) => setTaxPph22Rate(e.target.value === "" ? "" : Number(e.target.value))}
+                  className="h-8 text-xs font-mono"
+                  placeholder="1.50"
+                />
+              </div>
+            </div>
+          )}
+
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>Courier</Label>
@@ -1052,7 +1105,19 @@ function OrderDetailPage() {
     0,
   );
   const shipping = order?.shipping_cost ?? 0;
-  const total = subtotal + shipping;
+
+  const isTaxable = order?.is_taxable ?? false;
+  const ppnRate = order?.tax_ppn_rate ?? 12.00;
+  const pph22Rate = order?.tax_pph22_rate ?? 1.50;
+
+  const dppPpn = order?.dpp_ppn ?? (isTaxable ? subtotal / 1.09 : 0);
+  const ppnAmount = order?.ppn_amount ?? (isTaxable ? dppPpn * (ppnRate / 100) : 0);
+  const pph22Amount = order?.pph22_amount ?? (isTaxable ? dppPpn * (pph22Rate / 100) : 0);
+
+  const paguBelanja = order?.pagu_belanja ?? (isTaxable ? subtotal + shipping + ppnAmount : subtotal + shipping);
+  const netCashIn = order?.net_cash_in ?? (isTaxable ? paguBelanja - (ppnAmount + pph22Amount) : subtotal + shipping);
+
+  const total = isTaxable ? paguBelanja : subtotal + shipping;
   const paid = payments
     .filter((p) => (p.status || "pending").toLowerCase() === "verified")
     .reduce((s, p) => s + (p.amount || 0), 0);
@@ -1576,31 +1641,64 @@ function OrderDetailPage() {
         <div className="lg:col-span-3 space-y-6">
           {/* Sidebar Financial Summary Card */}
           <Card className="border-primary/30 shadow-sm bg-gradient-to-b from-primary/5 to-transparent">
-            <CardHeader className="pb-3 border-b bg-muted/20">
+            <CardHeader className="pb-3 border-b bg-muted/20 flex flex-row items-center justify-between">
               <CardTitle className="text-base font-semibold text-foreground">Financial Summary</CardTitle>
+              {isTaxable && (
+                <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 border border-blue-200">
+                  Transaksi Pajak
+                </span>
+              )}
             </CardHeader>
-            <CardContent className="p-4 space-y-3 text-sm">
+            <CardContent className="p-4 space-y-2.5 text-sm">
               <div className="flex justify-between text-muted-foreground">
-                <span>Subtotal</span>
+                <span>Subtotal (Real Goods)</span>
                 <span className="text-foreground font-medium">{formatIDR(subtotal)}</span>
               </div>
+              
+              {isTaxable && (
+                <>
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>DPP PPN (Subtotal / 1.09)</span>
+                    <span className="font-mono text-[11px]">{formatIDR(dppPpn)}</span>
+                  </div>
+                  <div className="flex justify-between text-xs text-blue-600 dark:text-blue-400 font-medium">
+                    <span>PPN ({Number(ppnRate).toFixed(2)}%)</span>
+                    <span>+ {formatIDR(ppnAmount)}</span>
+                  </div>
+                  <div className="flex justify-between text-xs text-amber-600 dark:text-amber-400 font-medium">
+                    <span>PPh 22 ({Number(pph22Rate).toFixed(2)}%)</span>
+                    <span>- {formatIDR(pph22Amount)}</span>
+                  </div>
+                </>
+              )}
+
               <div className="flex justify-between text-muted-foreground">
                 <span>Shipping Cost</span>
                 <span className="text-foreground font-medium">{formatIDR(shipping)}</span>
               </div>
-              <div className="flex justify-between border-t pt-2 text-base font-bold text-foreground">
-                <span>Total Amount</span>
-                <span>{formatIDR(total)}</span>
+
+              <div className="border-t pt-2 space-y-1.5">
+                <div className="flex justify-between text-base font-bold text-foreground">
+                  <span>{isTaxable ? "Pagu Belanja (Invoice Gross)" : "Total Amount"}</span>
+                  <span className="text-primary">{formatIDR(paguBelanja)}</span>
+                </div>
+                {isTaxable && (
+                  <div className="flex justify-between text-xs font-bold text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 p-2.5 rounded border border-emerald-200/60">
+                    <span>Yang Diterima Penyedia (Net Cash In)</span>
+                    <span>{formatIDR(netCashIn)}</span>
+                  </div>
+                )}
               </div>
-              <div className="flex justify-between text-muted-foreground">
+
+              <div className="flex justify-between text-muted-foreground border-t pt-2">
                 <span>Total Paid</span>
-                <span className="text-emerald-700 font-semibold">{formatIDR(paid)}</span>
+                <span className="text-emerald-700 dark:text-emerald-400 font-semibold">{formatIDR(paid)}</span>
               </div>
               <div className="flex justify-between border-t pt-2 items-center">
                 <span className="font-semibold text-foreground">Outstanding</span>
                 <span className={cn(
                   "px-2.5 py-1 rounded-full text-xs font-bold border",
-                  remaining > 0 ? "bg-amber-100 text-amber-900 border-amber-300" : "bg-emerald-100 text-emerald-900 border-emerald-300"
+                  remaining > 0 ? "bg-amber-100 text-amber-900 border-amber-300 dark:bg-amber-950 dark:text-amber-300" : "bg-emerald-100 text-emerald-900 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300"
                 )}>
                   {formatIDR(remaining)}
                 </span>
