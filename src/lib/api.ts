@@ -3,7 +3,7 @@
 
 export const API_BASE_URL =
   (import.meta.env.VITE_API_BASE_URL as string | undefined) ??
-  "https://dev-api-sikon.faridlan.com/api";
+  "http://localhost:8080/api";
 
 export interface ApiSuccess<T> {
   status?: string;
