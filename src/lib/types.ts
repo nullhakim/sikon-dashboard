@@ -167,6 +167,9 @@ export interface Order {
   pph22_amount?: number;
   pagu_belanja?: number;
   net_cash_in?: number;
+  /** HPP snapshot fields — present in GET /orders/:id response */
+  hpp_material_cost?: number;
+  hpp_calculated_at?: string | null;
   created_at?: string;
   updated_at?: string;
 }

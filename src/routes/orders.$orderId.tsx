@@ -11,6 +11,7 @@ import {
   Info,
   Check,
   X,
+  FlaskConical,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -1011,7 +1012,7 @@ function OrderDetailPage() {
   const [quotationOpen, setQuotationOpen] = useState(false);
   const [itemOpen, setItemOpen] = useState(false);
   const [editItem, setEditItem] = useState<any>(null);
-  const { canVerifyPayment } = useAuth();
+  const { canVerifyPayment, isOwner, isAccounting } = useAuth();
   const [updateQuotationOpen, setUpdateQuotationOpen] = useState(false);
   const [kwitansiOpen, setKwitansiOpen] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState<any>(null);
@@ -1054,6 +1055,14 @@ function OrderDetailPage() {
   });
 
   const payments = paymentsQ.data?.data ?? [];
+
+  // HPP — only fetch after order has been approved (approved_at != null)
+  const hppQ = useQuery({
+    queryKey: ["order-hpp", orderId],
+    queryFn: () => ordersService.getHpp(orderId),
+    enabled: !!(order?.approved_at) && (isOwner || isAccounting),
+  });
+  const hpp = hppQ.data?.data;
 
   const deletePayment = useMutation({
     mutationFn: (id: string) => paymentsService.delete(id),
@@ -1705,6 +1714,88 @@ function OrderDetailPage() {
               </div>
             </CardContent>
           </Card>
+
+          {/* HPP Card — owner / accounting only, post-approval */}
+          {(isOwner || isAccounting) && (
+            <Card className="border-border/80 shadow-sm">
+              <CardHeader className="pb-3 border-b bg-muted/20">
+                <CardTitle className="text-base font-semibold flex items-center gap-2">
+                  <FlaskConical className="h-4 w-4 text-muted-foreground" />
+                  Rincian HPP
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-4 space-y-2.5 text-sm">
+                {!order.approved_at ? (
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    HPP akan dihitung otomatis setelah Order disetujui (status{" "}
+                    <span className="font-semibold">Pending</span>).
+                  </p>
+                ) : hppQ.isLoading ? (
+                  <p className="text-xs text-muted-foreground">Memuat data HPP…</p>
+                ) : hppQ.isError ? (
+                  <p className="text-xs text-destructive">
+                    Gagal memuat HPP: {(hppQ.error as Error)?.message}
+                  </p>
+                ) : hpp ? (
+                  <>
+                    {/* Material cost (frozen snapshot) */}
+                    <div className="flex justify-between">
+                      <div>
+                        <span className="text-muted-foreground">Material</span>
+                        {hpp.material_calculated_at ? (
+                          <span className="block text-[10px] text-muted-foreground/70">
+                            dibekukan {formatDate(hpp.material_calculated_at)}
+                          </span>
+                        ) : (
+                          <span className="block text-[10px] text-amber-600">belum dibekukan</span>
+                        )}
+                      </div>
+                      <span className="font-mono font-medium">{formatIDR(hpp.material_cost)}</span>
+                    </div>
+
+                    {/* Labor cost (live) */}
+                    <div className="flex justify-between">
+                      <div>
+                        <span className="text-muted-foreground">Tenaga Kerja</span>
+                        <span className="block text-[10px] text-muted-foreground/70">
+                          live, update otomatis
+                        </span>
+                      </div>
+                      <span className="font-mono font-medium">{formatIDR(hpp.labor_cost)}</span>
+                    </div>
+
+                    {/* Total HPP */}
+                    <div className="flex justify-between border-t pt-2 items-center font-bold">
+                      <span>Total HPP</span>
+                      <span className="text-primary font-mono">{formatIDR(hpp.total_cost)}</span>
+                    </div>
+
+                    {/* Margin estimate (optional) */}
+                    {order.total_amount != null && (
+                      <div className="border-t pt-2">
+                        <div className="flex justify-between text-xs">
+                          <span className="text-muted-foreground">Harga Jual</span>
+                          <span className="font-mono">{formatIDR(order.total_amount)}</span>
+                        </div>
+                        <div className="flex justify-between text-xs font-semibold mt-1">
+                          <span className="text-muted-foreground">Estimasi Margin</span>
+                          <span
+                            className={
+                              order.total_amount - hpp.total_cost >= 0
+                                ? "text-emerald-700"
+                                : "text-destructive"
+                            }
+                          >
+                            {formatIDR(order.total_amount - hpp.total_cost)}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                ) : null}
+              </CardContent>
+            </Card>
+          )}
 
           {/* Customer Info Card */}
           <Card className="border-border/80 shadow-sm">

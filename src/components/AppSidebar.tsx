@@ -19,6 +19,7 @@ import {
   FileBarChart,
   Receipt,
   Banknote,
+  FlaskConical,
 } from "lucide-react";
 
 import {
@@ -91,6 +92,7 @@ const master: NavItem[] = [
   { titleKey: "nav.categories", defaultTitle: "Kategori Produk", url: "/categories", icon: Tags },
   { titleKey: "nav.expense_categories", defaultTitle: "Kategori Pengeluaran", url: "/expense-categories", icon: FolderOpen, roles: ["owner", "accounting"] },
   { titleKey: "nav.material_catalogs", defaultTitle: "Katalog Bahan", url: "/material-catalogs", icon: BookOpen, roles: ["owner", "accounting"] },
+  { titleKey: "nav.materials", defaultTitle: "Master Bahan (HPP)", url: "/materials", icon: FlaskConical, roles: ["owner", "accounting"] },
   { titleKey: "nav.bank_accounts", defaultTitle: "Rekening Bank", url: "/bank-accounts", icon: Landmark, roles: ["owner", "accounting"] },
 ];
 

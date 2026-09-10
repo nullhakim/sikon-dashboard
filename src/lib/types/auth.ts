@@ -35,6 +35,7 @@ export const ROUTE_PERMISSIONS: Record<string, UserRole[]> = {
   "/batch-pos": ["owner", "accounting"],
   "/bank-accounts": ["owner", "accounting"],
   "/material-catalogs": ["owner", "accounting"],
+  "/materials": ["owner", "accounting"],
 };
 
 /** Check whether a role can access a given path prefix. */

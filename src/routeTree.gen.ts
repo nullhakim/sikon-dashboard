@@ -20,6 +20,7 @@ import { Route as ExpensesRouteImport } from './routes/expenses'
 import { Route as ForbiddenRouteImport } from './routes/forbidden'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as MaterialCatalogsRouteImport } from './routes/material-catalogs'
+import { Route as MaterialsRouteImport } from './routes/materials'
 import { Route as PaymentsRouteImport } from './routes/payments'
 import { Route as PayrollsRouteImport } from './routes/payrolls'
 import { Route as ReceivablesRouteImport } from './routes/receivables'
@@ -91,6 +92,11 @@ const LoginRoute = LoginRouteImport.update({
 const MaterialCatalogsRoute = MaterialCatalogsRouteImport.update({
   id: '/material-catalogs',
   path: '/material-catalogs',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MaterialsRoute = MaterialsRouteImport.update({
+  id: '/materials',
+  path: '/materials',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PaymentsRoute = PaymentsRouteImport.update({
@@ -191,6 +197,7 @@ export interface FileRoutesByFullPath {
   '/forbidden': typeof ForbiddenRoute
   '/login': typeof LoginRoute
   '/material-catalogs': typeof MaterialCatalogsRoute
+  '/materials': typeof MaterialsRoute
   '/payments': typeof PaymentsRoute
   '/payrolls': typeof PayrollsRoute
   '/receivables': typeof ReceivablesRoute
@@ -221,6 +228,7 @@ export interface FileRoutesByTo {
   '/forbidden': typeof ForbiddenRoute
   '/login': typeof LoginRoute
   '/material-catalogs': typeof MaterialCatalogsRoute
+  '/materials': typeof MaterialsRoute
   '/payments': typeof PaymentsRoute
   '/payrolls': typeof PayrollsRoute
   '/receivables': typeof ReceivablesRoute
@@ -251,6 +259,7 @@ export interface FileRoutesById {
   '/forbidden': typeof ForbiddenRoute
   '/login': typeof LoginRoute
   '/material-catalogs': typeof MaterialCatalogsRoute
+  '/materials': typeof MaterialsRoute
   '/payments': typeof PaymentsRoute
   '/payrolls': typeof PayrollsRoute
   '/receivables': typeof ReceivablesRoute
@@ -283,6 +292,7 @@ export interface FileRouteTypes {
     | '/forbidden'
     | '/login'
     | '/material-catalogs'
+    | '/materials'
     | '/payments'
     | '/payrolls'
     | '/receivables'
@@ -313,6 +323,7 @@ export interface FileRouteTypes {
     | '/forbidden'
     | '/login'
     | '/material-catalogs'
+    | '/materials'
     | '/payments'
     | '/payrolls'
     | '/receivables'
@@ -342,6 +353,7 @@ export interface FileRouteTypes {
     | '/forbidden'
     | '/login'
     | '/material-catalogs'
+    | '/materials'
     | '/payments'
     | '/payrolls'
     | '/receivables'
@@ -373,6 +385,7 @@ export interface RootRouteChildren {
   ForbiddenRoute: typeof ForbiddenRoute
   LoginRoute: typeof LoginRoute
   MaterialCatalogsRoute: typeof MaterialCatalogsRoute
+  MaterialsRoute: typeof MaterialsRoute
   PaymentsRoute: typeof PaymentsRoute
   PayrollsRoute: typeof PayrollsRoute
   ReceivablesRoute: typeof ReceivablesRoute
@@ -463,6 +476,13 @@ declare module '@tanstack/react-router' {
       path: '/material-catalogs'
       fullPath: '/material-catalogs'
       preLoaderRoute: typeof MaterialCatalogsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/materials': {
+      id: '/materials'
+      path: '/materials'
+      fullPath: '/materials'
+      preLoaderRoute: typeof MaterialsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/payments': {
@@ -629,6 +649,7 @@ const rootRouteChildren: RootRouteChildren = {
   ForbiddenRoute: ForbiddenRoute,
   LoginRoute: LoginRoute,
   MaterialCatalogsRoute: MaterialCatalogsRoute,
+  MaterialsRoute: MaterialsRoute,
   PaymentsRoute: PaymentsRoute,
   PayrollsRoute: PayrollsRoute,
   ReceivablesRoute: ReceivablesRoute,
