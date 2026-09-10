@@ -1,41 +1,64 @@
-// ─── Daily Report Types ──────────────────────────────────────────────────────
+// ─── Daily Report Types (matches /api/reports/daily response) ─────────────────
 
-export interface SalesPerformanceItem {
+/** Active PO info for the daily report. */
+export interface DailyReportPOInfo {
+  po_id: string;
+  po_name: string;
+  quota: number;
+  remaining_quota: number;
+  start_date?: string; // YYYY-MM-DD
+  end_date?: string;   // YYYY-MM-DD
+}
+
+/** Single data point in the order qty trend chart. */
+export interface DailyReportTrendPoint {
+  date: string; // YYYY-MM-DD
+  qty: number;
+}
+
+/** Order quantity summary for the day. */
+export interface DailyReportOrderSummary {
+  qty_today: number;
+  qty_total_po: number;
+  trend_data: DailyReportTrendPoint[];
+}
+
+/** Financial summary for the day. */
+export interface DailyReportFinancialSummary {
+  total_revenue: number;
+  total_paid: number;
+  active_po_outstanding: number;
+  previous_po_outstanding: number;
+  total_outstanding: number;
+}
+
+/** Per-sales detail row with category breakdown. */
+export interface DailyReportSalesDetail {
   sales_name: string;
-  product_category: string;
+  categories: Record<string, number>; // map<category_name, qty>
   total_qty: number;
 }
 
-export interface DailySnapshot {
-  total_revenue_today: number;
-  total_qty_today: number;
-  sales_performance_today: SalesPerformanceItem[];
-}
-
-export interface ActivePO {
-  batch_po_name: string;
-  batch_po_id: string;
-  total_revenue_entered: number;
-  total_qty_received: number;
-  remaining_quota: number;
-}
-
-export interface PastDueReceivable {
+/** Per-sales cumulative PO detail row with category breakdown. */
+export interface DailyPOSalesDetail {
   sales_name: string;
-  product_category: string;
-  customer_name: string;
-  unpaid_balance: number;
+  categories: Record<string, number>; // map<category_name, qty>
+  total_qty: number;
 }
 
+/** Main data body from /reports/daily */
 export interface DailyReportData {
-  daily_snapshot: DailySnapshot;
-  active_pos: ActivePO[];
-  total_outstanding_receivables: number;
-  active_po_receivables: number;
-  past_due_receivables: PastDueReceivable[];
+  report_date: string; // YYYY-MM-DD
+  po_info: DailyReportPOInfo;
+  order_summary: DailyReportOrderSummary;
+  financial_summary: DailyReportFinancialSummary;
+  sales_details: DailyReportSalesDetail[];
+  po_sales_details?: DailyPOSalesDetail[];
 }
 
 export interface DailyReportResponse {
+  code?: number;
+  status?: string;
+  message?: string;
   data: DailyReportData;
-  message: string;
 }

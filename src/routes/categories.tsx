@@ -27,6 +27,7 @@ import { Label } from "@/components/ui/label";
 import { categoriesService } from "@/lib/services";
 import { formatDate } from "@/lib/format";
 import type { Category } from "@/lib/types";
+import { useAuth } from "@/hooks/use-auth";
 
 export const Route = createFileRoute("/categories")({
   head: () => ({
@@ -42,6 +43,7 @@ function CategoriesPage() {
   const [page, setPage] = useState(1);
   const limit = 10;
   const qc = useQueryClient();
+  const { canManageCatalog } = useAuth();
 
   const [editing, setEditing] = useState<Category | null>(null);
   const [open, setOpen] = useState(false);
@@ -125,9 +127,11 @@ function CategoriesPage() {
             Group products into categories for easier management.
           </p>
         </div>
-        <Button onClick={openCreate}>
-          <Plus className="mr-1 h-4 w-4" /> New Category
-        </Button>
+        {canManageCatalog && (
+          <Button onClick={openCreate}>
+            <Plus className="mr-1 h-4 w-4" /> New Category
+          </Button>
+        )}
       </div>
 
       <Card>
@@ -140,7 +144,7 @@ function CategoriesPage() {
               <TableRow>
                 <TableHead>Name</TableHead>
                 <TableHead>Created</TableHead>
-                <TableHead className="w-[1%]"></TableHead>
+                {canManageCatalog && <TableHead className="w-[1%]" />}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -171,28 +175,30 @@ function CategoriesPage() {
                   <TableCell className="text-xs text-muted-foreground">
                     {formatDate(c.created_at)}
                   </TableCell>
-                  <TableCell>
-                    <div className="flex justify-end gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => openEdit(c)}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                        onClick={() => {
-                          if (confirm(`Delete category "${c.name}"?`)) deleteMut.mutate(c.id);
-                        }}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
+                  {canManageCatalog && (
+                    <TableCell>
+                      <div className="flex justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => openEdit(c)}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                          onClick={() => {
+                            if (confirm(`Delete category "${c.name}"?`)) deleteMut.mutate(c.id);
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  )}
                 </TableRow>
               ))}
             </TableBody>

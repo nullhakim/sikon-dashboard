@@ -1,31 +1,22 @@
 import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2, ChevronLeft, ChevronRight, BookOpen } from "lucide-react";
+import { Plus, Pencil, Trash2, ChevronLeft, ChevronRight, BookOpen, Palette } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { specTemplatesService } from "@/lib/services";
+import { Badge } from "@/components/ui/badge";
+import { specTemplatesService, type SpecTemplatePayload } from "@/lib/services";
 import { formatDate } from "@/lib/format";
 import type { SpecTemplate } from "@/lib/types";
 
@@ -39,15 +30,33 @@ export const Route = createFileRoute("/material-catalogs")({
   component: MaterialCatalogsPage,
 });
 
+interface ColorEntry {
+  name: string;
+  hex_code: string;
+}
+
+interface FormState {
+  name: string;
+  spec: string;
+  description: string;
+  composition: string;
+  care_instruction: string;
+  colors: ColorEntry[];
+}
+
+const emptyForm: FormState = {
+  name: "", spec: "", description: "", composition: "", care_instruction: "", colors: [],
+};
+
+const emptyColor = (): ColorEntry => ({ name: "", hex_code: "#4b5320" });
+
 function MaterialCatalogsPage() {
   const [page, setPage] = useState(1);
   const limit = 10;
   const qc = useQueryClient();
-
   const [editing, setEditing] = useState<SpecTemplate | null>(null);
   const [open, setOpen] = useState(false);
-  const [name, setName] = useState("");
-  const [spec, setSpec] = useState("");
+  const [form, setForm] = useState<FormState>(emptyForm);
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ["spec-templates", { page, limit }],
@@ -55,69 +64,75 @@ function MaterialCatalogsPage() {
   });
 
   const createMut = useMutation({
-    mutationFn: (body: { name: string; spec: string }) => specTemplatesService.create(body),
-    onSuccess: () => {
-      toast.success("Material catalog created");
-      qc.invalidateQueries({ queryKey: ["spec-templates"] });
-      closeDialog();
-    },
+    mutationFn: (body: SpecTemplatePayload) => specTemplatesService.create(body),
+    onSuccess: () => { toast.success("Material catalog created"); qc.invalidateQueries({ queryKey: ["spec-templates"] }); closeDialog(); },
     onError: (e: Error) => toast.error(e.message),
   });
 
   const updateMut = useMutation({
-    mutationFn: ({ id, body }: { id: string; body: { name: string; spec: string } }) =>
-      specTemplatesService.update(id, body),
-    onSuccess: () => {
-      toast.success("Material catalog updated");
-      qc.invalidateQueries({ queryKey: ["spec-templates"] });
-      closeDialog();
-    },
+    mutationFn: ({ id, body }: { id: string; body: SpecTemplatePayload }) => specTemplatesService.update(id, body),
+    onSuccess: () => { toast.success("Material catalog updated"); qc.invalidateQueries({ queryKey: ["spec-templates"] }); closeDialog(); },
     onError: (e: Error) => toast.error(e.message),
   });
 
   const deleteMut = useMutation({
     mutationFn: (id: string) => specTemplatesService.delete(id),
-    onSuccess: () => {
-      toast.success("Material catalog deleted");
-      qc.invalidateQueries({ queryKey: ["spec-templates"] });
-    },
+    onSuccess: () => { toast.success("Material catalog deleted"); qc.invalidateQueries({ queryKey: ["spec-templates"] }); },
     onError: (e: Error) => toast.error(e.message),
   });
 
-  function openCreate() {
-    setEditing(null);
-    setName("");
-    setSpec("");
-    setOpen(true);
-  }
+  function openCreate() { setEditing(null); setForm(emptyForm); setOpen(true); }
 
   function openEdit(c: SpecTemplate) {
     setEditing(c);
-    setName(c.name);
-    setSpec(c.spec);
+    setForm({
+      name: c.name,
+      spec: c.spec,
+      description: c.description ?? "",
+      composition: c.composition ?? "",
+      care_instruction: c.care_instruction ?? "",
+      colors: (c.colors ?? []).map(({ name, hex_code }) => ({ name, hex_code })),
+    });
     setOpen(true);
   }
 
-  function closeDialog() {
-    setOpen(false);
-    setEditing(null);
-    setName("");
-    setSpec("");
-  }
+  function closeDialog() { setOpen(false); setEditing(null); setForm(emptyForm); }
+
+  // ----- Color helpers -----
+  const addColor = () => setForm((f) => ({ ...f, colors: [...f.colors, emptyColor()] }));
+  const removeColor = (ci: number) =>
+    setForm((f) => ({ ...f, colors: f.colors.filter((_, idx) => idx !== ci) }));
+  const updateColor = (ci: number, patch: Partial<ColorEntry>) =>
+    setForm((f) => ({
+      ...f,
+      colors: f.colors.map((c, idx) => (idx === ci ? { ...c, ...patch } : c)),
+    }));
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const trimmedName = name.trim();
-    const trimmedSpec = spec.trim();
-    if (!trimmedName || !trimmedSpec) {
-      toast.error("Name and specification are required");
-      return;
+    const trimmedName = form.name.trim();
+    const trimmedSpec = form.spec.trim();
+    if (!trimmedName) return toast.error("Name is required");
+    if (!trimmedSpec) return toast.error("Spec (deskripsi singkat) is required");
+
+    // Validate colors: setiap entry harus punya nama dan hex valid
+    for (const [i, c] of form.colors.entries()) {
+      if (!c.name.trim()) return toast.error(`Warna #${i + 1}: nama tidak boleh kosong`);
+      if (!c.hex_code.match(/^#[0-9a-fA-F]{6}$/)) return toast.error(`Warna #${i + 1}: hex code tidak valid`);
     }
-    if (editing) {
-      updateMut.mutate({ id: editing.id, body: { name: trimmedName, spec: trimmedSpec } });
-    } else {
-      createMut.mutate({ name: trimmedName, spec: trimmedSpec });
-    }
+
+    const payload: SpecTemplatePayload = {
+      name: trimmedName,
+      spec: trimmedSpec,
+      description: form.description.trim() || undefined,
+      composition: form.composition.trim() || undefined,
+      care_instruction: form.care_instruction.trim() || undefined,
+      colors: form.colors.length > 0
+        ? form.colors.map((c) => ({ name: c.name.trim(), hex_code: c.hex_code }))
+        : undefined,
+    };
+    if (editing) { updateMut.mutate({ id: editing.id, body: payload }); }
+    else { createMut.mutate(payload); }
   }
 
   const rows = data?.data ?? [];
@@ -129,81 +144,74 @@ function MaterialCatalogsPage() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Material Catalogs</h1>
-          <p className="text-sm text-muted-foreground">
-            Manage material specification templates for easy reference.
-          </p>
+          <p className="text-sm text-muted-foreground">Manage material specification templates for easy reference.</p>
         </div>
-        <Button onClick={openCreate}>
-          <Plus className="mr-1 h-4 w-4" /> New Catalog
-        </Button>
+        <Button onClick={openCreate}><Plus className="mr-1 h-4 w-4" /> New Catalog</Button>
       </div>
 
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
-            <BookOpen className="h-4 w-4" />
-            All Material Catalogs
+            <BookOpen className="h-4 w-4" /> All Material Catalogs
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[30%]">Name</TableHead>
-                <TableHead>Specification</TableHead>
-                <TableHead className="w-[15%]">Created</TableHead>
+                <TableHead className="w-[20%]">Name</TableHead>
+                <TableHead className="w-[22%]">Spec (Singkat)</TableHead>
+                <TableHead className="w-[18%]">Komposisi</TableHead>
+                <TableHead>Instruksi Perawatan</TableHead>
+                <TableHead className="w-[130px]">Warna</TableHead>
+                <TableHead className="w-[10%]">Created</TableHead>
                 <TableHead className="w-[1%]"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {isLoading && (
-                <TableRow>
-                  <TableCell colSpan={4} className="py-8 text-center text-muted-foreground">
-                    Loading material catalogs…
-                  </TableCell>
-                </TableRow>
-              )}
-              {isError && (
-                <TableRow>
-                  <TableCell colSpan={4} className="py-8 text-center text-destructive">
-                    {(error as Error)?.message ?? "Failed to load"}
-                  </TableCell>
-                </TableRow>
-              )}
-              {!isLoading && rows.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={4} className="py-8 text-center text-muted-foreground">
-                    No material catalogs found.
-                  </TableCell>
-                </TableRow>
-              )}
+              {isLoading && <TableRow><TableCell colSpan={7} className="py-8 text-center text-muted-foreground">Loading material catalogs…</TableCell></TableRow>}
+              {isError && <TableRow><TableCell colSpan={7} className="py-8 text-center text-destructive">{(error as Error)?.message ?? "Failed to load"}</TableCell></TableRow>}
+              {!isLoading && rows.length === 0 && <TableRow><TableCell colSpan={7} className="py-8 text-center text-muted-foreground">No material catalogs found.</TableCell></TableRow>}
               {rows.map((c) => (
                 <TableRow key={c.id}>
-                  <TableCell className="font-medium">{c.name}</TableCell>
-                  <TableCell className="text-sm text-muted-foreground">{c.spec}</TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
-                    {formatDate(c.created_at)}
+                  <TableCell className="font-medium">
+                    <div>{c.name}</div>
+                    {c.description && <div className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{c.description}</div>}
                   </TableCell>
+                  <TableCell className="text-sm text-muted-foreground">{c.spec}</TableCell>
+                  <TableCell>
+                    {c.composition
+                      ? <Badge variant="outline" className="text-[10px] font-normal">{c.composition}</Badge>
+                      : <span className="text-xs text-muted-foreground/50">—</span>}
+                  </TableCell>
+                  <TableCell className="text-xs text-muted-foreground">
+                    {c.care_instruction || <span className="text-muted-foreground/50">—</span>}
+                  </TableCell>
+                  {/* Color swatches */}
+                  <TableCell>
+                    {c.colors && c.colors.length > 0 ? (
+                      <div className="flex items-center gap-1 flex-wrap">
+                        {c.colors.slice(0, 6).map((col, ci) => (
+                          <span
+                            key={ci}
+                            title={col.name}
+                            className="inline-block h-4 w-4 rounded-full border border-border shadow-sm shrink-0"
+                            style={{ backgroundColor: col.hex_code }}
+                          />
+                        ))}
+                        {c.colors.length > 6 && (
+                          <span className="text-[10px] text-muted-foreground">+{c.colors.length - 6}</span>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="text-xs text-muted-foreground/50">—</span>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-xs text-muted-foreground">{formatDate(c.created_at)}</TableCell>
                   <TableCell>
                     <div className="flex justify-end gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => openEdit(c)}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                        onClick={() => {
-                          if (confirm(`Delete material catalog "${c.name}"?`)) deleteMut.mutate(c.id);
-                        }}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(c)}><Pencil className="h-4 w-4" /></Button>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => { if (confirm(`Delete material catalog "${c.name}"?`)) deleteMut.mutate(c.id); }}><Trash2 className="h-4 w-4" /></Button>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -214,67 +222,113 @@ function MaterialCatalogsPage() {
       </Card>
 
       <div className="flex items-center justify-between">
-        <p className="text-xs text-muted-foreground">
-          Page {page} of {totalPage}
-        </p>
+        <p className="text-xs text-muted-foreground">Page {page} of {totalPage}</p>
         <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={page <= 1}
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-          >
-            <ChevronLeft className="h-4 w-4" /> Prev
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={page >= totalPage}
-            onClick={() => setPage((p) => p + 1)}
-          >
-            Next <ChevronRight className="h-4 w-4" />
-          </Button>
+          <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}><ChevronLeft className="h-4 w-4" /> Prev</Button>
+          <Button variant="outline" size="sm" disabled={page >= totalPage} onClick={() => setPage((p) => p + 1)}>Next <ChevronRight className="h-4 w-4" /></Button>
         </div>
       </div>
 
       <Dialog open={open} onOpenChange={(v) => (v ? setOpen(true) : closeDialog())}>
-        <DialogContent>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <form onSubmit={handleSubmit}>
             <DialogHeader>
               <DialogTitle>{editing ? "Edit Catalog" : "New Catalog"}</DialogTitle>
               <DialogDescription>
-                {editing ? "Update material catalog details." : "Add a new material specification template."}
+                {editing ? "Update material catalog details." : "Tambahkan template spesifikasi kain baru ke Master Katalog Global."}
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div className="space-y-2">
-                <Label htmlFor="cat-name">Name</Label>
-                <Input
-                  id="cat-name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="e.g. Bahan Rompi Standar"
-                  autoFocus
-                />
+                <Label htmlFor="cat-name">Name <span className="text-destructive">*</span></Label>
+                <Input id="cat-name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. American Drill" autoFocus />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="cat-spec">Specification</Label>
-                <Textarea
-                  id="cat-spec"
-                  value={spec}
-                  onChange={(e) => setSpec(e.target.value)}
-                  placeholder="e.g. Drill Halus, Furing Peles, Resleting YKK"
-                  rows={4}
-                />
+                <Label htmlFor="cat-spec">Spec / Deskripsi Singkat <span className="text-destructive">*</span></Label>
+                <Textarea id="cat-spec" value={form.spec} onChange={(e) => setForm({ ...form, spec: e.target.value })} placeholder="e.g. Tekstur miring sedang, menyerap keringat dengan baik." rows={2} />
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="cat-composition">Komposisi</Label>
+                <Input id="cat-composition" value={form.composition} onChange={(e) => setForm({ ...form, composition: e.target.value })} placeholder="e.g. 65% Polyester / 35% Viscose" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="cat-care">Instruksi Perawatan</Label>
+                <Input id="cat-care" value={form.care_instruction} onChange={(e) => setForm({ ...form, care_instruction: e.target.value })} placeholder="e.g. Setrika suhu sedang, jangan gunakan pemutih." />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="cat-description">Deskripsi Lengkap <span className="text-xs text-muted-foreground font-normal">(Opsional)</span></Label>
+                <Textarea id="cat-description" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Deskripsi detail tentang karakteristik kain ini..." rows={3} />
+              </div>
+
+              {/* ===== COLOR SWATCHES SECTION ===== */}
+              <div className="space-y-3 rounded-md border border-dashed border-border/70 p-3">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-semibold flex items-center gap-1.5">
+                    <Palette className="h-3.5 w-3.5 text-muted-foreground" />
+                    Pilihan Warna
+                    <span className="text-muted-foreground font-normal">(Opsional)</span>
+                  </Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={addColor}
+                  >
+                    <Plus className="h-3 w-3 mr-1" /> Tambah Warna
+                  </Button>
+                </div>
+
+                {form.colors.length === 0 && (
+                  <p className="text-xs text-muted-foreground text-center py-2">
+                    Belum ada pilihan warna. Klik "Tambah Warna" untuk menambahkan.
+                  </p>
+                )}
+
+                <div className="space-y-2">
+                  {form.colors.map((color, ci) => (
+                    <div key={ci} className="flex items-center gap-2">
+                      {/* Color picker native */}
+                      <input
+                        type="color"
+                        value={color.hex_code}
+                        onChange={(e) => updateColor(ci, { hex_code: e.target.value })}
+                        className="h-8 w-8 shrink-0 cursor-pointer rounded border border-border bg-transparent p-0.5"
+                        title="Pilih warna"
+                      />
+                      {/* Hex code input */}
+                      <Input
+                        value={color.hex_code}
+                        onChange={(e) => updateColor(ci, { hex_code: e.target.value })}
+                        placeholder="#4b5320"
+                        className="w-24 font-mono text-xs"
+                        maxLength={7}
+                      />
+                      {/* Color name */}
+                      <Input
+                        value={color.name}
+                        onChange={(e) => updateColor(ci, { name: e.target.value })}
+                        placeholder={`Nama warna ${ci + 1}, e.g. Navy Blue`}
+                        className="flex-1 text-sm"
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive"
+                        onClick={() => removeColor(ci)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              {/* ===== END COLOR SWATCHES ===== */}
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={closeDialog}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={saving}>
-                {saving ? "Saving…" : editing ? "Save changes" : "Create"}
-              </Button>
+              <Button type="button" variant="outline" onClick={closeDialog}>Cancel</Button>
+              <Button type="submit" disabled={saving}>{saving ? "Saving…" : editing ? "Save changes" : "Create"}</Button>
             </DialogFooter>
           </form>
         </DialogContent>

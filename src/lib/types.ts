@@ -1,4 +1,6 @@
 // Domain types derived from the SIKOn OpenAPI spec.
+export type { FabricColor, ProductFabric, WholesaleTier, DesignModelView, DesignModel, ProductPayload } from "./types/product";
+export type { DashboardOverviewData, DashboardOverviewSummary, DashboardOverviewActiveBatchPO, DashboardOverviewActionRequired, DashboardOverviewChartTrend, DashboardOverviewDailyTrend } from "./types/dashboard";
 
 /** A single material/part block inside an order item's `details` array. */
 export interface DetailPart {
@@ -17,10 +19,20 @@ export interface Category {
   updated_at?: string;
 }
 
+export interface SpecTemplateColor {
+  id: string;
+  name: string;
+  hex_code: string;
+}
+
 export interface SpecTemplate {
   id: string;
   name: string;
-  spec: string;
+  spec: string;              // deskripsi singkat / short spec
+  description?: string;      // deskripsi panjang
+  composition?: string;      // e.g. "65% Polyester / 35% Viscose"
+  care_instruction?: string; // e.g. "Setrika suhu sedang, jangan gunakan pemutih"
+  colors?: SpecTemplateColor[]; // Pilihan warna yang tersedia untuk template ini
   created_at?: string;
   updated_at?: string;
 }
@@ -34,12 +46,19 @@ export interface ProductImage {
 export interface Product {
   id: string;
   name: string;
+  slug?: string;
   base_price: number;
   category_id?: string;
   category?: Category;
   description?: string;
+  gsm_info?: string;          // e.g. "210gsm"
+  fabric_summary?: string;    // e.g. "Ripstop Cotton"
+  key_features?: string[];
   images?: ProductImage[];
-  image_urls?: string[]; // Used for payload
+  image_urls?: string[];      // Used for payload
+  fabrics?: import('./types/product').ProductFabric[];
+  wholesale?: import('./types/product').WholesaleTier[];
+  design_model?: import('./types/product').DesignModel;
   created_at?: string;
 }
 
@@ -70,6 +89,9 @@ export interface User {
   role?: string;
   phone?: string;
   image_url?: string;
+  status_text?: string;
+  is_active?: boolean;
+  sort_order?: number;
 }
 
 export interface OrderItem {
@@ -90,6 +112,7 @@ export interface Payment {
   order_id: string;
   amount: number;
   payment_type: PaymentType | string;
+  status?: "pending" | "verified" | "rejected" | string;
   bank_account_id?: string;
   bank_account?: BankAccount;
   reference_number?: string;
@@ -102,6 +125,8 @@ export interface Payment {
 export interface BatchPO {
   id: string;
   name: string;
+  target_month?: number;
+  target_year?: number;
   start_date: string;
   end_date: string;
   quota: number;
@@ -128,8 +153,20 @@ export interface Order {
   notes?: string;
   valid_until?: string;
   terms_conditions?: string;
+  /** Tanggal order resmi disetujui/deal. Diisi otomatis oleh backend saat DP dibayar. */
+  approved_at?: string | null;
   items?: OrderItem[];
   payments?: Payment[];
+  total_qty?: number;
+  /** Fitur Perpajakan Pengadaan Pemerintah */
+  is_taxable?: boolean;
+  tax_ppn_rate?: number;
+  tax_pph22_rate?: number;
+  dpp_ppn?: number;
+  ppn_amount?: number;
+  pph22_amount?: number;
+  pagu_belanja?: number;
+  net_cash_in?: number;
   created_at?: string;
   updated_at?: string;
 }

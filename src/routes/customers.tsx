@@ -36,6 +36,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useAuth } from "@/hooks/use-auth";
 
 const searchSchema = z.object({
   search: z.string().optional().catch(""),
@@ -75,6 +76,7 @@ function CustomersPage() {
   const searchParams = Route.useSearch();
   const navigate = Route.useNavigate();
   const qc = useQueryClient();
+  const { canAssignSales, isSales, user } = useAuth();
 
   const [editing, setEditing] = useState<Customer | null>(null);
   const [open, setOpen] = useState(false);
@@ -97,16 +99,29 @@ function CustomersPage() {
     queryFn: () => customersService.list(searchParams),
   });
 
+  // If role is sales, only fetch current sales info via GET /users/{id}
+  useQuery({
+    queryKey: ["users", user?.id],
+    queryFn: () => usersService.get(user!.id!),
+    enabled: isSales && !!user?.id,
+  });
+
+  // Only fetch all sales users list if non-sales role
   const { data: usersData } = useQuery({
     queryKey: ["users", { limit: 100 }],
     queryFn: () => usersService.list({ page: 1, limit: 100 }),
+    enabled: !isSales,
   });
   const salesUsers = (usersData?.data ?? []).filter(
     (u) => !u.role || u.role === "sales"
   );
 
   const createMut = useMutation({
-    mutationFn: (body: Partial<Customer>) => customersService.create(body),
+    mutationFn: (body: Partial<Customer>) =>
+      customersService.create({
+        ...body,
+        sales_id: isSales ? user?.id : body.sales_id,
+      }),
     onSuccess: () => {
       toast.success("Customer created");
       qc.invalidateQueries({ queryKey: ["customers"] });
@@ -117,7 +132,10 @@ function CustomersPage() {
 
   const updateMut = useMutation({
     mutationFn: ({ id, body }: { id: string; body: Partial<Customer> }) =>
-      customersService.update(id, body),
+      customersService.update(id, {
+        ...body,
+        sales_id: isSales ? user?.id : body.sales_id,
+      }),
     onSuccess: () => {
       toast.success("Customer updated");
       qc.invalidateQueries({ queryKey: ["customers"] });
@@ -142,12 +160,15 @@ function CustomersPage() {
         email: editing.email ?? "",
         phone: editing.phone ?? "",
         address: editing.address ?? "",
-        sales_id: editing.sales_id ?? "",
+        sales_id: isSales ? (user?.id ?? "") : (editing.sales_id ?? ""),
       });
     } else {
-      setForm(emptyForm);
+      setForm({
+        ...emptyForm,
+        sales_id: isSales ? (user?.id ?? "") : "",
+      });
     }
-  }, [editing]);
+  }, [editing, isSales, user]);
 
   function openCreate() {
     setEditing(null);
@@ -169,7 +190,8 @@ function CustomersPage() {
       toast.error("Name is required");
       return;
     }
-    if (!form.sales_id) {
+    // Backend auto-assigns sales_id when logged-in user is Sales role
+    if (canAssignSales && !form.sales_id) {
       toast.error("Sales is required");
       return;
     }
@@ -220,30 +242,33 @@ function CustomersPage() {
             onChange={(e) => setSearchInput(e.target.value)}
           />
         </div>
-        <Select
-          value={searchParams.sales_id || "all"}
-          onValueChange={(val) => {
-            navigate({
-              search: (prev) => ({
-                ...prev,
-                sales_id: val === "all" ? undefined : val,
-                page: 1,
-              }),
-            });
-          }}
-        >
-          <SelectTrigger className="w-full sm:w-[250px]">
-            <SelectValue placeholder="All Sales" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Sales</SelectItem>
-            {salesUsers.map((u) => (
-              <SelectItem key={u.id} value={u.id}>
-                {u.name} {u.email ? `(${u.email})` : ""}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {/* Sales filter — hidden for 'sales' role since their data is already scoped by the backend */}
+        {!isSales && (
+          <Select
+            value={searchParams.sales_id || "all"}
+            onValueChange={(val) => {
+              navigate({
+                search: (prev) => ({
+                  ...prev,
+                  sales_id: val === "all" ? undefined : val,
+                  page: 1,
+                }),
+              });
+            }}
+          >
+            <SelectTrigger className="w-full sm:w-[250px]">
+              <SelectValue placeholder="All Sales" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Sales</SelectItem>
+              {salesUsers.map((u) => (
+                <SelectItem key={u.id} value={u.id}>
+                  {u.name} {u.email ? `(${u.email})` : ""}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
       </div>
 
       <Card>
@@ -389,24 +414,27 @@ function CustomersPage() {
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="sales_id">Sales *</Label>
-                <Select
-                  value={form.sales_id}
-                  onValueChange={(v) => setForm((f) => ({ ...f, sales_id: v }))}
-                >
-                  <SelectTrigger id="sales_id">
-                    <SelectValue placeholder="Select sales person" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {salesUsers.map((u) => (
-                      <SelectItem key={u.id} value={u.id}>
-                        {u.name} {u.email ? `(${u.email})` : ""}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              {/* Sales assignment field — hidden for 'sales' role; backend auto-assigns */}
+              {canAssignSales && (
+                <div className="space-y-2">
+                  <Label htmlFor="sales_id">Sales *</Label>
+                  <Select
+                    value={form.sales_id}
+                    onValueChange={(v) => setForm((f) => ({ ...f, sales_id: v }))}
+                  >
+                    <SelectTrigger id="sales_id">
+                      <SelectValue placeholder="Select sales person" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {salesUsers.map((u) => (
+                        <SelectItem key={u.id} value={u.id}>
+                          {u.name} {u.email ? `(${u.email})` : ""}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
 
               <div className="space-y-2">
                 <Label htmlFor="address">Address</Label>

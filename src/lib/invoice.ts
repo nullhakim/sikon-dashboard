@@ -106,12 +106,12 @@ function formatOrderDetails(details: unknown): string {
   const partsList: string[] = [];
 
   const extractParts = (arr: any[]) => {
-    arr.forEach(d => {
+    arr.forEach((d) => {
       if (!d.part && !d.material_name && !d.warna) return;
       const inner: string[] = [];
       if (d.material_name) inner.push(String(d.material_name));
       if (d.warna) inner.push(String(d.warna));
-      
+
       if (inner.length) partsList.push(`Bahan: ${inner.join(" - ")}`);
     });
   };
@@ -122,7 +122,7 @@ function formatOrderDetails(details: unknown): string {
   }
 
   const d = details as Record<string, any>;
-  
+
   if (Array.isArray(d.parts)) {
     extractParts(d.parts);
   } else {
@@ -170,6 +170,13 @@ export async function generateInvoicePDF({
 }: InvoiceData): Promise<jsPDF> {
   const { withStamp = false, withSignature = false } = options || {};
 
+  // === INVOICE DATE LOGIC ===
+  // Gunakan approved_at sebagai tanggal invoice resmi.
+  // Jika kosong (order masih quotation), gunakan created_at sebagai fallback
+  // dan ubah judul menjadi "PROFORMA INVOICE".
+  const isProforma = !options?.isNota && !order.approved_at;
+  const invoiceDate = order.approved_at ? order.approved_at : order.created_at;
+
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -203,9 +210,10 @@ export async function generateInvoicePDF({
   doc.text(`Tel: ${COMPANY.phone} | ${COMPANY.email}`, headerRightX, 28, { align: "right" });
   doc.text(`${COMPANY.website} | IG: ${COMPANY.instagram}`, headerRightX, 33, { align: "right" });
 
-  doc.setFontSize(28);
+  // Judul dokumen: NOTA / PROFORMA INVOICE / INVOICE
+  const title = options?.isNota ? "NOTA" : isProforma ? "INVOICE" : "INVOICE";
+  doc.setFontSize(isProforma ? 18 : 28);
   doc.setFont("helvetica", "bold");
-  const title = options?.isNota ? "NOTA" : "INVOICE";
   doc.text(title, pageWidth - margin, 46, { align: "right" });
 
   doc.setTextColor(30, 41, 59);
@@ -220,13 +228,16 @@ export async function generateInvoicePDF({
   doc.text("Ditagihkan kepada:", col1, y);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(11);
-  doc.text(customer?.name || "-", col1, y + 7);
+  const customerNameMaxWidth = col2 - col1 - 10;
+  const customerNameLines = doc.splitTextToSize(customer?.name || "-", customerNameMaxWidth);
+  doc.text(customerNameLines, col1, y + 7, { maxWidth: customerNameMaxWidth });
   doc.setFontSize(9);
   doc.setTextColor(100, 100, 100);
+  const customerDetailsY = y + 7 + customerNameLines.length * 5 + 2;
   // if (customer?.address) doc.text(customer.address, col1, y + 14, { maxWidth: 80 });
   // if (customer?.phone) doc.text(`Tel: ${customer.phone}`, col1, y + 22);
-  doc.text("Address: ", col1, y + 14, { maxWidth: 80 });
-  doc.text("Phone: ", col1, y + 22);
+  doc.text("Address: ", col1, customerDetailsY, { maxWidth: 80 });
+  doc.text("Phone: ", col1, customerDetailsY + 8);
 
   doc.setTextColor(30, 41, 59);
   doc.setFontSize(9);
@@ -235,14 +246,27 @@ export async function generateInvoicePDF({
   const invNumber = order.order_number
     ? `${prefix}${order.order_number}`
     : `${prefix}${order.id.slice(0, 8).toUpperCase()}`;
-  const infoLabels = [options?.isNota ? "No. Nota" : "No. Invoice", "Tanggal"];
-  // const infoLabels = ["No. Invoice", "Tanggal", "Status Order", "Status Bayar"];
+  const invoiceDateLabel = options?.isNota
+    ? "No. Nota"
+    : isProforma
+      ? "No. Penawaran"
+      : "No. Invoice";
+  const infoLabels = [invoiceDateLabel, "Tanggal"];
+  // Tanggal: untuk nota gunakan created_at order, untuk invoice gunakan approved_at (atau created_at jika proforma)
   const infoValues = [
     invNumber,
-    formatDate(order.created_at),
+    options?.isNota ? formatDate(order.created_at) : formatDate(invoiceDate),
     (order.order_status || "pending").toUpperCase(),
     (order.payment_status || "unpaid").toUpperCase(),
   ];
+  // Tambahkan label PROFORMA di bawah judul jika perlu
+  if (isProforma) {
+    doc.setTextColor(200, 100, 0);
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "italic");
+    // doc.text("(Dokumen Penawaran — Belum Disetujui)", pageWidth - margin, 50, { align: "right" });
+    doc.setTextColor(30, 41, 59);
+  }
 
   infoLabels.forEach((label, i) => {
     const ly = y + i * 8;
@@ -253,14 +277,15 @@ export async function generateInvoicePDF({
   });
 
   // === 3. ITEMS TABLE ===
-  y = y + 38;
+  y = y + Math.max(38, customerDetailsY - y + 18);
 
   const tableBody = items.map((item, idx) => {
     const subtotal = item.subtotal ?? item.qty * item.price;
     const detailStr = formatOrderDetails(item.details);
     return [
       String(idx + 1),
-      (item.custom_name || item.product_name || item.product?.name || "-") + (detailStr ? "\n" + detailStr : ""),
+      (item.custom_name || item.product_name || item.product?.name || "-") +
+        (detailStr ? "\n" + detailStr : ""),
       String(item.qty),
       formatCurrency(item.price),
       formatCurrency(subtotal),
@@ -290,12 +315,22 @@ export async function generateInvoicePDF({
 
   // === 4. TOTALS ===
   const finalY = (doc as any).lastAutoTable?.finalY || y + 40;
-  const totalsX = pageWidth - margin - 80;
+  const totalsX = pageWidth - margin - 85;
 
   const subtotal = items.reduce((s, i) => s + (i.subtotal ?? i.qty * i.price), 0);
   const shippingCost = order.shipping_cost || 0;
+
+  const isTaxable = order.is_taxable ?? false;
+  const ppnRate = order.tax_ppn_rate ?? 12.00;
+  const pph22Rate = order.tax_pph22_rate ?? 1.50;
+
+  const dppPpn = order.dpp_ppn ?? (isTaxable ? subtotal / 1.09 : 0);
+  const ppnAmount = order.ppn_amount ?? (isTaxable ? dppPpn * (ppnRate / 100) : 0);
+  const pph22Amount = order.pph22_amount ?? (isTaxable ? dppPpn * (pph22Rate / 100) : 0);
+
+  const paguBelanja = order.pagu_belanja ?? (isTaxable ? subtotal + shippingCost + ppnAmount : subtotal + shippingCost);
+  const totalAmount = isTaxable ? paguBelanja : (order.total_amount ?? subtotal + shippingCost);
   const amountPaid = payments.reduce((s, p) => s + (p.amount || 0), 0);
-  const totalAmount = order.total_amount ?? subtotal + shippingCost;
 
   let ty = finalY + 10;
   doc.setFontSize(9);
@@ -303,18 +338,34 @@ export async function generateInvoicePDF({
   doc.text("Subtotal", totalsX, ty);
   doc.text(formatCurrency(subtotal), pageWidth - margin, ty, { align: "right" });
 
+  if (isTaxable) {
+    ty += 7;
+    doc.text("DPP PPN", totalsX, ty);
+    doc.text(formatCurrency(dppPpn), pageWidth - margin, ty, { align: "right" });
+
+    ty += 7;
+    doc.text(`PPN (${ppnRate}%)`, totalsX, ty);
+    doc.text(`+ ${formatCurrency(ppnAmount)}`, pageWidth - margin, ty, { align: "right" });
+
+    ty += 7;
+    doc.text(`PPh 22 (${pph22Rate}%)`, totalsX, ty);
+    doc.text(`- ${formatCurrency(pph22Amount)}`, pageWidth - margin, ty, { align: "right" });
+  }
+
   if (shippingCost > 0) {
-    ty += 8;
+    ty += 7;
     const shippingLabel = order.courier_name ? `Ongkir (${order.courier_name})` : "Ongkir";
     doc.text(shippingLabel, totalsX, ty);
     doc.text(formatCurrency(shippingCost), pageWidth - margin, ty, { align: "right" });
   }
 
-  ty += 8;
-  doc.text("Total", totalsX, ty);
+  ty += 7;
+  doc.setFont("helvetica", "bold");
+  doc.text(isTaxable ? "Pagu Belanja" : "Total", totalsX, ty);
   doc.text(formatCurrency(totalAmount), pageWidth - margin, ty, { align: "right" });
 
-  ty += 8;
+  ty += 7;
+  doc.setFont("helvetica", "normal");
   doc.text("Sudah Dibayar", totalsX, ty);
   doc.text(formatCurrency(amountPaid), pageWidth - margin, ty, { align: "right" });
 
@@ -325,40 +376,22 @@ export async function generateInvoicePDF({
 
   ty += 8;
   const sisa = Math.max(0, totalAmount - amountPaid);
-  doc.setFontSize(12);
+  doc.setFontSize(11);
   doc.setFont("helvetica", "bold");
   doc.text("Sisa Tagihan", totalsX, ty);
   doc.text(formatCurrency(sisa), pageWidth - margin, ty, { align: "right" });
 
   // Terbilang (amount in words) — only when there's a remaining balance
   if (sisa > 0) {
-    ty += 8;
+    ty += 7;
     doc.setFontSize(8);
     doc.setFont("helvetica", "italic");
     doc.setTextColor(100, 100, 100);
     const terbilangText = `Terbilang: ${terbilang(sisa)}`;
-    const terbilangLines = doc.splitTextToSize(terbilangText, 80);
+    const terbilangLines = doc.splitTextToSize(terbilangText, 85);
     doc.text(terbilangLines, totalsX, ty);
     doc.setTextColor(30, 41, 59);
   }
-
-  // Payment status badge
-  // ty += 12;
-  // const payStatus = (order.payment_status || "unpaid").toLowerCase();
-  // const badgeColors: Record<string, [number, number, number]> = {
-  //   paid: [34, 197, 94],
-  //   partial: [234, 179, 8],
-  //   unpaid: [239, 68, 68],
-  // };
-  // const badgeColor = badgeColors[payStatus] || badgeColors.unpaid;
-  // doc.setFillColor(badgeColor[0], badgeColor[1], badgeColor[2]);
-  // const statusText = payStatus.toUpperCase();
-  // const statusWidth = doc.getTextWidth(statusText) + 12;
-  // doc.roundedRect(pageWidth - margin - statusWidth, ty - 5, statusWidth, 8, 2, 2, "F");
-  // doc.setTextColor(255, 255, 255);
-  // doc.setFontSize(8);
-  // doc.setFont("helvetica", "bold");
-  // doc.text(statusText, pageWidth - margin - statusWidth / 2, ty, { align: "center" });
 
   // === 5. BANK INFO ===
   const bankY = finalY + 10;
@@ -375,7 +408,7 @@ export async function generateInvoicePDF({
     const bankLines = bankAccounts.length
       ? bankAccounts.map(formatBankLine)
       : ["(Belum ada rekening sales yang terdaftar)"];
-    
+
     currentLeftY += 6;
     bankLines.forEach((line) => {
       const splitLines = doc.splitTextToSize(line, 80);
@@ -383,6 +416,18 @@ export async function generateInvoicePDF({
       currentLeftY += splitLines.length * 4.5;
     });
     currentLeftY += 2;
+  }
+
+  if (isTaxable) {
+    currentLeftY += 4;
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(8);
+    doc.setTextColor(71, 85, 105);
+    const taxNote = `Catatan: Transaksi ini termasuk Pengadaan Dinas/Instansi Pemerintah dengan Pemotongan PPh 22 sebesar ${pph22Rate}% (${formatCurrency(pph22Amount)}) dan PPN ${ppnRate}% (${formatCurrency(ppnAmount)}).`;
+    const taxNoteLines = doc.splitTextToSize(taxNote, 80);
+    doc.text(taxNoteLines, margin, currentLeftY);
+    currentLeftY += taxNoteLines.length * 4.5;
+    doc.setTextColor(30, 41, 59);
   }
 
   if (options?.note) {
@@ -394,7 +439,6 @@ export async function generateInvoicePDF({
     doc.setTextColor(30, 41, 59);
     doc.setFontSize(12);
   }
-
 
   // === 6. SIGNATURE ===
   const sigY = ty + 20;
@@ -410,7 +454,16 @@ export async function generateInvoicePDF({
     if (stempelData) {
       try {
         const size = 35;
-        doc.addImage(stempelData, "PNG", pageWidth - margin - 70, sigY + 5, size, size, undefined, "FAST");
+        doc.addImage(
+          stempelData,
+          "PNG",
+          pageWidth - margin - 70,
+          sigY + 5,
+          size,
+          size,
+          undefined,
+          "FAST",
+        );
       } catch {
         // ignore
       }
@@ -424,7 +477,16 @@ export async function generateInvoicePDF({
       try {
         const w = 35;
         const h = 25;
-        doc.addImage(sigData, "PNG", pageWidth - margin - 25 - w / 2, sigY + 7, w, h, undefined, "FAST");
+        doc.addImage(
+          sigData,
+          "PNG",
+          pageWidth - margin - 25 - w / 2,
+          sigY + 7,
+          w,
+          h,
+          undefined,
+          "FAST",
+        );
       } catch {
         // ignore
       }
@@ -607,7 +669,10 @@ export async function generateKwitansiPDF({
 
   doc.setFontSize(10);
   doc.setFont("helvetica", "normal");
-  doc.text(`Tasikmalaya, ${formatDate(payment.payment_date || payment.created_at)}`, sigX, sigY, {
+  // Tanggal kwitansi: selalu gunakan payment.created_at (tanggal aktual uang diterima)
+  // payment.payment_date digunakan hanya jika created_at tidak tersedia
+  const kwitansiDate = payment.created_at || payment.payment_date;
+  doc.text(`Tasikmalaya, ${formatDate(kwitansiDate)}`, sigX, sigY, {
     align: "center",
   });
   doc.text("Penerima,", sigX, sigY + 5, { align: "center" });
@@ -618,7 +683,9 @@ export async function generateKwitansiPDF({
       try {
         const size = 35;
         doc.addImage(stempelData, "PNG", sigX - 35, sigY + 5, size, size, undefined, "FAST");
-      } catch { }
+      } catch {
+        // Ignore invalid stamp images and continue generating the invoice.
+      }
     }
   }
 
@@ -629,7 +696,9 @@ export async function generateKwitansiPDF({
         const w = 35;
         const h = 25;
         doc.addImage(sigData, "PNG", sigX - w / 2, sigY + 7, w, h, undefined, "FAST");
-      } catch { }
+      } catch {
+        // Ignore invalid signature images and continue generating the invoice.
+      }
     }
   }
 

@@ -1,12 +1,15 @@
 import { useState, useEffect } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
+import { useAuthStore } from "@/lib/auth-store";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, ChevronLeft, ChevronRight, Trash2, Pencil, Search, Filter, X, CalendarIcon } from "lucide-react";
+import { useAuth } from "@/hooks/use-auth";
+import { Plus, ChevronLeft, ChevronRight, Trash2, Pencil, Search, Filter, X, CalendarIcon, CheckCircle2 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { z } from "zod";
 
 import { Button } from "@/components/ui/button";
+import { cleanNumber } from "@/components/AddPaymentDialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
@@ -46,14 +49,19 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Pagination } from "@/components/ui/pagination-custom";
 
 import { paymentsService, ordersService, bankAccountsService } from "@/lib/services";
-import { formatIDR, formatDateISO, datetimeLocalToISO, formatDate } from "@/lib/format";
+import { formatIDR, formatDateISO, datetimeLocalToISO, formatDate, isoToDatetimeLocal } from "@/lib/format";
 import type { Payment } from "@/lib/types";
+import { CurrencyInput } from "@/components/CurrencyInput";
+
+import { useLanguage } from "@/lib/language-context";
 
 const searchSchema = z.object({
   search: z.string().optional().catch(""),
   payment_type: z.string().optional().catch(""),
+  status: z.string().optional().catch(""),
   start_date: z.string().optional().catch(""),
   end_date: z.string().optional().catch(""),
   page: z.number().catch(1),
@@ -80,10 +88,32 @@ const typeVariant: Record<string, string> = {
 };
 
 function TypeBadge({ type }: { type: string }) {
+  const { t } = useLanguage();
+  const key = `payment_type.${type?.toLowerCase()}` as any;
+  const label = t(key, type ?? "—");
   const cls = typeVariant[type?.toLowerCase()] ?? "bg-muted text-foreground";
   return (
-    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium uppercase ${cls}`}>
-      {type ?? "—"}
+    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${cls}`}>
+      {label}
+    </span>
+  );
+}
+
+const statusVariantMap: Record<string, string> = {
+  pending: "bg-amber-100 text-amber-800 border-amber-200",
+  verified: "bg-emerald-100 text-emerald-800 border-emerald-200",
+  rejected: "bg-rose-100 text-rose-800 border-rose-200",
+};
+
+export function StatusBadge({ status }: { status?: string }) {
+  const { t } = useLanguage();
+  const s = (status || "pending").toLowerCase();
+  const key = `payment_status.${s}` as any;
+  const label = t(key, s);
+  const cls = statusVariantMap[s] ?? "bg-muted text-foreground";
+  return (
+    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${cls}`}>
+      {label}
     </span>
   );
 }
@@ -91,6 +121,7 @@ function TypeBadge({ type }: { type: string }) {
 // ─── Create Payment Dialog ──────────────────────────────────────────────
 
 function CreatePaymentDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { t } = useLanguage();
   const qc = useQueryClient();
 
   const orders = useQuery({
@@ -112,8 +143,15 @@ function CreatePaymentDialog({ open, onClose }: { open: boolean; onClose: () => 
   const [referenceNumber, setReferenceNumber] = useState("");
   const [paymentDate, setPaymentDate] = useState("");
 
+  const firstAvailableBankAccountId = bankAccounts.data?.data?.[0]?.id || "";
+
   useEffect(() => {
-    if (!open) {
+    if (open) {
+      setPaymentDate(isoToDatetimeLocal(new Date().toISOString()));
+      if (firstAvailableBankAccountId) {
+        setBankAccountId(firstAvailableBankAccountId);
+      }
+    } else {
       setOrderId("");
       setBankAccountId("");
       setAmount("");
@@ -123,12 +161,18 @@ function CreatePaymentDialog({ open, onClose }: { open: boolean; onClose: () => 
     }
   }, [open]);
 
+  useEffect(() => {
+    if (open && !bankAccountId && firstAvailableBankAccountId) {
+      setBankAccountId(firstAvailableBankAccountId);
+    }
+  }, [open, bankAccountId, firstAvailableBankAccountId]);
+
   const createMut = useMutation({
     mutationFn: () =>
       paymentsService.create({
         order_id: orderId,
         bank_account_id: bankAccountId,
-        amount: Number(amount),
+        amount: cleanNumber(amount),
         payment_type: paymentType,
         reference_number: referenceNumber,
         payment_date: datetimeLocalToISO(paymentDate),
@@ -138,14 +182,24 @@ function CreatePaymentDialog({ open, onClose }: { open: boolean; onClose: () => 
       qc.invalidateQueries({ queryKey: ["payments"] });
       onClose();
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: any) => {
+      const msg =
+        e?.response?.data?.error ??
+        e?.payload?.error ??
+        e?.response?.data?.message ??
+        e?.payload?.message ??
+        e?.message ??
+        "Payment record failed";
+      toast.error(msg);
+    },
   });
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!orderId) return toast.error("Select an order");
     if (!bankAccountId) return toast.error("Select a bank account");
-    if (!amount || Number(amount) <= 0) return toast.error("Enter a valid amount");
+    const numericAmount = cleanNumber(amount);
+    if (!numericAmount || numericAmount <= 0) return toast.error("Enter a valid amount");
     if (!paymentType) return toast.error("Choose a payment type");
     if (!referenceNumber.trim()) return toast.error("Enter a reference number");
     createMut.mutate();
@@ -196,12 +250,10 @@ function CreatePaymentDialog({ open, onClose }: { open: boolean; onClose: () => 
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label>Amount</Label>
-                <Input
-                  type="number"
-                  min={1}
-                  placeholder="0"
+                <CurrencyInput
                   value={amount}
-                  onChange={(e) => setAmount(Number(e.target.value))}
+                  onChange={(val) => setAmount(val)}
+                  placeholder="0"
                 />
               </div>
               <div className="space-y-2">
@@ -211,9 +263,9 @@ function CreatePaymentDialog({ open, onClose }: { open: boolean; onClose: () => 
                     <SelectValue placeholder="Select type" />
                   </SelectTrigger>
                   <SelectContent>
-                    {paymentTypeList.map((t) => (
-                      <SelectItem key={t} value={t}>
-                        {t.toUpperCase()}
+                    {paymentTypeList.map((tVal) => (
+                      <SelectItem key={tVal} value={tVal}>
+                        {t(`payment_type.${tVal}` as any, tVal.toUpperCase())}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -266,6 +318,7 @@ function EditPaymentDialog({
   open: boolean;
   onClose: () => void;
 }) {
+  const { t } = useLanguage();
   const qc = useQueryClient();
 
   const [referenceNumber, setReferenceNumber] = useState("");
@@ -320,9 +373,9 @@ function EditPaymentDialog({
                 <SelectValue placeholder="Select type" />
               </SelectTrigger>
               <SelectContent>
-                {paymentTypeList.map((t) => (
-                  <SelectItem key={t} value={t}>
-                    {t.toUpperCase()}
+                {paymentTypeList.map((tVal) => (
+                  <SelectItem key={tVal} value={tVal}>
+                    {t(`payment_type.${tVal}` as any, tVal.toUpperCase())}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -343,15 +396,82 @@ function EditPaymentDialog({
   );
 }
 
+// ─── Verify Payment Dialog ──────────────────────────────────────────────
+
+function VerifyPaymentDialog({
+  payment,
+  open,
+  onClose,
+}: {
+  payment: Payment | null;
+  open: boolean;
+  onClose: () => void;
+}) {
+  const qc = useQueryClient();
+
+  const verifyMut = useMutation({
+    mutationFn: (status: "verified" | "rejected") =>
+      paymentsService.verify(payment!.id, status),
+    onSuccess: () => {
+      toast.success("Payment verification updated");
+      qc.invalidateQueries({ queryKey: ["payments"] });
+      qc.invalidateQueries({ queryKey: ["orders"] }); // May affect order paid status
+      onClose();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => (v ? null : onClose())}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Verify Payment</DialogTitle>
+          <DialogDescription>
+            Finance approval for payment {payment?.reference_number || "—"}. 
+            Amount: {formatIDR(payment?.amount || 0)}.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="flex flex-col gap-3 py-4">
+          <Button
+            variant="default"
+            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
+            onClick={() => verifyMut.mutate("verified")}
+            disabled={verifyMut.isPending}
+          >
+            Approve & Verify
+          </Button>
+          <Button
+            variant="destructive"
+            className="w-full"
+            onClick={() => verifyMut.mutate("rejected")}
+            disabled={verifyMut.isPending}
+          >
+            Reject Payment
+          </Button>
+        </div>
+
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={onClose} disabled={verifyMut.isPending}>
+            Cancel
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ─── Main Page ──────────────────────────────────────────────────────────
 
 function PaymentsPage() {
   const searchParams = Route.useSearch();
   const navigate = Route.useNavigate();
   const qc = useQueryClient();
+  const { canVerifyPayment } = useAuth();
 
   const [createOpen, setCreateOpen] = useState(false);
   const [editPayment, setEditPayment] = useState<Payment | null>(null);
+  const [verifyPayment, setVerifyPayment] = useState<Payment | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [searchInput, setSearchInput] = useState(searchParams.search || "");
 
@@ -366,23 +486,53 @@ function PaymentsPage() {
     return () => clearTimeout(timeout);
   }, [searchInput, navigate, searchParams.search]);
 
+  // Default tab to 'pending' (Need Verification) for Accounting/Owner roles if no status searchParam set
+  const effectiveStatus = searchParams.status ?? (canVerifyPayment ? "pending" : "all");
+
+  const queryParams = {
+    ...searchParams,
+    status: effectiveStatus === "all" ? undefined : effectiveStatus,
+  };
+
   const { data, isLoading, isError, error } = useQuery({
-    queryKey: ["payments", searchParams],
-    queryFn: () => paymentsService.list(searchParams),
+    queryKey: ["payments", queryParams],
+    queryFn: () => paymentsService.list(queryParams),
   });
+
+  // Query summary for tab counts
+  const summaryQuery = useQuery({
+    queryKey: ["payments", "tab-counts"],
+    queryFn: () => paymentsService.list({ page: 1, limit: 100 }),
+  });
+
+  const summaryPayments = summaryQuery.data?.data ?? [];
+  const pendingCount = summaryPayments.filter((p) => (p.status || "pending").toLowerCase() === "pending").length;
+  const verifiedCount = summaryPayments.filter((p) => (p.status || "").toLowerCase() === "verified").length;
+  const rejectedCount = summaryPayments.filter((p) => (p.status || "").toLowerCase() === "rejected").length;
+  const totalCount = summaryPayments.length;
+
+  const { t } = useLanguage();
+
+  const tabs = [
+    { label: t("dashboard.unverified_payments", "Menunggu Verifikasi"), value: "pending", count: pendingCount, highlight: true },
+    { label: t("status.all", "Semua Pembayaran"), value: "all", count: totalCount },
+    { label: t("payment_status.verified", "Terverifikasi"), value: "verified", count: verifiedCount },
+    { label: t("payment_status.rejected", "Ditolak"), value: "rejected", count: rejectedCount },
+  ];
 
   const startDate = searchParams.start_date ? new Date(searchParams.start_date) : undefined;
   const endDate = searchParams.end_date ? new Date(searchParams.end_date) : undefined;
 
   const activeFilterCount =
     (searchParams.payment_type ? 1 : 0) +
-    (searchParams.start_date || searchParams.end_date ? 1 : 0);
+    (searchParams.start_date || searchParams.end_date ? 1 : 0) +
+    (searchParams.status && searchParams.status !== "all" ? 1 : 0);
 
   const hasAnyFilter = !!searchParams.search || activeFilterCount > 0;
 
   const clearAll = () =>
     navigate({
-      search: () => ({ page: 1, limit: 10 }),
+      search: () => ({ page: 1, limit: 10, status: canVerifyPayment ? "pending" : "all" }),
     });
 
   const setFilter = (patch: Partial<typeof searchParams>) => {
@@ -400,7 +550,10 @@ function PaymentsPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const payments = data?.data ?? [];
+  const payments = (data?.data ?? []).filter((p) => {
+    if (effectiveStatus === "all") return true;
+    return (p.status || "pending").toLowerCase() === effectiveStatus.toLowerCase();
+  });
   const totalPage = data?.paging?.total_page ?? 1;
 
   return (
@@ -415,6 +568,40 @@ function PaymentsPage() {
         <Button onClick={() => setCreateOpen(true)}>
           <Plus className="mr-1 h-4 w-4" /> Record Payment
         </Button>
+      </div>
+
+      {/* Tab Filter System */}
+      <div className="flex flex-wrap items-center gap-2 border-b pb-3">
+        {tabs.map((tab) => {
+          const isSelected = effectiveStatus === tab.value;
+          return (
+            <button
+              key={tab.value}
+              type="button"
+              onClick={() => setFilter({ status: tab.value })}
+              className={cn(
+                "inline-flex items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold transition-all cursor-pointer",
+                isSelected
+                  ? "bg-primary text-primary-foreground shadow-xs"
+                  : "bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground"
+              )}
+            >
+              <span>{tab.label}</span>
+              <span
+                className={cn(
+                  "rounded-full px-2 py-0.5 text-[10px] font-bold leading-none",
+                  isSelected
+                    ? "bg-primary-foreground/20 text-primary-foreground"
+                    : tab.highlight && tab.count > 0
+                    ? "bg-rose-100 text-rose-800"
+                    : "bg-background text-muted-foreground border"
+                )}
+              >
+                {tab.count}
+              </span>
+            </button>
+          );
+        })}
       </div>
 
       <Card>
@@ -456,10 +643,10 @@ function PaymentsPage() {
                         <SelectValue placeholder="All Types" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">All</SelectItem>
-                        {paymentTypeList.map((t) => (
-                          <SelectItem key={t} value={t} className="uppercase">
-                            {t}
+                        <SelectItem value="all">{t("status.all", "Semua Tipe")}</SelectItem>
+                        {paymentTypeList.map((tVal) => (
+                          <SelectItem key={tVal} value={tVal}>
+                            {t(`payment_type.${tVal}` as any, tVal.toUpperCase())}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -550,6 +737,7 @@ function PaymentsPage() {
                 <TableHead>Reference</TableHead>
                 <TableHead>Order</TableHead>
                 <TableHead>Type</TableHead>
+                <TableHead>Status</TableHead>
                 <TableHead className="text-right">Amount</TableHead>
                 <TableHead>Bank Account</TableHead>
                 <TableHead className="text-right w-[100px]">Actions</TableHead>
@@ -589,6 +777,9 @@ function PaymentsPage() {
                     <TableCell>
                       <TypeBadge type={p.payment_type} />
                     </TableCell>
+                    <TableCell>
+                      <StatusBadge status={p.status} />
+                    </TableCell>
                     <TableCell className="text-right font-medium">
                       {formatIDR(p.amount)}
                     </TableCell>
@@ -599,6 +790,17 @@ function PaymentsPage() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">
+                        {canVerifyPayment && (p.status || "pending").toLowerCase() === "pending" && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-amber-600 hover:text-amber-700 hover:bg-amber-100/50"
+                            onClick={() => setVerifyPayment(p)}
+                            title="Verify Payment"
+                          >
+                            <CheckCircle2 className="h-4 w-4" />
+                          </Button>
+                        )}
                         <Button
                           variant="ghost"
                           size="icon"
@@ -625,27 +827,14 @@ function PaymentsPage() {
       </Card>
 
       {/* Pagination */}
-      <div className="flex items-center justify-end gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={searchParams.page <= 1}
-          onClick={() => navigate({ search: (prev) => ({ ...prev, page: Math.max(1, prev.page - 1) }) })}
-        >
-          <ChevronLeft className="h-4 w-4" />
-        </Button>
-        <span className="text-sm text-muted-foreground">
-          Page {searchParams.page} of {totalPage}
-        </span>
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={searchParams.page >= totalPage}
-          onClick={() => navigate({ search: (prev) => ({ ...prev, page: prev.page + 1 }) })}
-        >
-          <ChevronRight className="h-4 w-4" />
-        </Button>
-      </div>
+      <Pagination
+        page={searchParams.page}
+        limit={searchParams.limit || 10}
+        totalData={data?.paging?.total_item ?? payments.length}
+        totalPage={totalPage}
+        onPageChange={(p) => navigate({ search: (prev) => ({ ...prev, page: p }) })}
+        onLimitChange={(l) => navigate({ search: (prev) => ({ ...prev, limit: l, page: 1 }) })}
+      />
 
       {/* Dialogs */}
       <CreatePaymentDialog open={createOpen} onClose={() => setCreateOpen(false)} />
@@ -653,6 +842,11 @@ function PaymentsPage() {
         payment={editPayment}
         open={!!editPayment}
         onClose={() => setEditPayment(null)}
+      />
+      <VerifyPaymentDialog
+        payment={verifyPayment}
+        open={!!verifyPayment}
+        onClose={() => setVerifyPayment(null)}
       />
 
       {/* Delete Confirmation */}

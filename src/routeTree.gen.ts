@@ -9,59 +9,43 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as UsersRouteImport } from './routes/users'
-import { Route as ReportsRouteImport } from './routes/reports'
-import { Route as ProductsRouteImport } from './routes/products'
-import { Route as PaymentsRouteImport } from './routes/payments'
-import { Route as MaterialCatalogsRouteImport } from './routes/material-catalogs'
-import { Route as CustomersRouteImport } from './routes/customers'
-import { Route as CategoriesRouteImport } from './routes/categories'
-import { Route as BatchPosRouteImport } from './routes/batch-pos'
-import { Route as BankAccountsRouteImport } from './routes/bank-accounts'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as ReportsIndexRouteImport } from './routes/reports.index'
+import { Route as AttendancesRouteImport } from './routes/attendances'
+import { Route as BankAccountsRouteImport } from './routes/bank-accounts'
+import { Route as BatchPosRouteImport } from './routes/batch-pos'
+import { Route as CategoriesRouteImport } from './routes/categories'
+import { Route as CustomersRouteImport } from './routes/customers'
+import { Route as ExpenseCategoriesRouteImport } from './routes/expense-categories'
+import { Route as ExpensesRouteImport } from './routes/expenses'
+import { Route as ForbiddenRouteImport } from './routes/forbidden'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as MaterialCatalogsRouteImport } from './routes/material-catalogs'
+import { Route as PaymentsRouteImport } from './routes/payments'
+import { Route as PayrollsRouteImport } from './routes/payrolls'
+import { Route as ReceivablesRouteImport } from './routes/receivables'
+import { Route as ReportsRouteImport } from './routes/reports'
+import { Route as UsersRouteImport } from './routes/users'
+import { Route as WorkLogsRouteImport } from './routes/work-logs'
+import { Route as WorkersRouteImport } from './routes/workers'
 import { Route as OrdersIndexRouteImport } from './routes/orders.index'
-import { Route as ReportsDailyRouteImport } from './routes/reports.daily'
 import { Route as OrdersOrderIdRouteImport } from './routes/orders.$orderId'
+import { Route as ProductsIndexRouteImport } from './routes/products.index'
+import { Route as ProductsProductIdRouteImport } from './routes/products.$productId'
+import { Route as ReportsAccountingRouteImport } from './routes/reports.accounting'
+import { Route as ReportsDailyRouteImport } from './routes/reports.daily'
+import { Route as ReportsPoSummaryRouteImport } from './routes/reports.po-summary'
+import { Route as ReportsProductionRouteImport } from './routes/reports.production'
+import { Route as ReportsPoSummaryIndexRouteImport } from './routes/reports.po-summary.index'
+import { Route as ReportsPoSummaryPoIdRouteImport } from './routes/reports.po-summary.$poId'
 
-const UsersRoute = UsersRouteImport.update({
-  id: '/users',
-  path: '/users',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ReportsRoute = ReportsRouteImport.update({
-  id: '/reports',
-  path: '/reports',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ProductsRoute = ProductsRouteImport.update({
-  id: '/products',
-  path: '/products',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PaymentsRoute = PaymentsRouteImport.update({
-  id: '/payments',
-  path: '/payments',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const MaterialCatalogsRoute = MaterialCatalogsRouteImport.update({
-  id: '/material-catalogs',
-  path: '/material-catalogs',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const CustomersRoute = CustomersRouteImport.update({
-  id: '/customers',
-  path: '/customers',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const CategoriesRoute = CategoriesRouteImport.update({
-  id: '/categories',
-  path: '/categories',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const BatchPosRoute = BatchPosRouteImport.update({
-  id: '/batch-pos',
-  path: '/batch-pos',
+const AttendancesRoute = AttendancesRouteImport.update({
+  id: '/attendances',
+  path: '/attendances',
   getParentRoute: () => rootRouteImport,
 } as any)
 const BankAccountsRoute = BankAccountsRouteImport.update({
@@ -69,201 +53,353 @@ const BankAccountsRoute = BankAccountsRouteImport.update({
   path: '/bank-accounts',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const BatchPosRoute = BatchPosRouteImport.update({
+  id: '/batch-pos',
+  path: '/batch-pos',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ReportsIndexRoute = ReportsIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => ReportsRoute,
+const CategoriesRoute = CategoriesRouteImport.update({
+  id: '/categories',
+  path: '/categories',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CustomersRoute = CustomersRouteImport.update({
+  id: '/customers',
+  path: '/customers',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ExpenseCategoriesRoute = ExpenseCategoriesRouteImport.update({
+  id: '/expense-categories',
+  path: '/expense-categories',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ExpensesRoute = ExpensesRouteImport.update({
+  id: '/expenses',
+  path: '/expenses',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ForbiddenRoute = ForbiddenRouteImport.update({
+  id: '/forbidden',
+  path: '/forbidden',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MaterialCatalogsRoute = MaterialCatalogsRouteImport.update({
+  id: '/material-catalogs',
+  path: '/material-catalogs',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PaymentsRoute = PaymentsRouteImport.update({
+  id: '/payments',
+  path: '/payments',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PayrollsRoute = PayrollsRouteImport.update({
+  id: '/payrolls',
+  path: '/payrolls',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ReceivablesRoute = ReceivablesRouteImport.update({
+  id: '/receivables',
+  path: '/receivables',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ReportsRoute = ReportsRouteImport.update({
+  id: '/reports',
+  path: '/reports',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const UsersRoute = UsersRouteImport.update({
+  id: '/users',
+  path: '/users',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const WorkLogsRoute = WorkLogsRouteImport.update({
+  id: '/work-logs',
+  path: '/work-logs',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const WorkersRoute = WorkersRouteImport.update({
+  id: '/workers',
+  path: '/workers',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const OrdersIndexRoute = OrdersIndexRouteImport.update({
   id: '/orders/',
   path: '/orders/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ReportsDailyRoute = ReportsDailyRouteImport.update({
-  id: '/daily',
-  path: '/daily',
-  getParentRoute: () => ReportsRoute,
-} as any)
 const OrdersOrderIdRoute = OrdersOrderIdRouteImport.update({
   id: '/orders/$orderId',
   path: '/orders/$orderId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ProductsIndexRoute = ProductsIndexRouteImport.update({
+  id: '/products/',
+  path: '/products/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProductsProductIdRoute = ProductsProductIdRouteImport.update({
+  id: '/products/$productId',
+  path: '/products/$productId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ReportsAccountingRoute = ReportsAccountingRouteImport.update({
+  id: '/accounting',
+  path: '/accounting',
+  getParentRoute: () => ReportsRoute,
+} as any)
+const ReportsDailyRoute = ReportsDailyRouteImport.update({
+  id: '/daily',
+  path: '/daily',
+  getParentRoute: () => ReportsRoute,
+} as any)
+const ReportsPoSummaryRoute = ReportsPoSummaryRouteImport.update({
+  id: '/po-summary',
+  path: '/po-summary',
+  getParentRoute: () => ReportsRoute,
+} as any)
+const ReportsProductionRoute = ReportsProductionRouteImport.update({
+  id: '/production',
+  path: '/production',
+  getParentRoute: () => ReportsRoute,
+} as any)
+const ReportsPoSummaryIndexRoute = ReportsPoSummaryIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => ReportsPoSummaryRoute,
+} as any)
+const ReportsPoSummaryPoIdRoute = ReportsPoSummaryPoIdRouteImport.update({
+  id: '/$poId',
+  path: '/$poId',
+  getParentRoute: () => ReportsPoSummaryRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/attendances': typeof AttendancesRoute
   '/bank-accounts': typeof BankAccountsRoute
   '/batch-pos': typeof BatchPosRoute
   '/categories': typeof CategoriesRoute
   '/customers': typeof CustomersRoute
+  '/expense-categories': typeof ExpenseCategoriesRoute
+  '/expenses': typeof ExpensesRoute
+  '/forbidden': typeof ForbiddenRoute
+  '/login': typeof LoginRoute
   '/material-catalogs': typeof MaterialCatalogsRoute
   '/payments': typeof PaymentsRoute
-  '/products': typeof ProductsRoute
+  '/payrolls': typeof PayrollsRoute
+  '/receivables': typeof ReceivablesRoute
   '/reports': typeof ReportsRouteWithChildren
   '/users': typeof UsersRoute
+  '/work-logs': typeof WorkLogsRoute
+  '/workers': typeof WorkersRoute
   '/orders/$orderId': typeof OrdersOrderIdRoute
+  '/products/$productId': typeof ProductsProductIdRoute
+  '/reports/accounting': typeof ReportsAccountingRoute
   '/reports/daily': typeof ReportsDailyRoute
+  '/reports/po-summary': typeof ReportsPoSummaryRouteWithChildren
+  '/reports/production': typeof ReportsProductionRoute
   '/orders/': typeof OrdersIndexRoute
-  '/reports/': typeof ReportsIndexRoute
+  '/products/': typeof ProductsIndexRoute
+  '/reports/po-summary/$poId': typeof ReportsPoSummaryPoIdRoute
+  '/reports/po-summary/': typeof ReportsPoSummaryIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/attendances': typeof AttendancesRoute
   '/bank-accounts': typeof BankAccountsRoute
   '/batch-pos': typeof BatchPosRoute
   '/categories': typeof CategoriesRoute
   '/customers': typeof CustomersRoute
+  '/expense-categories': typeof ExpenseCategoriesRoute
+  '/expenses': typeof ExpensesRoute
+  '/forbidden': typeof ForbiddenRoute
+  '/login': typeof LoginRoute
   '/material-catalogs': typeof MaterialCatalogsRoute
   '/payments': typeof PaymentsRoute
-  '/products': typeof ProductsRoute
+  '/payrolls': typeof PayrollsRoute
+  '/receivables': typeof ReceivablesRoute
+  '/reports': typeof ReportsRouteWithChildren
   '/users': typeof UsersRoute
+  '/work-logs': typeof WorkLogsRoute
+  '/workers': typeof WorkersRoute
   '/orders/$orderId': typeof OrdersOrderIdRoute
+  '/products/$productId': typeof ProductsProductIdRoute
+  '/reports/accounting': typeof ReportsAccountingRoute
   '/reports/daily': typeof ReportsDailyRoute
+  '/reports/production': typeof ReportsProductionRoute
   '/orders': typeof OrdersIndexRoute
-  '/reports': typeof ReportsIndexRoute
+  '/products': typeof ProductsIndexRoute
+  '/reports/po-summary/$poId': typeof ReportsPoSummaryPoIdRoute
+  '/reports/po-summary': typeof ReportsPoSummaryIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/attendances': typeof AttendancesRoute
   '/bank-accounts': typeof BankAccountsRoute
   '/batch-pos': typeof BatchPosRoute
   '/categories': typeof CategoriesRoute
   '/customers': typeof CustomersRoute
+  '/expense-categories': typeof ExpenseCategoriesRoute
+  '/expenses': typeof ExpensesRoute
+  '/forbidden': typeof ForbiddenRoute
+  '/login': typeof LoginRoute
   '/material-catalogs': typeof MaterialCatalogsRoute
   '/payments': typeof PaymentsRoute
-  '/products': typeof ProductsRoute
+  '/payrolls': typeof PayrollsRoute
+  '/receivables': typeof ReceivablesRoute
   '/reports': typeof ReportsRouteWithChildren
   '/users': typeof UsersRoute
+  '/work-logs': typeof WorkLogsRoute
+  '/workers': typeof WorkersRoute
   '/orders/$orderId': typeof OrdersOrderIdRoute
+  '/products/$productId': typeof ProductsProductIdRoute
+  '/reports/accounting': typeof ReportsAccountingRoute
   '/reports/daily': typeof ReportsDailyRoute
+  '/reports/po-summary': typeof ReportsPoSummaryRouteWithChildren
+  '/reports/production': typeof ReportsProductionRoute
   '/orders/': typeof OrdersIndexRoute
-  '/reports/': typeof ReportsIndexRoute
+  '/products/': typeof ProductsIndexRoute
+  '/reports/po-summary/$poId': typeof ReportsPoSummaryPoIdRoute
+  '/reports/po-summary/': typeof ReportsPoSummaryIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/attendances'
     | '/bank-accounts'
     | '/batch-pos'
     | '/categories'
     | '/customers'
+    | '/expense-categories'
+    | '/expenses'
+    | '/forbidden'
+    | '/login'
     | '/material-catalogs'
     | '/payments'
-    | '/products'
+    | '/payrolls'
+    | '/receivables'
     | '/reports'
     | '/users'
+    | '/work-logs'
+    | '/workers'
     | '/orders/$orderId'
+    | '/products/$productId'
+    | '/reports/accounting'
     | '/reports/daily'
+    | '/reports/po-summary'
+    | '/reports/production'
     | '/orders/'
-    | '/reports/'
+    | '/products/'
+    | '/reports/po-summary/$poId'
+    | '/reports/po-summary/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/attendances'
     | '/bank-accounts'
     | '/batch-pos'
     | '/categories'
     | '/customers'
+    | '/expense-categories'
+    | '/expenses'
+    | '/forbidden'
+    | '/login'
     | '/material-catalogs'
     | '/payments'
-    | '/products'
-    | '/users'
-    | '/orders/$orderId'
-    | '/reports/daily'
-    | '/orders'
+    | '/payrolls'
+    | '/receivables'
     | '/reports'
+    | '/users'
+    | '/work-logs'
+    | '/workers'
+    | '/orders/$orderId'
+    | '/products/$productId'
+    | '/reports/accounting'
+    | '/reports/daily'
+    | '/reports/production'
+    | '/orders'
+    | '/products'
+    | '/reports/po-summary/$poId'
+    | '/reports/po-summary'
   id:
     | '__root__'
     | '/'
+    | '/attendances'
     | '/bank-accounts'
     | '/batch-pos'
     | '/categories'
     | '/customers'
+    | '/expense-categories'
+    | '/expenses'
+    | '/forbidden'
+    | '/login'
     | '/material-catalogs'
     | '/payments'
-    | '/products'
+    | '/payrolls'
+    | '/receivables'
     | '/reports'
     | '/users'
+    | '/work-logs'
+    | '/workers'
     | '/orders/$orderId'
+    | '/products/$productId'
+    | '/reports/accounting'
     | '/reports/daily'
+    | '/reports/po-summary'
+    | '/reports/production'
     | '/orders/'
-    | '/reports/'
+    | '/products/'
+    | '/reports/po-summary/$poId'
+    | '/reports/po-summary/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AttendancesRoute: typeof AttendancesRoute
   BankAccountsRoute: typeof BankAccountsRoute
   BatchPosRoute: typeof BatchPosRoute
   CategoriesRoute: typeof CategoriesRoute
   CustomersRoute: typeof CustomersRoute
+  ExpenseCategoriesRoute: typeof ExpenseCategoriesRoute
+  ExpensesRoute: typeof ExpensesRoute
+  ForbiddenRoute: typeof ForbiddenRoute
+  LoginRoute: typeof LoginRoute
   MaterialCatalogsRoute: typeof MaterialCatalogsRoute
   PaymentsRoute: typeof PaymentsRoute
-  ProductsRoute: typeof ProductsRoute
+  PayrollsRoute: typeof PayrollsRoute
+  ReceivablesRoute: typeof ReceivablesRoute
   ReportsRoute: typeof ReportsRouteWithChildren
   UsersRoute: typeof UsersRoute
+  WorkLogsRoute: typeof WorkLogsRoute
+  WorkersRoute: typeof WorkersRoute
   OrdersOrderIdRoute: typeof OrdersOrderIdRoute
+  ProductsProductIdRoute: typeof ProductsProductIdRoute
   OrdersIndexRoute: typeof OrdersIndexRoute
+  ProductsIndexRoute: typeof ProductsIndexRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/users': {
-      id: '/users'
-      path: '/users'
-      fullPath: '/users'
-      preLoaderRoute: typeof UsersRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/reports': {
-      id: '/reports'
-      path: '/reports'
-      fullPath: '/reports'
-      preLoaderRoute: typeof ReportsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/products': {
-      id: '/products'
-      path: '/products'
-      fullPath: '/products'
-      preLoaderRoute: typeof ProductsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/payments': {
-      id: '/payments'
-      path: '/payments'
-      fullPath: '/payments'
-      preLoaderRoute: typeof PaymentsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/material-catalogs': {
-      id: '/material-catalogs'
-      path: '/material-catalogs'
-      fullPath: '/material-catalogs'
-      preLoaderRoute: typeof MaterialCatalogsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/customers': {
-      id: '/customers'
-      path: '/customers'
-      fullPath: '/customers'
-      preLoaderRoute: typeof CustomersRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/categories': {
-      id: '/categories'
-      path: '/categories'
-      fullPath: '/categories'
-      preLoaderRoute: typeof CategoriesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/batch-pos': {
-      id: '/batch-pos'
-      path: '/batch-pos'
-      fullPath: '/batch-pos'
-      preLoaderRoute: typeof BatchPosRouteImport
+    '/attendances': {
+      id: '/attendances'
+      path: '/attendances'
+      fullPath: '/attendances'
+      preLoaderRoute: typeof AttendancesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/bank-accounts': {
@@ -273,19 +409,110 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BankAccountsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/batch-pos': {
+      id: '/batch-pos'
+      path: '/batch-pos'
+      fullPath: '/batch-pos'
+      preLoaderRoute: typeof BatchPosRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/reports/': {
-      id: '/reports/'
-      path: '/'
-      fullPath: '/reports/'
-      preLoaderRoute: typeof ReportsIndexRouteImport
-      parentRoute: typeof ReportsRoute
+    '/categories': {
+      id: '/categories'
+      path: '/categories'
+      fullPath: '/categories'
+      preLoaderRoute: typeof CategoriesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/customers': {
+      id: '/customers'
+      path: '/customers'
+      fullPath: '/customers'
+      preLoaderRoute: typeof CustomersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/expense-categories': {
+      id: '/expense-categories'
+      path: '/expense-categories'
+      fullPath: '/expense-categories'
+      preLoaderRoute: typeof ExpenseCategoriesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/expenses': {
+      id: '/expenses'
+      path: '/expenses'
+      fullPath: '/expenses'
+      preLoaderRoute: typeof ExpensesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/forbidden': {
+      id: '/forbidden'
+      path: '/forbidden'
+      fullPath: '/forbidden'
+      preLoaderRoute: typeof ForbiddenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/material-catalogs': {
+      id: '/material-catalogs'
+      path: '/material-catalogs'
+      fullPath: '/material-catalogs'
+      preLoaderRoute: typeof MaterialCatalogsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/payments': {
+      id: '/payments'
+      path: '/payments'
+      fullPath: '/payments'
+      preLoaderRoute: typeof PaymentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/payrolls': {
+      id: '/payrolls'
+      path: '/payrolls'
+      fullPath: '/payrolls'
+      preLoaderRoute: typeof PayrollsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/receivables': {
+      id: '/receivables'
+      path: '/receivables'
+      fullPath: '/receivables'
+      preLoaderRoute: typeof ReceivablesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reports': {
+      id: '/reports'
+      path: '/reports'
+      fullPath: '/reports'
+      preLoaderRoute: typeof ReportsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/users': {
+      id: '/users'
+      path: '/users'
+      fullPath: '/users'
+      preLoaderRoute: typeof UsersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/work-logs': {
+      id: '/work-logs'
+      path: '/work-logs'
+      fullPath: '/work-logs'
+      preLoaderRoute: typeof WorkLogsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/workers': {
+      id: '/workers'
+      path: '/workers'
+      fullPath: '/workers'
+      preLoaderRoute: typeof WorkersRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/orders/': {
       id: '/orders/'
@@ -294,13 +521,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OrdersIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/reports/daily': {
-      id: '/reports/daily'
-      path: '/daily'
-      fullPath: '/reports/daily'
-      preLoaderRoute: typeof ReportsDailyRouteImport
-      parentRoute: typeof ReportsRoute
-    }
     '/orders/$orderId': {
       id: '/orders/$orderId'
       path: '/orders/$orderId'
@@ -308,17 +528,90 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OrdersOrderIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/products/': {
+      id: '/products/'
+      path: '/products'
+      fullPath: '/products/'
+      preLoaderRoute: typeof ProductsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/products/$productId': {
+      id: '/products/$productId'
+      path: '/products/$productId'
+      fullPath: '/products/$productId'
+      preLoaderRoute: typeof ProductsProductIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reports/accounting': {
+      id: '/reports/accounting'
+      path: '/accounting'
+      fullPath: '/reports/accounting'
+      preLoaderRoute: typeof ReportsAccountingRouteImport
+      parentRoute: typeof ReportsRoute
+    }
+    '/reports/daily': {
+      id: '/reports/daily'
+      path: '/daily'
+      fullPath: '/reports/daily'
+      preLoaderRoute: typeof ReportsDailyRouteImport
+      parentRoute: typeof ReportsRoute
+    }
+    '/reports/po-summary': {
+      id: '/reports/po-summary'
+      path: '/po-summary'
+      fullPath: '/reports/po-summary'
+      preLoaderRoute: typeof ReportsPoSummaryRouteImport
+      parentRoute: typeof ReportsRoute
+    }
+    '/reports/production': {
+      id: '/reports/production'
+      path: '/production'
+      fullPath: '/reports/production'
+      preLoaderRoute: typeof ReportsProductionRouteImport
+      parentRoute: typeof ReportsRoute
+    }
+    '/reports/po-summary/': {
+      id: '/reports/po-summary/'
+      path: '/'
+      fullPath: '/reports/po-summary/'
+      preLoaderRoute: typeof ReportsPoSummaryIndexRouteImport
+      parentRoute: typeof ReportsPoSummaryRoute
+    }
+    '/reports/po-summary/$poId': {
+      id: '/reports/po-summary/$poId'
+      path: '/$poId'
+      fullPath: '/reports/po-summary/$poId'
+      preLoaderRoute: typeof ReportsPoSummaryPoIdRouteImport
+      parentRoute: typeof ReportsPoSummaryRoute
+    }
   }
 }
 
+interface ReportsPoSummaryRouteChildren {
+  ReportsPoSummaryPoIdRoute: typeof ReportsPoSummaryPoIdRoute
+  ReportsPoSummaryIndexRoute: typeof ReportsPoSummaryIndexRoute
+}
+
+const ReportsPoSummaryRouteChildren: ReportsPoSummaryRouteChildren = {
+  ReportsPoSummaryPoIdRoute: ReportsPoSummaryPoIdRoute,
+  ReportsPoSummaryIndexRoute: ReportsPoSummaryIndexRoute,
+}
+
+const ReportsPoSummaryRouteWithChildren =
+  ReportsPoSummaryRoute._addFileChildren(ReportsPoSummaryRouteChildren)
+
 interface ReportsRouteChildren {
+  ReportsAccountingRoute: typeof ReportsAccountingRoute
   ReportsDailyRoute: typeof ReportsDailyRoute
-  ReportsIndexRoute: typeof ReportsIndexRoute
+  ReportsPoSummaryRoute: typeof ReportsPoSummaryRouteWithChildren
+  ReportsProductionRoute: typeof ReportsProductionRoute
 }
 
 const ReportsRouteChildren: ReportsRouteChildren = {
+  ReportsAccountingRoute: ReportsAccountingRoute,
   ReportsDailyRoute: ReportsDailyRoute,
-  ReportsIndexRoute: ReportsIndexRoute,
+  ReportsPoSummaryRoute: ReportsPoSummaryRouteWithChildren,
+  ReportsProductionRoute: ReportsProductionRoute,
 }
 
 const ReportsRouteWithChildren =
@@ -326,17 +619,27 @@ const ReportsRouteWithChildren =
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AttendancesRoute: AttendancesRoute,
   BankAccountsRoute: BankAccountsRoute,
   BatchPosRoute: BatchPosRoute,
   CategoriesRoute: CategoriesRoute,
   CustomersRoute: CustomersRoute,
+  ExpenseCategoriesRoute: ExpenseCategoriesRoute,
+  ExpensesRoute: ExpensesRoute,
+  ForbiddenRoute: ForbiddenRoute,
+  LoginRoute: LoginRoute,
   MaterialCatalogsRoute: MaterialCatalogsRoute,
   PaymentsRoute: PaymentsRoute,
-  ProductsRoute: ProductsRoute,
+  PayrollsRoute: PayrollsRoute,
+  ReceivablesRoute: ReceivablesRoute,
   ReportsRoute: ReportsRouteWithChildren,
   UsersRoute: UsersRoute,
+  WorkLogsRoute: WorkLogsRoute,
+  WorkersRoute: WorkersRoute,
   OrdersOrderIdRoute: OrdersOrderIdRoute,
+  ProductsProductIdRoute: ProductsProductIdRoute,
   OrdersIndexRoute: OrdersIndexRoute,
+  ProductsIndexRoute: ProductsIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

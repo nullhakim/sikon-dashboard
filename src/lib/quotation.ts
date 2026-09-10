@@ -443,3 +443,237 @@ export function printQuotation({
   w.document.write(html);
   w.document.close();
 }
+
+export function printSpkSuratJalan({
+  order,
+  items,
+  customer,
+}: {
+  order: Order;
+  items: OrderItem[];
+  customer: Customer | null;
+}) {
+  const rowsHtml = items
+    .map((it, idx) => {
+      const name = escapeHtml(it.custom_name || it.product_name || it.product?.name || "—");
+      const specsHtml = formatQuotationDetailsHtml(it.details);
+      const specs = specsHtml ? `<div class="specs">${specsHtml}</div>` : "";
+      return `
+        <tr>
+          <td class="num">${idx + 1}</td>
+          <td>
+            <div class="prod">${name}</div>
+            ${specs}
+          </td>
+          <td class="center">${it.qty} Pcs</td>
+          <td class="center">${escapeHtml(it.custom_name ? "Custom" : "Standard")}</td>
+        </tr>
+      `;
+    })
+    .join("");
+
+  const html = `<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<title>SPK & Surat Jalan - ${escapeHtml(order.order_number || order.id)}</title>
+<style>
+  @page { size: A4; margin: 15mm; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: "Helvetica", "Arial", sans-serif;
+    color: #111827;
+    margin: 0;
+    font-size: 10.5pt;
+    line-height: 1.4;
+  }
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    border-bottom: 3px solid #1e293b;
+    padding-bottom: 12px;
+    margin-bottom: 16px;
+  }
+  .company .name { font-size: 16pt; font-weight: 800; color: #1e293b; }
+  .company .tag { color: #64748b; font-size: 9pt; margin-top: 2px; }
+  .company .meta { font-size: 8.5pt; color: #475569; margin-top: 4px; }
+  .doc-title { text-align: right; }
+  .doc-title h1 { margin: 0; font-size: 18pt; color: #1e293b; letter-spacing: 1px; }
+  .doc-title .num { font-family: monospace; color: #475569; margin-top: 4px; font-weight: bold; }
+  .doc-title .date { color: #64748b; font-size: 9pt; margin-top: 2px; }
+
+  .info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 16px;
+    background: #f8fafc;
+    padding: 12px 16px;
+    border-radius: 6px;
+    border: 1px solid #e2e8f0;
+  }
+  .info h3 { margin: 0 0 4px 0; font-size: 8.5pt; text-transform: uppercase; color: #64748b; letter-spacing: 0.5px; }
+  .info .body { font-size: 10pt; }
+  .info .body .name { font-weight: 700; color: #0f172a; }
+
+  table.items {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 16px;
+    font-size: 10pt;
+  }
+  table.items thead th {
+    background: #1e293b;
+    color: white;
+    padding: 8px 10px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 9pt;
+  }
+  table.items tbody td {
+    padding: 8px 10px;
+    border-bottom: 1px solid #e5e7eb;
+    vertical-align: top;
+  }
+  table.items td.num { width: 32px; text-align: center; color: #64748b; }
+  table.items td.center { text-align: center; }
+  table.items .prod { font-weight: 700; color: #1e293b; }
+  table.items .specs { margin-top: 4px; font-size: 8.5pt; color: #475569; }
+  table.items .specs span { display: block; margin-bottom: 2px; }
+
+  .notes-box {
+    margin-top: 12px;
+    padding: 10px 14px;
+    background: #fffbebf5;
+    border: 1px solid #fef3c7;
+    border-left: 4px solid #f59e0b;
+    border-radius: 4px;
+    font-size: 9.5pt;
+  }
+  .notes-box h4 { margin: 0 0 4px 0; font-size: 9pt; color: #92400e; text-transform: uppercase; }
+
+  .sig-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 16px;
+    margin-top: 40px;
+    text-align: center;
+    font-size: 9.5pt;
+  }
+  .sig-box { display: flex; flex-direction: column; justify-content: space-between; height: 110px; }
+  .sig-box .line { border-top: 1px solid #94a3b8; width: 80%; margin: 0 auto; }
+
+  .print-bar {
+    position: fixed;
+    top: 12px;
+    right: 12px;
+    background: #1e293b;
+    color: white;
+    padding: 8px 16px;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    font-size: 11pt;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+  }
+  @media print {
+    .print-bar { display: none; }
+  }
+</style>
+</head>
+<body>
+  <button class="print-bar" onclick="window.print()">🖨 Print SPK / Surat Jalan</button>
+
+  <div class="header">
+    <div class="company">
+      <div class="name">${escapeHtml(COMPANY.name)}</div>
+      <div class="tag">${escapeHtml(COMPANY.tagline)}</div>
+      <div class="meta">
+        ${escapeHtml(COMPANY.address)}<br />
+        Telp: ${escapeHtml(COMPANY.phone)} · Email: ${escapeHtml(COMPANY.email)}
+      </div>
+    </div>
+    <div class="doc-title">
+      <h1>SPK & SURAT JALAN</h1>
+      <div class="num">No: ${escapeHtml(order.order_number || order.id.slice(0, 8))}</div>
+      <div class="date">Tanggal: ${fmtDate(order.created_at)}</div>
+    </div>
+  </div>
+
+  <div class="info-grid">
+    <div class="info">
+      <h3>Penerima / Tujuan Pengiriman</h3>
+      <div class="body">
+        <div class="name">${escapeHtml(customer?.name || "—")}</div>
+        ${customer?.phone ? `<div>Telp: ${escapeHtml(customer.phone)}</div>` : ""}
+        ${order.shipping_address || customer?.address ? `<div>Alamat: ${escapeHtml(order.shipping_address || customer?.address || "")}</div>` : ""}
+      </div>
+    </div>
+    <div class="info">
+      <h3>Ekspedisi & Sales</h3>
+      <div class="body">
+        <div><strong>Sales:</strong> ${escapeHtml(order.sales?.name || "—")}</div>
+        <div><strong>Kurir/Ekspedisi:</strong> ${escapeHtml(order.courier_name || "—")}</div>
+        <div><strong>Status Order:</strong> <span style="text-transform:uppercase;font-weight:600;">${escapeHtml(order.order_status || "Pending")}</span></div>
+      </div>
+    </div>
+  </div>
+
+  <table class="items">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Nama Produk & Rincian Spesifikasi</th>
+        <th style="text-align:center">Jumlah</th>
+        <th style="text-align:center">Keterangan</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${rowsHtml || `<tr><td colspan="4" style="text-align:center;color:#64748b;padding:20px">Tidak ada item.</td></tr>`}
+    </tbody>
+  </table>
+
+  ${order.notes ? `
+    <div class="notes-box">
+      <h4>Catatan Produksi / Pengiriman</h4>
+      <div>${escapeHtml(order.notes)}</div>
+    </div>
+  ` : ""}
+
+  <div class="sig-grid">
+    <div class="sig-box">
+      <div>Dibuat Oleh (Admin/Sales),</div>
+      <div class="line"></div>
+      <div>( ${escapeHtml(order.sales?.name || "Admin")} )</div>
+    </div>
+    <div class="sig-box">
+      <div>Bagian Produksi / Gudang,</div>
+      <div class="line"></div>
+      <div>( Head Production )</div>
+    </div>
+    <div class="sig-box">
+      <div>Penerima / Customer,</div>
+      <div class="line"></div>
+      <div>( ${escapeHtml(customer?.name || "Penerima")} )</div>
+    </div>
+  </div>
+
+  <script>
+    window.addEventListener("load", function () {
+      setTimeout(function () { window.print(); }, 300);
+    });
+  </script>
+</body>
+</html>`;
+
+  const w = window.open("", "_blank", "width=900,height=1000");
+  if (!w) {
+    alert("Pop-up diblokir. Izinkan pop-up untuk mencetak SPK / Surat Jalan.");
+    return;
+  }
+  w.document.open();
+  w.document.write(html);
+  w.document.close();
+}
+
