@@ -32,6 +32,7 @@ export const translations = {
     "nav.categories": "Kategori Produk",
     "nav.expense_categories": "Kategori Pengeluaran",
     "nav.material_catalogs": "Katalog Bahan",
+    "nav.materials": "Master Bahan (HPP)",
     "nav.bank_accounts": "Rekening Bank",
 
     // Common Actions & Controls
@@ -155,6 +156,7 @@ export const translations = {
     "nav.categories": "Product Categories",
     "nav.expense_categories": "Expense Categories",
     "nav.material_catalogs": "Material Catalogs",
+    "nav.materials": "Materials (COGS)",
     "nav.bank_accounts": "Bank Accounts",
 
     // Common Actions & Controls

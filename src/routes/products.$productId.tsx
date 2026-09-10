@@ -10,6 +10,7 @@ import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { productsService } from "@/lib/services";
 import { formatIDR } from "@/lib/format";
+import { ProductMaterialsSection } from "@/components/products/ProductMaterialsSection";
 
 export const Route = createFileRoute("/products/$productId")({
   component: ProductDetailPage,
@@ -259,6 +260,9 @@ function ProductDetailPage() {
               )}
             </CardContent>
           </Card>
+
+          {/* Resep Produk (BOM) */}
+          <ProductMaterialsSection productId={productId} />
 
           {/* Canvas Designer */}
           {product.design_model && (

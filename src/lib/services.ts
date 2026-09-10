@@ -20,6 +20,7 @@ import type { ExpenseCategory, Expense } from "./types/expense";
 import type { DailyReportResponse } from "./types/daily-report";
 import type { POSummaryResponse } from "./types/po-summary";
 import type { AnnualTaxReportResponse } from "./types/tax-report";
+import type { Material, ProductMaterial, OrderHPPResponse } from "./types/material";
 
 // Auth
 export interface LoginResponse {
@@ -60,6 +61,26 @@ export const specTemplatesService = {
   update: (id: string, body: SpecTemplatePayload) =>
     api.put<ApiSuccess<unknown>>(`/spec-templates/${id}`, body),
   delete: (id: string) => api.delete<ApiSuccess<unknown>>(`/spec-templates/${id}`),
+};
+
+// Materials (HPP / COGS internal master)
+export const materialsService = {
+  list: (p: PageParams = {}) =>
+    api.get<ApiPaginated<Material>>("/materials", { page: p.page ?? 1, limit: p.limit ?? 10 }),
+  get: (id: string) => api.get<ApiSuccess<Material>>(`/materials/${id}`),
+  create: (body: { name: string; unit: string; unit_price: number; category?: string }) =>
+    api.post<ApiSuccess<Material>>("/materials", body),
+  update: (id: string, body: Partial<{ name: string; unit: string; unit_price: number; category: string }>) =>
+    api.put<ApiSuccess<Material>>(`/materials/${id}`, body),
+  delete: (id: string) => api.delete<ApiSuccess<unknown>>(`/materials/${id}`),
+};
+
+// Product Materials / Bill of Materials (BOM)
+export const productMaterialsService = {
+  getForProduct: (productId: string) =>
+    api.get<ApiSuccess<ProductMaterial[]>>(`/products/${productId}/materials`),
+  setForProduct: (productId: string, items: { material_id: string; qty_per_unit: number }[]) =>
+    api.put<ApiSuccess<ProductMaterial[]>>(`/products/${productId}/materials`, { items }),
 };
 
 // Categories
@@ -229,6 +250,8 @@ export const ordersService = {
     api.put<ApiSuccess<unknown>>(`/orders/${orderId}/items/${itemId}`, body),
   deleteItem: (orderId: string, itemId: string) =>
     api.delete<ApiSuccess<unknown>>(`/orders/${orderId}/items/${itemId}`),
+  /** GET /orders/:id/hpp — requires role "accounting". Returns material (frozen) + labor (live) breakdown. */
+  getHpp: (id: string) => api.get<ApiSuccess<OrderHPPResponse>>(`/orders/${id}/hpp`),
 };
 
 // Payments
