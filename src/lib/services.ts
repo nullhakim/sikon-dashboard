@@ -55,9 +55,13 @@ export interface SpecTemplatePayload {
 
 export const specTemplatesService = {
   list: (p: PageParams = {}) =>
-    api.get<ApiPaginated<SpecTemplate>>("/spec-templates", { page: p.page ?? 1, limit: p.limit ?? 10 }),
+    api.get<ApiPaginated<SpecTemplate>>("/spec-templates", {
+      page: p.page ?? 1,
+      limit: p.limit ?? 10,
+    }),
   get: (id: string) => api.get<ApiSuccess<SpecTemplate>>(`/spec-templates/${id}`),
-  create: (body: SpecTemplatePayload) => api.post<ApiSuccess<SpecTemplate>>("/spec-templates", body),
+  create: (body: SpecTemplatePayload) =>
+    api.post<ApiSuccess<SpecTemplate>>("/spec-templates", body),
   update: (id: string, body: SpecTemplatePayload) =>
     api.put<ApiSuccess<unknown>>(`/spec-templates/${id}`, body),
   delete: (id: string) => api.delete<ApiSuccess<unknown>>(`/spec-templates/${id}`),
@@ -70,8 +74,10 @@ export const materialsService = {
   get: (id: string) => api.get<ApiSuccess<Material>>(`/materials/${id}`),
   create: (body: { name: string; unit: string; unit_price: number; category?: string }) =>
     api.post<ApiSuccess<Material>>("/materials", body),
-  update: (id: string, body: Partial<{ name: string; unit: string; unit_price: number; category: string }>) =>
-    api.put<ApiSuccess<Material>>(`/materials/${id}`, body),
+  update: (
+    id: string,
+    body: Partial<{ name: string; unit: string; unit_price: number; category: string }>,
+  ) => api.put<ApiSuccess<Material>>(`/materials/${id}`, body),
   delete: (id: string) => api.delete<ApiSuccess<unknown>>(`/materials/${id}`),
 };
 
@@ -161,16 +167,15 @@ export interface UsersListParams extends PageParams {
 }
 export const usersService = {
   list: (p: UsersListParams = {}) =>
-    api.get<ApiPaginated<User>>("/users", { 
-      page: p.page ?? 1, 
+    api.get<ApiPaginated<User>>("/users", {
+      page: p.page ?? 1,
       limit: p.limit ?? 10,
-      ...(p.role ? { role: p.role } : {})
+      ...(p.role ? { role: p.role } : {}),
     }),
   get: (id: string) => api.get<ApiSuccess<User>>(`/users/${id}`),
   create: (body: Partial<User> & { password?: string }) =>
     api.post<ApiSuccess<User>>("/users/register", body),
-  update: (id: string, body: Partial<User>) =>
-    api.put<ApiSuccess<User>>(`/users/${id}`, body),
+  update: (id: string, body: Partial<User>) => api.put<ApiSuccess<User>>(`/users/${id}`, body),
   delete: (id: string) => api.delete<ApiSuccess<unknown>>(`/users/${id}`),
 };
 
@@ -237,17 +242,40 @@ export const ordersService = {
       is_taxable?: boolean;
       tax_ppn_rate?: number;
       tax_pph22_rate?: number;
-      items: { product_id: string; custom_name?: string; qty: number; price: number; details?: any[] | Record<string, any> }[];
+      items: {
+        product_id: string;
+        custom_name?: string;
+        qty: number;
+        price: number;
+        details?: any[] | Record<string, any>;
+      }[];
     },
   ) => api.put<ApiSuccess<unknown>>(`/orders/${id}`, body),
   updateStatus: (id: string, status: OrderStatus) =>
     api.patch<ApiSuccess<unknown>>(`/orders/${id}/status`, { order_status: status }),
   delete: (id: string) => api.delete<ApiSuccess<unknown>>(`/orders/${id}`),
   payments: (orderId: string) => api.get<ApiSuccess<Payment[]>>(`payments/order/${orderId}`),
-  addItem: (orderId: string, body: { product_id: string; custom_name?: string; qty: number; price: number; details?: any[] | Record<string, any> }) =>
-    api.post<ApiSuccess<unknown>>(`/orders/${orderId}/items`, body),
-  updateItem: (orderId: string, itemId: string, body: { product_id: string; custom_name?: string; qty: number; price: number; details?: any[] | Record<string, any> }) =>
-    api.put<ApiSuccess<unknown>>(`/orders/${orderId}/items/${itemId}`, body),
+  addItem: (
+    orderId: string,
+    body: {
+      product_id: string;
+      custom_name?: string;
+      qty: number;
+      price: number;
+      details?: any[] | Record<string, any>;
+    },
+  ) => api.post<ApiSuccess<unknown>>(`/orders/${orderId}/items`, body),
+  updateItem: (
+    orderId: string,
+    itemId: string,
+    body: {
+      product_id: string;
+      custom_name?: string;
+      qty: number;
+      price: number;
+      details?: any[] | Record<string, any>;
+    },
+  ) => api.put<ApiSuccess<unknown>>(`/orders/${orderId}/items/${itemId}`, body),
   deleteItem: (orderId: string, itemId: string) =>
     api.delete<ApiSuccess<unknown>>(`/orders/${orderId}/items/${itemId}`),
   /** GET /orders/:id/hpp — requires role "accounting". Returns material (frozen) + labor (live) breakdown. */
@@ -293,7 +321,11 @@ export const paymentsService = {
     },
   ) => api.put<ApiSuccess<unknown>>(`/payments/${id}`, body),
   verify: (id: string, status: "verified" | "rejected") =>
-    api.patch<ApiSuccess<unknown>>(`/payments/${id}/verify`, { status }, { "X-User-Id": "finance-admin-123" }),
+    api.patch<ApiSuccess<unknown>>(
+      `/payments/${id}/verify`,
+      { status },
+      { "X-User-Id": "finance-admin-123" },
+    ),
   delete: (id: string) => api.delete<ApiSuccess<unknown>>(`/payments/${id}`),
 };
 
@@ -302,9 +334,9 @@ export const paymentsService = {
 export const dashboardService = {
   overview: () => api.get<ApiSuccess<DashboardOverviewData>>("/dashboard/overview"),
   receivablesReport: () => api.get<ApiSuccess<any>>("/dashboard/receivables-report"),
-  salesReport: (p: { start_date?: string; end_date?: string } = {}) => 
+  salesReport: (p: { start_date?: string; end_date?: string } = {}) =>
     api.get<ApiSuccess<any>>("/dashboard/sales-report", p as any),
-  summary: (p: { start_date?: string; end_date?: string } = {}) => 
+  summary: (p: { start_date?: string; end_date?: string } = {}) =>
     api.get<ApiSuccess<any>>("/dashboard/summary", p as any),
 };
 
@@ -328,8 +360,7 @@ export const taxReportService = {
    * Fetch annual tax estimation report from /reports/tax-annual.
    * `year` is YYYY (e.g. 2026).
    */
-  getAnnual: (year: number) =>
-    api.get<AnnualTaxReportResponse>("/reports/tax-annual", { year }),
+  getAnnual: (year: number) => api.get<AnnualTaxReportResponse>("/reports/tax-annual", { year }),
 };
 
 // Production Report
@@ -350,7 +381,7 @@ export interface ReceivableRow {
   order_id: string;
   order_number: string;
   po_name: string;
-  po_status: string;        // "active" | "closed" | string
+  po_status: string; // "active" | "closed" | string
   customer_name: string;
   sales_name: string;
   total_amount: number;
@@ -395,12 +426,31 @@ export const batchPosService = {
     return api.get<ApiPaginated<BatchPO>>("/batch-pos", q);
   },
   active: () => api.get<ApiSuccess<BatchPO[]>>("/batch-pos/active"),
+  suggestedOpenDate: () =>
+    api.get<ApiSuccess<{ open_date: string | null }>>("/batch-pos/suggested-open-date"), // BARU
   create: (body: {
     name: string;
+    target_month: number;
+    target_year: number;
+    open_date: string; // BARU
+    close_date: string; // BARU
     start_date: string;
     end_date: string;
     quota: number;
   }) => api.post<ApiSuccess<unknown>>("/batch-pos", body),
+  update: (
+    id: string,
+    body: {
+      name: string;
+      target_month: number;
+      target_year: number;
+      open_date: string;
+      close_date: string;
+      start_date: string;
+      end_date: string;
+      quota: number;
+    },
+  ) => api.put<ApiSuccess<unknown>>(`/batch-pos/${id}`, body), // BARU — ganti workaround inline import di dialog
   updateStatus: (id: string, status: string) =>
     api.patch<ApiSuccess<unknown>>(`/batch-pos/${id}/status`, { status }),
   delete: (id: string) => api.delete<ApiSuccess<unknown>>(`/batch-pos/${id}`),
@@ -436,8 +486,7 @@ export const uploadService = {
 // Expense Categories
 
 export const expenseCategoriesService = {
-  list: () =>
-    api.get<ApiSuccess<ExpenseCategory[]>>("/expenses/categories"),
+  list: () => api.get<ApiSuccess<ExpenseCategory[]>>("/expenses/categories"),
   create: (body: { name: string; type: string; description?: string }) =>
     api.post<ApiSuccess<ExpenseCategory>>("/expenses/categories", body),
 };
@@ -479,8 +528,7 @@ export const dailyReportService = {
    * Fetch daily report from /reports/daily.
    * `date` is an optional YYYY-MM-DD string (defaults to today on the server).
    */
-  get: (date?: string) =>
-    api.get<DailyReportResponse>("/reports/daily", date ? { date } : {}),
+  get: (date?: string) => api.get<DailyReportResponse>("/reports/daily", date ? { date } : {}),
 };
 
 // PO Summary Report
@@ -489,24 +537,92 @@ export const poSummaryService = {
   /**
    * Fetch PO summary / closing report from /reports/po/{po_id}/summary.
    */
-  get: (poId: string) =>
-    api.get<POSummaryResponse>(`/reports/po/${poId}/summary`),
+  get: (poId: string) => api.get<POSummaryResponse>(`/reports/po/${poId}/summary`),
 };
 
 // ─── Workers, Work Logs, Payrolls Services ───────────────────────────────────
-import type { Worker, WorkLog, Payroll, WorkerRole, SalaryType, WorkerStatus, JobType, PayrollStatus, Attendance, AttendanceStatus, AttendanceCreatePayload, AttendanceBatchPayload } from "./types/payroll";
+import type {
+  Worker,
+  WorkLog,
+  Payroll,
+  WorkerRole,
+  SalaryType,
+  WorkerStatus,
+  JobType,
+  PayrollStatus,
+  Attendance,
+  AttendanceStatus,
+  AttendanceCreatePayload,
+  AttendanceBatchPayload,
+} from "./types/payroll";
 
 // Initial mock data state for client persistence fallback if backend endpoints return 404
 let mockWorkers: Worker[] = [
-  { id: "w-1", name: "Budi Santoso", phone: "081234567890", role: "tailor", salary_type: "piece_rate", status: "active", created_at: new Date().toISOString() },
-  { id: "w-2", name: "Siti Rahma", phone: "081987654321", role: "cutter", salary_type: "piece_rate", status: "active", created_at: new Date().toISOString() },
-  { id: "w-3", name: "Agus Pratama", phone: "082112233445", role: "finishing", salary_type: "daily", status: "active", created_at: new Date().toISOString() },
-  { id: "w-4", name: "Dewi Lestari", phone: "085677889900", role: "helper", salary_type: "monthly", status: "active", created_at: new Date().toISOString() },
+  {
+    id: "w-1",
+    name: "Budi Santoso",
+    phone: "081234567890",
+    role: "tailor",
+    salary_type: "piece_rate",
+    status: "active",
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: "w-2",
+    name: "Siti Rahma",
+    phone: "081987654321",
+    role: "cutter",
+    salary_type: "piece_rate",
+    status: "active",
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: "w-3",
+    name: "Agus Pratama",
+    phone: "082112233445",
+    role: "finishing",
+    salary_type: "daily",
+    status: "active",
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: "w-4",
+    name: "Dewi Lestari",
+    phone: "085677889900",
+    role: "helper",
+    salary_type: "monthly",
+    status: "active",
+    created_at: new Date().toISOString(),
+  },
 ];
 
 let mockWorkLogs: WorkLog[] = [
-  { id: "wl-1", work_date: new Date().toISOString().split("T")[0], worker_id: "w-1", worker_name: "Budi Santoso", job_type: "jahit", batch_po_id: "", batch_po_name: "PO-2026-001", qty: 50, rate_per_qty: 15000, total_amount: 750000, notes: "Kaos Polos Cotton 30s" },
-  { id: "wl-2", work_date: new Date().toISOString().split("T")[0], worker_id: "w-2", worker_name: "Siti Rahma", job_type: "potong", batch_po_id: "", batch_po_name: "PO-2026-001", qty: 100, rate_per_qty: 3000, total_amount: 300000, notes: "Pola Polo Shirt" },
+  {
+    id: "wl-1",
+    work_date: new Date().toISOString().split("T")[0],
+    worker_id: "w-1",
+    worker_name: "Budi Santoso",
+    job_type: "jahit",
+    batch_po_id: "",
+    batch_po_name: "PO-2026-001",
+    qty: 50,
+    rate_per_qty: 15000,
+    total_amount: 750000,
+    notes: "Kaos Polos Cotton 30s",
+  },
+  {
+    id: "wl-2",
+    work_date: new Date().toISOString().split("T")[0],
+    worker_id: "w-2",
+    worker_name: "Siti Rahma",
+    job_type: "potong",
+    batch_po_id: "",
+    batch_po_name: "PO-2026-001",
+    qty: 100,
+    rate_per_qty: 3000,
+    total_amount: 300000,
+    notes: "Pola Polo Shirt",
+  },
 ];
 
 let mockPayrolls: Payroll[] = [];
@@ -531,7 +647,9 @@ export const workersService = {
       let filtered = [...mockWorkers];
       if (p.search) {
         const s = p.search.toLowerCase();
-        filtered = filtered.filter((w) => w.name.toLowerCase().includes(s) || (w.phone && w.phone.includes(s)));
+        filtered = filtered.filter(
+          (w) => w.name.toLowerCase().includes(s) || (w.phone && w.phone.includes(s)),
+        );
       }
       if (p.role) filtered = filtered.filter((w) => w.role === p.role);
       if (p.salary_type) filtered = filtered.filter((w) => w.salary_type === p.salary_type);
@@ -541,20 +659,49 @@ export const workersService = {
         status: "true",
         message: "Workers loaded",
         data: filtered,
-        paging: { page: p.page ?? 1, limit: p.limit ?? 10, total_item: filtered.length, total_page: 1 },
+        paging: {
+          page: p.page ?? 1,
+          limit: p.limit ?? 10,
+          total_item: filtered.length,
+          total_page: 1,
+        },
       } as unknown as ApiPaginated<Worker>;
     }
   },
-  create: async (body: { name: string; phone?: string; role: WorkerRole; salary_type: SalaryType; status?: WorkerStatus; user_id?: string | null; daily_rate?: number }) => {
+  create: async (body: {
+    name: string;
+    phone?: string;
+    role: WorkerRole;
+    salary_type: SalaryType;
+    status?: WorkerStatus;
+    user_id?: string | null;
+    daily_rate?: number;
+  }) => {
     try {
       return await api.post<ApiSuccess<Worker>>("/workers", body);
     } catch {
-      const newWorker: Worker = { ...body, id: `w-${Date.now()}`, status: body.status || "active", created_at: new Date().toISOString() };
+      const newWorker: Worker = {
+        ...body,
+        id: `w-${Date.now()}`,
+        status: body.status || "active",
+        created_at: new Date().toISOString(),
+      };
       mockWorkers.unshift(newWorker);
       return { status: true, message: "Worker created", data: newWorker };
     }
   },
-  update: async (id: string, body: Partial<{ name: string; phone: string; role: WorkerRole; salary_type: SalaryType; status: WorkerStatus; user_id: string | null; daily_rate: number }>) => {
+  update: async (
+    id: string,
+    body: Partial<{
+      name: string;
+      phone: string;
+      role: WorkerRole;
+      salary_type: SalaryType;
+      status: WorkerStatus;
+      user_id: string | null;
+      daily_rate: number;
+    }>,
+  ) => {
     try {
       return await api.put<ApiSuccess<Worker>>(`/workers/${id}`, body);
     } catch {
@@ -585,7 +732,10 @@ export interface AttendancesListParams extends PageParams {
 
 export const attendancesService = {
   list: async (p: AttendancesListParams = {}) => {
-    const q: Record<string, string | number | boolean> = { page: p.page ?? 1, limit: p.limit ?? 10 };
+    const q: Record<string, string | number | boolean> = {
+      page: p.page ?? 1,
+      limit: p.limit ?? 10,
+    };
     if (p.start_date) q.start_date = p.start_date;
     if (p.end_date) q.end_date = p.end_date;
     if (p.worker_id) q.worker_id = p.worker_id;
@@ -619,7 +769,10 @@ export interface WorkLogsListParams extends PageParams {
 export const workLogsService = {
   list: async (p: WorkLogsListParams = {}) => {
     try {
-      const q: Record<string, string | number | boolean> = { page: p.page ?? 1, limit: p.limit ?? 10 };
+      const q: Record<string, string | number | boolean> = {
+        page: p.page ?? 1,
+        limit: p.limit ?? 10,
+      };
       if (p.start_date) q.start_date = p.start_date;
       if (p.end_date) q.end_date = p.end_date;
       if (p.worker_id) q.worker_id = p.worker_id;
@@ -640,7 +793,12 @@ export const workLogsService = {
         status: "true",
         message: "Work logs loaded",
         data: filtered,
-        paging: { page: p.page ?? 1, limit: p.limit ?? 10, total_item: filtered.length, total_page: 1 },
+        paging: {
+          page: p.page ?? 1,
+          limit: p.limit ?? 10,
+          total_item: filtered.length,
+          total_page: 1,
+        },
       } as unknown as ApiPaginated<WorkLog>;
     }
   },
@@ -751,7 +909,12 @@ export const payrollsService = {
         status: "true",
         message: "Payrolls loaded",
         data: filtered,
-        paging: { page: p.page ?? 1, limit: p.limit ?? 10, total_item: filtered.length, total_page: 1 },
+        paging: {
+          page: p.page ?? 1,
+          limit: p.limit ?? 10,
+          total_item: filtered.length,
+          total_page: 1,
+        },
       } as unknown as ApiPaginated<Payroll>;
     }
   },
@@ -761,10 +924,19 @@ export const payrollsService = {
     } catch {
       const payroll = mockPayrolls.find((p) => p.id === id);
       const boundLogs = mockWorkLogs.filter((wl) => wl.payroll_id === id);
-      return { status: true, message: "Payroll details", data: { ...payroll!, work_logs: boundLogs } };
+      return {
+        status: true,
+        message: "Payroll details",
+        data: { ...payroll!, work_logs: boundLogs },
+      };
     }
   },
-  createRekap: async (body: { start_date: string; end_date: string; work_log_ids?: string[]; attendance_ids?: string[] }) => {
+  createRekap: async (body: {
+    start_date: string;
+    end_date: string;
+    work_log_ids?: string[];
+    attendance_ids?: string[];
+  }) => {
     try {
       return await api.post<ApiSuccess<Payroll>>("/payrolls", body);
     } catch {
@@ -785,7 +957,9 @@ export const payrollsService = {
 
       // Bind logs to payroll
       mockWorkLogs = mockWorkLogs.map((wl) =>
-        (body.work_log_ids ?? []).includes(wl.id) ? { ...wl, payroll_id: newId, payroll_no: payrollNo } : wl
+        (body.work_log_ids ?? []).includes(wl.id)
+          ? { ...wl, payroll_id: newId, payroll_no: payrollNo }
+          : wl,
       );
 
       mockPayrolls.unshift(newPayroll);
@@ -799,7 +973,9 @@ export const payrollsService = {
       const payroll = mockPayrolls.find((p) => p.id === id);
       if (payroll) {
         // Trigger create expense for HPP Gaji Borongan
-        const expCategory = (await expenseCategoriesService.list()).data?.find((c) => c.name.toLowerCase().includes("gaji") || c.type === "hpp");
+        const expCategory = (await expenseCategoriesService.list()).data?.find(
+          (c) => c.name.toLowerCase().includes("gaji") || c.type === "hpp",
+        );
         const categoryId = expCategory?.id || "cat-hpp-gaji";
 
         const createdExpense = await expensesService.create({
@@ -814,7 +990,11 @@ export const payrollsService = {
         payroll.status = "paid";
         payroll.expense_id = createdExpense.data?.id || `exp-${Date.now()}`;
       }
-      return { status: true, message: "Payroll marked as Paid & HPP Expense created", data: payroll! };
+      return {
+        status: true,
+        message: "Payroll marked as Paid & HPP Expense created",
+        data: payroll!,
+      };
     }
   },
   delete: async (id: string) => {
@@ -822,7 +1002,9 @@ export const payrollsService = {
       return await api.delete<ApiSuccess<unknown>>(`/payrolls/${id}`);
     } catch {
       // Release work logs
-      mockWorkLogs = mockWorkLogs.map((wl) => (wl.payroll_id === id ? { ...wl, payroll_id: undefined, payroll_no: undefined } : wl));
+      mockWorkLogs = mockWorkLogs.map((wl) =>
+        wl.payroll_id === id ? { ...wl, payroll_id: undefined, payroll_no: undefined } : wl,
+      );
       mockPayrolls = mockPayrolls.filter((p) => p.id !== id);
       return { status: true, message: "Payroll deleted", data: null };
     }

@@ -83,12 +83,17 @@ interface BatchPOForm {
   name: string;
   target_month: number | "";
   target_year: number | "";
+  open_date: string;
+  close_date: string;
   start_date: string;
   end_date: string;
   quota: number | "";
 }
 
-const emptyForm: BatchPOForm = { name: "", target_month: "", target_year: "", start_date: "", end_date: "", quota: "" };
+const emptyForm: BatchPOForm = {
+  name: "", target_month: "", target_year: "",
+  open_date: "", close_date: "", start_date: "", end_date: "", quota: "",
+};
 
 function BatchPODialog({
   open,
@@ -100,6 +105,13 @@ function BatchPODialog({
   onClose: () => void;
 }) {
   const qc = useQueryClient();
+  // Auto-prefill open_date dari close_date PO terakhir (aturan: buka PO baru = tutup PO sebelumnya).
+  // Cuma perlu jalan untuk PO BARU (bukan editing), dan cuma sekali saat dialog dibuka.
+  const suggestedOpenDate = useQuery({
+    queryKey: ["batch-pos", "suggested-open-date"],
+    queryFn: () => batchPosService.suggestedOpenDate(),
+    enabled: open && !editing, // cuma fetch saat dialog kebuka untuk mode "create"
+  });
   const [form, setForm] = useState<BatchPOForm>(emptyForm);
 
   // Populate form when editing
@@ -109,14 +121,25 @@ function BatchPODialog({
         name: editing.name,
         target_month: editing.target_month ?? "",
         target_year: editing.target_year ?? "",
+        open_date: editing.open_date ? editing.open_date.slice(0, 10) : "",
+        close_date: editing.close_date ? editing.close_date.slice(0, 10) : "",
         start_date: editing.start_date ? editing.start_date.slice(0, 10) : "",
         end_date: editing.end_date ? editing.end_date.slice(0, 10) : "",
         quota: editing.quota,
       });
     } else {
+      // PO baru: open_date diisi dari hasil suggestedOpenDate begitu query-nya selesai (lihat effect di bawah)
       setForm(emptyForm);
     }
   }, [editing, open]);
+
+  // Begitu suggestedOpenDate selesai fetch (mode create), isi otomatis ke form
+  useEffect(() => {
+    const suggested = suggestedOpenDate.data?.data?.open_date;
+    if (!editing && open && suggested) {
+      setForm((prev) => (prev.open_date ? prev : { ...prev, open_date: suggested.slice(0, 10) }));
+    }
+  }, [suggestedOpenDate.data, editing, open]);
 
   const createMut = useMutation({
     mutationFn: (body: { name: string; target_month: number; target_year: number; start_date: string; end_date: string; quota: number }) =>
@@ -131,13 +154,11 @@ function BatchPODialog({
 
   // For edit we reuse updateStatus or a generic PUT — currently the API has
   // PUT /batch-pos/:id for full updates, so we call batchPosService.create as a
-  // workaround by directly calling api.put via the same pattern. 
+  // workaround by directly calling api.put via the same pattern.
   // We expose an `update` method via the service, and add it inline here.
   const updateMut = useMutation({
-    mutationFn: async (body: { name: string; target_month: number; target_year: number; start_date: string; end_date: string; quota: number }) => {
-      const { api } = await import("@/lib/api");
-      return api.put(`/batch-pos/${editing!.id}`, body);
-    },
+    mutationFn: (body: Parameters<typeof batchPosService.update>[1]) =>
+      batchPosService.update(editing!.id, body),
     onSuccess: () => {
       toast.success("Batch PO updated");
       qc.invalidateQueries({ queryKey: ["batch-pos"] });
@@ -155,12 +176,19 @@ function BatchPODialog({
     if (!form.target_year) return toast.error("Target Year is required");
     if (!form.start_date) return toast.error("Start date is required");
     if (!form.end_date) return toast.error("End date is required");
+    if (!form.open_date) return toast.error("Open date is required");
+    if (!form.close_date) return toast.error("Close date is required");
+    if (new Date(form.open_date) > new Date(form.close_date)) {
+      return toast.error("Open date tidak boleh setelah close date");
+    }
     if (!form.quota || Number(form.quota) <= 0) return toast.error("Quota must be greater than 0");
 
     const body = {
       name: form.name.trim(),
       target_month: Number(form.target_month),
       target_year: Number(form.target_year),
+      open_date: new Date(form.open_date).toISOString(), // BARU
+      close_date: new Date(form.close_date).toISOString(), // BARU
       start_date: new Date(form.start_date).toISOString(),
       end_date: new Date(form.end_date).toISOString(),
       quota: Number(form.quota),
@@ -263,6 +291,39 @@ function BatchPODialog({
               />
             </div>
 
+            {/* Jendela Buka-Tutup PO */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="bpo-open">
+                  Open Date <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="bpo-open"
+                  type="date"
+                  value={form.open_date}
+                  onChange={set("open_date")}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Kapan PO ini mulai bisa menerima order.
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="bpo-close">
+                  Close Date <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="bpo-close"
+                  type="date"
+                  value={form.close_date}
+                  onChange={set("close_date")}
+                  disabled
+                />
+                <p className="text-xs text-muted-foreground">
+                  Otomatis = Start Date (tanggal mulai kerja).
+                </p>
+              </div>
+            </div>
+
             {/* Date range */}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
@@ -273,7 +334,10 @@ function BatchPODialog({
                   id="bpo-start"
                   type="date"
                   value={form.start_date}
-                  onChange={set("start_date")}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setForm((prev) => ({ ...prev, start_date: val, close_date: val })); // sinkron otomatis
+                  }}
                 />
               </div>
               <div className="space-y-2">
@@ -443,11 +507,10 @@ function BatchPOsPage() {
             return (
               <Card key={s} className="border-border/60">
                 <CardContent className="flex items-center gap-3 p-4">
-                  <Layers className={`h-8 w-8 rounded-md p-1.5 ${
-                    s === "active" ? "bg-emerald-100 text-emerald-700" :
+                  <Layers className={`h-8 w-8 rounded-md p-1.5 ${s === "active" ? "bg-emerald-100 text-emerald-700" :
                     s === "closed" ? "bg-rose-100 text-rose-700" :
-                    "bg-slate-100 text-slate-700"
-                  }`} />
+                      "bg-slate-100 text-slate-700"
+                    }`} />
                   <div>
                     <p className="text-xs text-muted-foreground capitalize">{s} Batches</p>
                     <p className="text-xl font-semibold">{count}</p>
@@ -474,6 +537,8 @@ function BatchPOsPage() {
                 <TableHead className="text-right">Quota</TableHead>
                 <TableHead>Start Date</TableHead>
                 <TableHead>End Date</TableHead>
+                <TableHead>Open Date</TableHead>
+                <TableHead>Close Date</TableHead>
                 <TableHead>Created</TableHead>
                 <TableHead className="w-[1%]"></TableHead>
               </TableRow>
@@ -525,6 +590,12 @@ function BatchPOsPage() {
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">
                     {formatDate(b.end_date)}
+                  </TableCell>
+                  <TableCell className="text-xs text-muted-foreground">
+                    {formatDate(b.open_date)}
+                  </TableCell>
+                  <TableCell className="text-xs text-muted-foreground">
+                    {formatDate(b.close_date)}
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">
                     {formatDate(b.created_at)}

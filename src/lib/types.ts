@@ -1,15 +1,30 @@
 // Domain types derived from the SIKOn OpenAPI spec.
-export type { FabricColor, ProductFabric, WholesaleTier, DesignModelView, DesignModel, ProductPayload } from "./types/product";
-export type { DashboardOverviewData, DashboardOverviewSummary, DashboardOverviewActiveBatchPO, DashboardOverviewActionRequired, DashboardOverviewChartTrend, DashboardOverviewDailyTrend } from "./types/dashboard";
+export type {
+  FabricColor,
+  ProductFabric,
+  WholesaleTier,
+  DesignModelView,
+  DesignModel,
+  ProductPayload,
+} from "./types/product";
+export type {
+  DashboardOverviewData,
+  DashboardOverviewSummary,
+  DashboardOverviewActiveBatchPO,
+  DashboardOverviewActionRequired,
+  DashboardOverviewChartTrend,
+  DashboardOverviewDailyTrend,
+} from "./types/dashboard";
 
 /** A single material/part block inside an order item's `details` array. */
 export interface DetailPart {
-  part: string;          // e.g. "Kemeja (Atasan)", "Celana (Bawahan)"
+  part: string; // e.g. "Kemeja (Atasan)", "Celana (Bawahan)"
   material_name: string; // e.g. "American Drill"
-  spec: string;          // e.g. "Warna Navy Blue, Bordir Logo"
+  spec: string; // e.g. "Warna Navy Blue, Bordir Logo"
 }
 
-export type OrderStatus = "quotation" | "pending" | "production" | "ready" | "completed" | "canceled";
+export type OrderStatus =
+  "quotation" | "pending" | "production" | "ready" | "completed" | "canceled";
 export type PaymentType = "dp" | "settlement" | "installment";
 
 export interface Category {
@@ -28,9 +43,9 @@ export interface SpecTemplateColor {
 export interface SpecTemplate {
   id: string;
   name: string;
-  spec: string;              // deskripsi singkat / short spec
-  description?: string;      // deskripsi panjang
-  composition?: string;      // e.g. "65% Polyester / 35% Viscose"
+  spec: string; // deskripsi singkat / short spec
+  description?: string; // deskripsi panjang
+  composition?: string; // e.g. "65% Polyester / 35% Viscose"
   care_instruction?: string; // e.g. "Setrika suhu sedang, jangan gunakan pemutih"
   colors?: SpecTemplateColor[]; // Pilihan warna yang tersedia untuk template ini
   created_at?: string;
@@ -51,14 +66,14 @@ export interface Product {
   category_id?: string;
   category?: Category;
   description?: string;
-  gsm_info?: string;          // e.g. "210gsm"
-  fabric_summary?: string;    // e.g. "Ripstop Cotton"
+  gsm_info?: string; // e.g. "210gsm"
+  fabric_summary?: string; // e.g. "Ripstop Cotton"
   key_features?: string[];
   images?: ProductImage[];
-  image_urls?: string[];      // Used for payload
-  fabrics?: import('./types/product').ProductFabric[];
-  wholesale?: import('./types/product').WholesaleTier[];
-  design_model?: import('./types/product').DesignModel;
+  image_urls?: string[]; // Used for payload
+  fabrics?: import("./types/product").ProductFabric[];
+  wholesale?: import("./types/product").WholesaleTier[];
+  design_model?: import("./types/product").DesignModel;
   created_at?: string;
 }
 
@@ -97,7 +112,7 @@ export interface User {
 export interface OrderItem {
   id?: string;
   product_id: string;
-  custom_name?: string;    // Optional override display name
+  custom_name?: string; // Optional override display name
   product?: Product;
   product_name?: string;
   qty: number;
@@ -127,6 +142,8 @@ export interface BatchPO {
   name: string;
   target_month?: number;
   target_year?: number;
+  open_date: string; // BARU — jendela mulai terima order
+  close_date: string; // BARU — jendela tutup terima order (= start_date produksi)
   start_date: string;
   end_date: string;
   quota: number;
