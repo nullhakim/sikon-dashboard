@@ -1,10 +1,9 @@
-import { Plus, Trash2, ChevronDown, ChevronUp, Sparkles, X } from "lucide-react";
+import { Plus, Trash2, ChevronDown, ChevronUp, X, Link2 } from "lucide-react";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -15,8 +14,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { ProductFabric, FabricColor } from "@/lib/types/product";
-import type { SpecTemplate } from "@/lib/types";
-import { specTemplatesService } from "@/lib/services";
+import type { Material } from "@/lib/types/material";
+import { materialsService } from "@/lib/services";
+import { formatIDR } from "@/lib/format";
 
 interface Props {
   fabrics: ProductFabric[];
@@ -24,6 +24,8 @@ interface Props {
 }
 
 const emptyFabric = (): ProductFabric => ({
+  fabric_id: null,
+  qty_per_unit: 1,
   spec_template_id: null,
   name: "",
   description: "",
@@ -40,12 +42,12 @@ const emptyColor = (): FabricColor => ({ name: "", hex_code: "#4b5320" });
 export function FabricSection({ fabrics, onChange }: Props) {
   const [expanded, setExpanded] = useState<number[]>([0]);
 
-  // Load spec templates untuk dropdown Master Kain Global
-  const { data: specData } = useQuery({
-    queryKey: ["spec-templates", { limit: 100 }],
-    queryFn: () => specTemplatesService.list({ page: 1, limit: 100 }),
+  // Load master kain dari /api/materials?category=kain
+  const { data: materialsData } = useQuery({
+    queryKey: ["materials", { category: "kain", limit: 100 }],
+    queryFn: () => materialsService.list({ page: 1, limit: 100, category: "kain" }),
   });
-  const specTemplates: SpecTemplate[] = specData?.data ?? [];
+  const masterKainList: Material[] = materialsData?.data ?? [];
 
   const toggleExpand = (i: number) =>
     setExpanded((prev) => prev.includes(i) ? prev.filter((x) => x !== i) : [...prev, i]);
@@ -77,43 +79,27 @@ export function FabricSection({ fabrics, onChange }: Props) {
   const removeColor = (fi: number, ci: number) =>
     update(fi, { colors: (fabrics[fi].colors ?? []).filter((_, idx) => idx !== ci) });
 
-  /** Auto-fill fields dari Spec Template yang dipilih (hanya isi yang kosong) */
-  const applyTemplate = (i: number, templateId: string) => {
-    const template = specTemplates.find((t) => t.id === templateId);
-    if (!template) {
-      // Clear template selection
-      update(i, { spec_template_id: null });
+  /** Pilih Master Kain — auto-fill fields dari material */
+  const applyMasterKain = (fabricIdx: number, materialId: string) => {
+    if (!materialId) {
+      update(fabricIdx, { fabric_id: null, name: "", composition: "", care_instruction: "", colors: [] });
       return;
     }
-    const fabric = fabrics[i];
-    // Petakan SpecTemplateColor -> FabricColor (strip field `id`)
-    const templateColors = (template.colors ?? []).map(({ name, hex_code }) => ({ name, hex_code }));
-    update(i, {
-      spec_template_id: templateId,
-      // Auto-fill hanya jika field kosong
-      name: fabric.name || template.name,
-      composition: fabric.composition || template.composition || "",
-      description: fabric.description || template.description || "",
-      care_instruction: fabric.care_instruction || template.care_instruction || "",
-      // Auto-fill colors jika fabric belum punya warna
-      colors: (fabric.colors ?? []).length === 0 ? templateColors : fabric.colors,
-    });
-  };
+    const material = masterKainList.find((m) => m.id === materialId);
+    if (!material) return;
 
-  /** Overwrite semua field dari template (reset ke master) */
-  const resetToTemplate = (i: number) => {
-    const fabric = fabrics[i];
-    if (!fabric.spec_template_id) return;
-    const template = specTemplates.find((t) => t.id === fabric.spec_template_id);
-    if (!template) return;
-    // Petakan SpecTemplateColor -> FabricColor (strip field `id`)
-    const templateColors = (template.colors ?? []).map(({ name, hex_code }) => ({ name, hex_code }));
-    update(i, {
-      name: template.name,
-      composition: template.composition || "",
-      description: template.description || "",
-      care_instruction: template.care_instruction || "",
-      colors: templateColors,
+    // Map MaterialColor → FabricColor (strip id)
+    const fabricColors: FabricColor[] = (material.colors ?? []).map(({ name, hex_code }) => ({ name, hex_code }));
+    const current = fabrics[fabricIdx];
+
+    update(fabricIdx, {
+      fabric_id: materialId,
+      name: material.name,
+      composition: material.composition ?? "",
+      care_instruction: material.care_instruction ?? "",
+      description: material.description ?? "",
+      // Only override colors if fabric has none yet
+      colors: (current.colors ?? []).length === 0 ? fabricColors : current.colors,
     });
   };
 
@@ -131,9 +117,9 @@ export function FabricSection({ fabrics, onChange }: Props) {
               <span className="font-medium text-sm truncate">
                 {fabric.name || `Fabric ${i + 1}`}
               </span>
-              {fabric.spec_template_id && (
+              {fabric.fabric_id && (
                 <Badge variant="secondary" className="text-[10px] shrink-0 gap-1">
-                  <Sparkles className="h-2.5 w-2.5" /> Master
+                  <Link2 className="h-2.5 w-2.5" /> Master Kain
                 </Badge>
               )}
               {fabric.is_default && (
@@ -146,6 +132,7 @@ export function FabricSection({ fabrics, onChange }: Props) {
                       key={ci}
                       className="h-3.5 w-3.5 rounded-full border border-border"
                       style={{ background: c.hex_code }}
+                      title={c.name}
                     />
                   ))}
                 </div>
@@ -169,76 +156,115 @@ export function FabricSection({ fabrics, onChange }: Props) {
           {expanded.includes(i) && (
             <div className="border-t px-4 py-4 space-y-4">
 
-              {/* === DROPDOWN MASTER KAIN GLOBAL === */}
+              {/* === PILIH MASTER KAIN === */}
               <div className="rounded-md border border-dashed border-primary/40 bg-primary/5 p-3 space-y-2">
                 <div className="flex items-center justify-between">
                   <Label className="text-xs font-semibold flex items-center gap-1.5 text-primary">
-                    <Sparkles className="h-3.5 w-3.5" />
-                    Pilih dari Master Kain Global
-                    <span className="text-muted-foreground font-normal">(Opsional)</span>
+                    <Link2 className="h-3.5 w-3.5" />
+                    Link ke Master Kain
+                    <span className="text-muted-foreground font-normal">(Untuk Kalkulasi HPP)</span>
                   </Label>
-                  {fabric.spec_template_id && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 px-2 text-xs text-muted-foreground"
-                      onClick={() => resetToTemplate(i)}
-                    >
-                      Reset ke Master
-                    </Button>
-                  )}
-                </div>
-                <div className="flex gap-2 items-center">
-                  <Select
-                    value={fabric.spec_template_id ?? ""}
-                    onValueChange={(v) => applyTemplate(i, v)}
-                  >
-                    <SelectTrigger className="h-8 text-xs flex-1">
-                      <SelectValue placeholder="Pilih template kain dari katalog global…" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {specTemplates.length === 0 && (
-                        <div className="px-3 py-2 text-xs text-muted-foreground">
-                          Belum ada template kain.
-                        </div>
-                      )}
-                      {specTemplates.map((t) => (
-                        <SelectItem key={t.id} value={t.id}>
-                          <div className="flex flex-col">
-                            <span className="font-medium">{t.name}</span>
-                            {t.composition && (
-                              <span className="text-xs text-muted-foreground">{t.composition}</span>
-                            )}
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {fabric.spec_template_id && (
+                  {fabric.fabric_id && (
                     <Button
                       type="button"
                       variant="ghost"
                       size="icon"
-                      className="h-8 w-8 shrink-0 text-muted-foreground"
-                      onClick={() => update(i, { spec_template_id: null })}
+                      className="h-7 w-7 shrink-0 text-muted-foreground"
+                      onClick={() => update(i, { fabric_id: null })}
+                      title="Lepas link ke master kain"
                     >
                       <X className="h-3.5 w-3.5" />
                     </Button>
                   )}
                 </div>
-                {fabric.spec_template_id && (() => {
-                  const tmpl = specTemplates.find(t => t.id === fabric.spec_template_id);
-                  return tmpl ? (
-                    <p className="text-xs text-muted-foreground italic">{tmpl.spec}</p>
-                  ) : null;
+
+                <Select
+                  value={fabric.fabric_id ?? ""}
+                  onValueChange={(v) => applyMasterKain(i, v)}
+                >
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue placeholder="Pilih master kain dari katalog…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {masterKainList.length === 0 && (
+                      <div className="px-3 py-2 text-xs text-muted-foreground">
+                        Belum ada master kain. Tambahkan di menu Master Bahan.
+                      </div>
+                    )}
+                    {masterKainList.map((m) => (
+                      <SelectItem key={m.id} value={m.id}>
+                        <div className="flex flex-col">
+                          <span className="font-medium">{m.name}</span>
+                          {m.composition && (
+                            <span className="text-xs text-muted-foreground">{m.composition}</span>
+                          )}
+                          {m.unit_price > 0 && (
+                            <span className="text-xs text-muted-foreground">{formatIDR(m.unit_price)}/meter</span>
+                          )}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                {/* qty_per_unit — shown when master kain linked */}
+                {fabric.fabric_id && (
+                  <div className="flex items-center gap-3 pt-1">
+                    <div className="space-y-1 flex-1">
+                      <Label className="text-xs">Konsumsi Kain (meter per pcs)</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        step={0.1}
+                        value={fabric.qty_per_unit ?? 1}
+                        onChange={(e) => update(i, { qty_per_unit: Number(e.target.value) })}
+                        className="h-8 text-xs"
+                        placeholder="e.g. 1.5"
+                      />
+                    </div>
+                    {(() => {
+                      const mat = masterKainList.find(m => m.id === fabric.fabric_id);
+                      if (!mat || !fabric.qty_per_unit) return null;
+                      const cost = mat.unit_price * fabric.qty_per_unit;
+                      return (
+                        <div className="text-xs text-muted-foreground pt-5">
+                          ≈ {formatIDR(cost)}/pcs
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
+
+                {/* Preview warna dari master kain */}
+                {fabric.fabric_id && (() => {
+                  const mat = masterKainList.find(m => m.id === fabric.fabric_id);
+                  const colors = mat?.colors ?? [];
+                  if (colors.length === 0) return null;
+                  return (
+                    <div className="flex items-center gap-1.5 flex-wrap pt-1">
+                      <span className="text-[10px] text-muted-foreground">Warna dari master:</span>
+                      {colors.map((c, ci) => (
+                        <span
+                          key={ci}
+                          className="h-4 w-4 rounded-full border border-border"
+                          style={{ backgroundColor: c.hex_code }}
+                          title={c.name}
+                        />
+                      ))}
+                    </div>
+                  );
                 })()}
               </div>
 
               {/* === FABRIC FIELDS === */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5 col-span-2">
-                  <Label className="text-xs">Nama Kain *</Label>
+                  <Label className="text-xs">
+                    Nama Kain *
+                    {fabric.fabric_id && (
+                      <span className="text-[10px] text-muted-foreground ml-1">(auto-filled dari master)</span>
+                    )}
+                  </Label>
                   <Input
                     value={fabric.name}
                     onChange={(e) => update(i, { name: e.target.value })}
@@ -277,15 +303,6 @@ export function FabricSection({ fabrics, onChange }: Props) {
                     onCheckedChange={(v) => update(i, { is_default: v })}
                   />
                   <Label htmlFor={`fabric-default-${i}`} className="text-xs">Kain Default</Label>
-                </div>
-                <div className="space-y-1.5 col-span-2">
-                  <Label className="text-xs">Deskripsi</Label>
-                  <Textarea
-                    value={fabric.description ?? ""}
-                    onChange={(e) => update(i, { description: e.target.value })}
-                    rows={2}
-                    placeholder="Deskripsi singkat kain..."
-                  />
                 </div>
                 <div className="space-y-1.5 col-span-2">
                   <Label className="text-xs">Instruksi Perawatan</Label>

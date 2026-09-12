@@ -416,6 +416,8 @@ function UpdateQuotationDialog({
           return {
             id: i.id,
             product_id: i.product_id,
+            fabric_id: i.fabric_id,
+            fabric_color_id: i.fabric_color_id,
             product_name: i.product_name || i.product?.name || "—",
             custom_name: i.custom_name ?? "",
             qty: i.qty,
@@ -444,6 +446,8 @@ function UpdateQuotationDialog({
         items.map((it) =>
           ordersService.updateItem(order.id, it.id, {
             product_id: it.product_id,
+            fabric_id: it.fabric_id || undefined,
+            fabric_color_id: it.fabric_color_id || undefined,
             custom_name: it.custom_name || undefined,
             qty: it.qty,
             price: it.price,
@@ -469,6 +473,8 @@ function UpdateQuotationDialog({
         valid_until: form.valid_until || undefined,
         items: items.map((it: any) => ({
           product_id: it.product_id,
+          fabric_id: it.fabric_id || undefined,
+          fabric_color_id: it.fabric_color_id || undefined,
           custom_name: it.custom_name || undefined,
           qty: it.qty,
           price: it.price,
@@ -881,6 +887,8 @@ function OrderItemDialog({
         }
         setIt({
           product_id: item.product_id || item.product?.id || "",
+          fabric_id: item.fabric_id,
+          fabric_color_id: item.fabric_color_id,
           custom_name: item.custom_name ?? "",
           qty: item.qty || 1,
           price: item.price || 0,
@@ -900,6 +908,8 @@ function OrderItemDialog({
       const details = buildItemDetails(it);
       const body = {
         product_id: it.product_id,
+        fabric_id: it.fabric_id || undefined,
+        fabric_color_id: it.fabric_color_id || undefined,
         custom_name: it.custom_name || undefined,
         qty: Number(it.qty),
         price: Number(it.price),
@@ -941,7 +951,13 @@ function OrderItemDialog({
                 <Label>Product</Label>
                 <Select value={it.product_id} onValueChange={(val) => {
                    const p = productsQ.data?.data?.find((x: any) => x.id === val);
-                   setIt(prev => ({ ...prev, product_id: val, price: p && !isEditing ? (p.base_price ?? 0) : prev.price }));
+                   setIt(prev => ({
+                     ...prev,
+                     product_id: val,
+                     fabric_id: undefined,
+                     fabric_color_id: undefined,
+                     price: p && !isEditing ? (p.base_price ?? 0) : prev.price
+                   }));
                 }} disabled={productsQ.isLoading}>
                   <SelectTrigger><SelectValue placeholder="Select a product" /></SelectTrigger>
                   <SelectContent>
@@ -1056,11 +1072,14 @@ function OrderDetailPage() {
 
   const payments = paymentsQ.data?.data ?? [];
 
-  // HPP — only fetch after order has been approved (approved_at != null)
+  // HPP — fetch saat order berstatus pending/production/ready/completed (HPP sudah dihitung)
+  const isPostPending = ["pending", "production", "ready", "completed"].includes(
+    (order?.order_status || "").toLowerCase()
+  );
   const hppQ = useQuery({
     queryKey: ["order-hpp", orderId],
     queryFn: () => ordersService.getHpp(orderId),
-    enabled: !!(order?.approved_at) && (isOwner || isAccounting),
+    enabled: !!(order && isPostPending) && (isOwner || isAccounting),
   });
   const hpp = hppQ.data?.data;
 
@@ -1258,6 +1277,11 @@ function OrderDetailPage() {
                 · Disetujui {formatDate(order.approved_at)}
               </span>
             )}
+            {(isOwner || isAccounting) && order.hpp_material_cost != null && (
+              <span className="inline-flex items-center gap-1 text-xs font-mono font-medium text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-full">
+                HPP Mat: {formatIDR(order.hpp_material_cost)}
+              </span>
+            )}
           </div>
         </div>
 
@@ -1417,6 +1441,28 @@ function OrderDetailPage() {
                                     </div>
                                   );
                                 })}
+                              </div>
+                            )}
+
+                            {/* Fabric & Color Badge — dari item.fabric_name / fabric_color_name */}
+                            {(it.fabric_name || it.fabric_color_name) && (
+                              <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
+                                {it.fabric_name && (
+                                  <span className="inline-flex items-center gap-1 rounded-md bg-indigo-50 px-2 py-0.5 text-[11px] font-medium text-indigo-700 ring-1 ring-inset ring-indigo-700/10">
+                                    {it.fabric_name}
+                                  </span>
+                                )}
+                                {it.fabric_color_name && (
+                                  <span className="inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] font-medium">
+                                    {it.fabric_hex_code && (
+                                      <span
+                                        className="h-2.5 w-2.5 rounded-full border border-border/50 shrink-0"
+                                        style={{ backgroundColor: it.fabric_hex_code }}
+                                      />
+                                    )}
+                                    {it.fabric_color_name}
+                                  </span>
+                                )}
                               </div>
                             )}
 
@@ -1725,10 +1771,10 @@ function OrderDetailPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-4 space-y-2.5 text-sm">
-                {!order.approved_at ? (
+                {!isPostPending ? (
                   <p className="text-xs text-muted-foreground leading-relaxed">
-                    HPP akan dihitung otomatis setelah Order disetujui (status{" "}
-                    <span className="font-semibold">Pending</span>).
+                    HPP akan dihitung otomatis setelah Order berstatus{" "}
+                    <span className="font-semibold">Pending</span>.
                   </p>
                 ) : hppQ.isLoading ? (
                   <p className="text-xs text-muted-foreground">Memuat data HPP…</p>

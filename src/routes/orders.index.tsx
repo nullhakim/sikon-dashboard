@@ -127,6 +127,10 @@ export interface Item {
   custom_name?: string;       // New: optional display-name override
   qty: number;
   price: number;
+  /** UUID material kain (dari product.fabrics[].fabric_id) */
+  fabric_id?: string;
+  /** UUID warna kain (dari product.fabrics[i].colors[j].id) */
+  fabric_color_id?: string;
   // New: dynamic multi-part materials array
   details: DetailPartForm[];
   // Legacy quotation-only top-level fields (kept for backward compat)
@@ -310,6 +314,16 @@ export function ItemDetailsFields({
     queryFn: () => specTemplatesService.list({ page: 1, limit: 100 }),
   });
 
+  // Fetch product detail untuk mendapatkan fabrics[]
+  const productDetail = useQuery({
+    queryKey: ["products", item.product_id],
+    queryFn: () => productsService.get(item.product_id),
+    enabled: !!item.product_id,
+  });
+  const productFabrics = productDetail.data?.data?.fabrics ?? [];
+  const selectedFabric = productFabrics.find((f) => f.fabric_id === item.fabric_id || f.id === item.fabric_id);
+  const availableColors = selectedFabric?.colors ?? [];
+
   let detailsArray: DetailPartForm[] = [];
   if (Array.isArray(item.details)) {
     detailsArray = item.details;
@@ -363,6 +377,79 @@ export function ItemDetailsFields({
             value={item.custom_name ?? ""}
             onChange={(e) => onChange({ custom_name: e.target.value })}
           />
+        </div>
+      )}
+
+      {/* Fabric & Color Selection — dari product.fabrics[] */}
+      {item.product_id && (
+        <div className="space-y-2 rounded-md border border-dashed border-blue-300/60 bg-blue-50/40 dark:bg-blue-950/20 p-2.5">
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-blue-600 dark:text-blue-400">Kain &amp; Warna (HPP)</p>
+
+          {/* Fabric dropdown */}
+          {productFabrics.length > 0 ? (
+            <div className="space-y-1">
+              <Label className="text-xs">Pilih Kain</Label>
+              <select
+                className="w-full h-8 text-xs rounded-md border border-input bg-background px-2.5 focus:outline-none focus:ring-1 focus:ring-ring"
+                value={item.fabric_id ?? ""}
+                onChange={(e) => {
+                  const fid = e.target.value;
+                  const fab = productFabrics.find((f) => (f.fabric_id ?? f.id) === fid);
+                  onChange({
+                    fabric_id: fid || undefined,
+                    fabric_color_id: undefined,
+                    // auto-fill price dari base_price kain
+                    price: fab?.base_price ? fab.base_price : item.price,
+                  });
+                }}
+              >
+                <option value="">Pilih kain…</option>
+                {productFabrics.map((f, fi) => (
+                  <option key={fi} value={f.fabric_id ?? f.id ?? fi}>
+                    {f.name}{f.base_price ? ` — ${f.base_price.toLocaleString("id-ID")}` : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : (
+            productDetail.isLoading ? (
+              <p className="text-[11px] text-muted-foreground">Memuat data produk…</p>
+            ) : (
+              <p className="text-[11px] text-muted-foreground italic">Produk ini belum punya data kain. Tambahkan di master produk.</p>
+            )
+          )}
+
+          {/* Color swatches — muncul setelah pilih kain */}
+          {item.fabric_id && availableColors.length > 0 && (
+            <div className="space-y-1">
+              <Label className="text-xs">Pilih Warna</Label>
+              <div className="flex flex-wrap gap-2">
+                {availableColors.map((c, ci) => {
+                  const colorId = c.id ?? c.name;
+                  const isSelected = item.fabric_color_id === colorId;
+                  return (
+                    <button
+                      key={ci}
+                      type="button"
+                      title={c.name}
+                      onClick={() => onChange({ fabric_color_id: isSelected ? undefined : colorId })}
+                      className={`flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] transition-all ${
+                        isSelected
+                          ? "border-primary bg-primary/10 font-semibold"
+                          : "border-border hover:border-primary/50 hover:bg-muted/50"
+                      }`}
+                    >
+                      <span
+                        className="h-3 w-3 rounded-full border border-border/50 shrink-0"
+                        style={{ backgroundColor: c.hex_code }}
+                      />
+                      {c.name}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -750,6 +837,8 @@ function CreateOrderDialog({ open, onClose }: { open: boolean; onClose: () => vo
           .filter((i) => i.product_id && i.qty > 0)
           .map((i) => ({
             product_id: i.product_id,
+            fabric_id: i.fabric_id || undefined,
+            fabric_color_id: i.fabric_color_id || undefined,
             custom_name: i.custom_name || undefined,
             qty: i.qty,
             price: i.price,
@@ -1434,6 +1523,8 @@ export function UpdateOrderDialog({
         const loadedItems = order.items.map((i: any, idx: number) => ({
           id: i.id || `item-${idx}`,
           product_id: i.product_id,
+          fabric_id: i.fabric_id || undefined,
+          fabric_color_id: i.fabric_color_id || undefined,
           custom_name: i.custom_name ?? "",
           qty: i.qty,
           price: i.price,
@@ -1506,6 +1597,8 @@ export function UpdateOrderDialog({
           const details = buildItemDetails(it);
           const itemBody = {
             product_id: it.product_id,
+            fabric_id: it.fabric_id || undefined,
+            fabric_color_id: it.fabric_color_id || undefined,
             custom_name: it.custom_name || undefined,
             qty: it.qty,
             price: it.price,

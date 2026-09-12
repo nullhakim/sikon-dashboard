@@ -68,16 +68,35 @@ export const specTemplatesService = {
 };
 
 // Materials (HPP / COGS internal master)
+export interface MaterialsListParams extends PageParams {
+  category?: string;
+}
+export interface MaterialColorPayload {
+  name: string;
+  hex_code: string;
+}
+export interface MaterialCreatePayload {
+  name: string;
+  unit: string;
+  unit_price: number;
+  category?: string;
+  description?: string;
+  composition?: string;
+  care_instruction?: string;
+  gsm_info?: string;
+  colors?: MaterialColorPayload[];
+}
 export const materialsService = {
-  list: (p: PageParams = {}) =>
-    api.get<ApiPaginated<Material>>("/materials", { page: p.page ?? 1, limit: p.limit ?? 10 }),
+  list: (p: MaterialsListParams = {}) => {
+    const q: Record<string, string | number> = { page: p.page ?? 1, limit: p.limit ?? 10 };
+    if (p.category) q.category = p.category;
+    return api.get<ApiPaginated<Material>>("/materials", q);
+  },
   get: (id: string) => api.get<ApiSuccess<Material>>(`/materials/${id}`),
-  create: (body: { name: string; unit: string; unit_price: number; category?: string }) =>
+  create: (body: MaterialCreatePayload) =>
     api.post<ApiSuccess<Material>>("/materials", body),
-  update: (
-    id: string,
-    body: Partial<{ name: string; unit: string; unit_price: number; category: string }>,
-  ) => api.put<ApiSuccess<Material>>(`/materials/${id}`, body),
+  update: (id: string, body: Partial<MaterialCreatePayload>) =>
+    api.put<ApiSuccess<Material>>(`/materials/${id}`, body),
   delete: (id: string) => api.delete<ApiSuccess<unknown>>(`/materials/${id}`),
 };
 
@@ -221,6 +240,10 @@ export const ordersService = {
     tax_pph22_rate?: number;
     items: {
       product_id: string;
+      /** UUID material kain — untuk kalkulasi HPP */
+      fabric_id?: string;
+      /** UUID warna dari colors[] material */
+      fabric_color_id?: string;
       custom_name?: string;
       qty: number;
       price: number;
@@ -244,6 +267,8 @@ export const ordersService = {
       tax_pph22_rate?: number;
       items: {
         product_id: string;
+        fabric_id?: string;
+        fabric_color_id?: string;
         custom_name?: string;
         qty: number;
         price: number;
@@ -259,6 +284,8 @@ export const ordersService = {
     orderId: string,
     body: {
       product_id: string;
+      fabric_id?: string;
+      fabric_color_id?: string;
       custom_name?: string;
       qty: number;
       price: number;
@@ -270,6 +297,8 @@ export const ordersService = {
     itemId: string,
     body: {
       product_id: string;
+      fabric_id?: string;
+      fabric_color_id?: string;
       custom_name?: string;
       qty: number;
       price: number;

@@ -112,6 +112,16 @@ export interface User {
 export interface OrderItem {
   id?: string;
   product_id: string;
+  /** UUID material kain dari Master Kain */
+  fabric_id?: string;
+  /** UUID varian warna kain dari Master Kain */
+  fabric_color_id?: string;
+  /** Nama kain (auto-filled oleh backend response) */
+  fabric_name?: string;
+  /** Nama warna kain (auto-filled oleh backend response) */
+  fabric_color_name?: string;
+  /** Hex code warna kain (auto-filled oleh backend response) */
+  fabric_hex_code?: string;
   custom_name?: string; // Optional override display name
   product?: Product;
   product_name?: string;

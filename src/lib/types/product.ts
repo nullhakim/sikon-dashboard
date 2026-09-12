@@ -8,21 +8,26 @@
 // ---------------------------------------------------------------------------
 
 export interface FabricColor {
+  id?: string;      // present in GET responses
   name: string;     // e.g. "Olive"
   hex_code: string; // e.g. "#4b5320"
 }
 
 export interface ProductFabric {
   id?: string;
-  spec_template_id?: string | null; // referensi ke Master Kain Global (nullable)
-  name: string;              // e.g. "Ripstop Cotton 65/35"
+  /** UUID dari Master Kain (/api/materials) — wajib diisi untuk HPP */
+  fabric_id?: string | null;
+  /** Konsumsi meter kain per pcs — wajib jika fabric_id diisi */
+  qty_per_unit?: number;
+  spec_template_id?: string | null; // legacy — referensi ke Spec Template lama (nullable)
+  name: string;              // e.g. "Ripstop Cotton 65/35" — auto-filled dari master kain
   description?: string;
-  composition?: string;      // e.g. "65% Cotton / 35% Polyester"
-  care_instruction?: string;
+  composition?: string;      // e.g. "65% Cotton / 35% Polyester" — auto-filled
+  care_instruction?: string; // auto-filled dari master kain
   base_price?: number;
   price_adjustment?: number;
   is_default?: boolean;
-  colors?: FabricColor[];
+  colors?: FabricColor[];    // auto-filled dari master kain
 }
 
 // ---------------------------------------------------------------------------

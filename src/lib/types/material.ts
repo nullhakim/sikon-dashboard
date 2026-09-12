@@ -1,5 +1,12 @@
 // Material Master, BOM, and HPP types — internal costing domain
 
+/** Varian warna dari sebuah material/kain */
+export interface MaterialColor {
+  id: string;
+  name: string;    // e.g. "Navy Blue"
+  hex_code: string; // e.g. "#000080"
+}
+
 export interface Material {
   id: string;
   name: string;
@@ -8,6 +15,16 @@ export interface Material {
   unit_price: number;
   /** e.g. "kain" | "aksesoris" | "packaging" — free text */
   category: string;
+  /** Deskripsi singkat material */
+  description?: string;
+  /** e.g. "65% Polyester / 35% Viscose" */
+  composition?: string;
+  /** e.g. "Cuci suhu ruang, jangan gunakan pemutih klorin" */
+  care_instruction?: string;
+  /** e.g. "210 gsm" */
+  gsm_info?: string;
+  /** Pilihan warna varian kain — hanya relevan untuk category = "kain" */
+  colors?: MaterialColor[];
   created_at: string;
 }
 
