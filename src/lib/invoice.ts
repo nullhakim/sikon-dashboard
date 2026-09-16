@@ -321,14 +321,16 @@ export async function generateInvoicePDF({
   const shippingCost = order.shipping_cost || 0;
 
   const isTaxable = order.is_taxable ?? false;
-  const ppnRate = order.tax_ppn_rate ?? 12.00;
-  const pph22Rate = order.tax_pph22_rate ?? 1.50;
+  const ppnRate = order.tax_ppn_rate ?? 12.0;
+  const pph22Rate = order.tax_pph22_rate ?? 1.5;
 
   const dppPpn = order.dpp_ppn ?? (isTaxable ? subtotal / 1.09 : 0);
   const ppnAmount = order.ppn_amount ?? (isTaxable ? dppPpn * (ppnRate / 100) : 0);
   const pph22Amount = order.pph22_amount ?? (isTaxable ? dppPpn * (pph22Rate / 100) : 0);
 
-  const paguBelanja = order.pagu_belanja ?? (isTaxable ? subtotal + shippingCost + ppnAmount : subtotal + shippingCost);
+  const paguBelanja =
+    order.pagu_belanja ??
+    (isTaxable ? subtotal + shippingCost + ppnAmount : subtotal + shippingCost);
   const totalAmount = isTaxable ? paguBelanja : (order.total_amount ?? subtotal + shippingCost);
   const amountPaid = payments.reduce((s, p) => s + (p.amount || 0), 0);
 
