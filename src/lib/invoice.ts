@@ -494,7 +494,7 @@ export async function generateInvoicePDF({
   }
 
   doc.setFont("helvetica", "bold");
-  doc.text("( Yusri Siti Aisyah., S.Ak )", pageWidth - margin - 25, sigY + 35, {
+  doc.text("( Yusri Siti Aisyah., S.Ak )", pageWidth - margin - 25, sigY + 40, {
     align: "center",
   });
 
