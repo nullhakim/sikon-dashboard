@@ -707,6 +707,28 @@ export async function generateKwitansiPDF({
   doc.setFont("helvetica", "bold");
   doc.text("( Yusri Siti Aisyah., S.Ak )", sigX, sigY + 35, { align: "center" });
 
+  const verifiedPayments = (order.payments || []).filter(
+    (orderPayment) => (orderPayment.status || "").toLowerCase() === "verified",
+  );
+  const amountPaid = verifiedPayments.length
+    ? verifiedPayments.reduce((sum, orderPayment) => sum + (orderPayment.amount || 0), 0)
+    : payment.status?.toLowerCase() === "verified"
+      ? payment.amount
+      : 0;
+  const isPaid =
+    order.payment_status?.toLowerCase() === "paid" ||
+    (order.total_amount > 0 && amountPaid >= order.total_amount);
+
+  if (isPaid) {
+    doc.saveGraphicsState();
+    doc.setGState(new (doc as any).GState({ opacity: 0.15 }));
+    doc.setFontSize(120);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(34, 197, 94);
+    doc.text("LUNAS", pageWidth / 2, pageHeight / 2, { align: "center" });
+    doc.restoreGraphicsState();
+  }
+
   // Footer
   doc.setTextColor(150, 150, 150);
   doc.setFontSize(8);
