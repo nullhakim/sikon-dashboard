@@ -96,7 +96,7 @@ function ProductDetailPage() {
                   <CarouselContent>
                     {allImages.map((url, i) => (
                       <CarouselItem key={i}>
-                        <img src={url} alt={`${product.name} - ${i+1}`} className="w-full aspect-square object-contain bg-white rounded-xl border" />
+                        <img src={url} alt={`${product.name} - ${i + 1}`} className="w-full aspect-square object-contain bg-white rounded-xl border" />
                       </CarouselItem>
                     ))}
                   </CarouselContent>
@@ -131,7 +131,7 @@ function ProductDetailPage() {
 
         {/* RIGHT COL: INFO & TABS */}
         <div className="lg:col-span-7 space-y-6">
-          
+
           {/* Main Info Box */}
           <Card>
             <CardHeader className="pb-3">
@@ -141,7 +141,7 @@ function ProductDetailPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
-              
+
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <span className="text-xs text-muted-foreground">Fabric Summary</span>
@@ -193,20 +193,20 @@ function ProductDetailPage() {
                       <div className="flex items-start justify-between">
                         <div>
                           <h4 className="font-semibold">{f.name} {f.is_default && <Badge variant="outline" className="ml-2 bg-blue-50 text-blue-700 border-blue-200">Default</Badge>}</h4>
-                          <p className="text-xs text-muted-foreground mt-0.5">{f.composition || "Komposisi tidak diset"}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">{f.material?.composition || "Komposisi tidak diset"}</p>
                         </div>
                         {f.price_adjustment ? (
                           <Badge variant="secondary">+{formatIDR(f.price_adjustment)}</Badge>
                         ) : null}
                       </div>
-                      
+
                       {f.description && <p className="text-sm">{f.description}</p>}
-                      
-                      {f.colors && f.colors.length > 0 && (
+
+                      {f.material?.colors && f.material.colors.length > 0 && (
                         <div className="space-y-2 pt-2">
                           <span className="text-xs font-medium text-muted-foreground">PILIHAN WARNA:</span>
                           <div className="flex flex-wrap gap-3">
-                            {f.colors.map((c, ci) => (
+                            {f.material.colors.map((c, ci) => (
                               <div key={ci} className="flex items-center gap-1.5 rounded-full border bg-muted/20 px-2.5 py-1 text-xs">
                                 <span className="h-3.5 w-3.5 rounded-full border shadow-sm" style={{ backgroundColor: c.hex_code }} />
                                 <span>{c.name}</span>
@@ -243,8 +243,8 @@ function ProductDetailPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {product.wholesale.sort((a,b) => a.min_qty - b.min_qty).map((w, i) => {
-                      const fabricName = w.fabric_id ? product.fabrics?.find(f => f.id === w.fabric_id)?.name || "Kain Tertentu" : "Semua Kain";
+                    {product.wholesale.sort((a, b) => a.min_qty - b.min_qty).map((w, i) => {
+                      const fabricName = w.fabric_id ? product.fabrics?.find(f => f.id === w.fabric_id)?.material?.name || "Kain Tertentu" : "Semua Kain";
                       return (
                         <TableRow key={i}>
                           <TableCell className="font-medium">
@@ -280,9 +280,9 @@ function ProductDetailPage() {
                 {product.design_model.views?.map((view, i) => (
                   <div key={i} className="space-y-3">
                     <Badge variant="outline" className="bg-white">{view.side === "front" ? "Tampak Depan" : "Tampak Belakang"}</Badge>
-                    <div className="relative rounded-xl border bg-grid-slate-100 overflow-hidden" style={{ aspectRatio: (view.width || 1756)/(view.height || 1920) }}>
-                       <img src={view.mask_url} alt="Mask" className="absolute inset-0 w-full h-full object-contain opacity-50 mix-blend-multiply" />
-                       <img src={view.art_url} alt="Lineart" className="absolute inset-0 w-full h-full object-contain drop-shadow-sm" />
+                    <div className="relative rounded-xl border bg-grid-slate-100 overflow-hidden" style={{ aspectRatio: (view.width || 1756) / (view.height || 1920) }}>
+                      <img src={view.mask_url} alt="Mask" className="absolute inset-0 w-full h-full object-contain opacity-50 mix-blend-multiply" />
+                      <img src={view.art_url} alt="Lineart" className="absolute inset-0 w-full h-full object-contain drop-shadow-sm" />
                     </div>
                   </div>
                 ))}

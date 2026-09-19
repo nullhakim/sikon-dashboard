@@ -57,7 +57,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 // ScrollArea import removed
 
-import { ordersService, customersService, productsService, usersService, specTemplatesService, bankAccountsService, paymentsService, batchPosService } from "@/lib/services";
+import { ordersService, customersService, productsService, materialsService, usersService, bankAccountsService, paymentsService, batchPosService } from "@/lib/services";
 import { formatIDR, formatDate, translateOrderErrorMessage } from "@/lib/format";
 import type { OrderStatus } from "@/lib/types";
 import { QuickCreateCustomerDialog } from "@/components/QuickCreateCustomerDialog";
@@ -252,11 +252,11 @@ export function parseDetailsFromBackend(
     const parsed = parsedRaw.filter((r: any) => r && typeof r === "object");
     return parsed.length > 0
       ? parsed.map((r: any) => ({
-          part: r.part ?? "",
-          material_name: r.material_name ?? "",
-          warna: r.warna ?? "",
-          spec: r.spec ?? "",
-        }))
+        part: r.part ?? "",
+        material_name: r.material_name ?? "",
+        warna: r.warna ?? "",
+        spec: r.spec ?? "",
+      }))
       : [{ part: "", material_name: "", warna: "", spec: "" }];
   }
   // Object shape with parts array
@@ -264,11 +264,11 @@ export function parseDetailsFromBackend(
     const parsed = parsedRaw.parts.filter((r: any) => r && typeof r === "object");
     return parsed.length > 0
       ? parsed.map((r: any) => ({
-          part: r.part ?? "",
-          material_name: r.material_name ?? "",
-          warna: r.warna ?? "",
-          spec: r.spec ?? "",
-        }))
+        part: r.part ?? "",
+        material_name: r.material_name ?? "",
+        warna: r.warna ?? "",
+        spec: r.spec ?? "",
+      }))
       : [{ part: "", material_name: "", warna: "", spec: "" }];
   }
   // Legacy object shape — migrate to single-block array
@@ -309,10 +309,6 @@ export function ItemDetailsFields({
   hideCustomName?: boolean;
   onChange: (patch: Partial<Item>) => void;
 }) {
-  const specs = useQuery({
-    queryKey: ["spec-templates", { limit: 100 }],
-    queryFn: () => specTemplatesService.list({ page: 1, limit: 100 }),
-  });
 
   // Fetch product detail untuk mendapatkan fabrics[]
   const productDetail = useQuery({
@@ -320,8 +316,12 @@ export function ItemDetailsFields({
     queryFn: () => productsService.get(item.product_id),
     enabled: !!item.product_id,
   });
+  const specs = useQuery({
+    queryKey: ["materials", "order-item-options"],
+    queryFn: () => materialsService.list({ page: 1, limit: 100 }),
+  });
   const productFabrics = productDetail.data?.data?.fabrics ?? [];
-  const selectedFabric = productFabrics.find((f) => f.fabric_id === item.fabric_id || f.id === item.fabric_id);
+  const selectedFabric = productFabrics.find((f) => f.material_id === item.fabric_id || f.id === item.fabric_id);
   const availableColors = selectedFabric?.colors ?? [];
 
   let detailsArray: DetailPartForm[] = [];
@@ -394,7 +394,7 @@ export function ItemDetailsFields({
                 value={item.fabric_id ?? ""}
                 onChange={(e) => {
                   const fid = e.target.value;
-                  const fab = productFabrics.find((f) => (f.fabric_id ?? f.id) === fid);
+                  const fab = productFabrics.find((f) => (f.material_id ?? f.id) === fid);
                   onChange({
                     fabric_id: fid || undefined,
                     fabric_color_id: undefined,
@@ -405,7 +405,7 @@ export function ItemDetailsFields({
               >
                 <option value="">Pilih kain…</option>
                 {productFabrics.map((f, fi) => (
-                  <option key={fi} value={f.fabric_id ?? f.id ?? fi}>
+                  <option key={fi} value={f.material_id ?? f.id ?? fi}>
                     {f.name}{f.base_price ? ` — ${f.base_price.toLocaleString("id-ID")}` : ""}
                   </option>
                 ))}
@@ -433,11 +433,10 @@ export function ItemDetailsFields({
                       type="button"
                       title={c.name}
                       onClick={() => onChange({ fabric_color_id: isSelected ? undefined : colorId })}
-                      className={`flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] transition-all ${
-                        isSelected
-                          ? "border-primary bg-primary/10 font-semibold"
-                          : "border-border hover:border-primary/50 hover:bg-muted/50"
-                      }`}
+                      className={`flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] transition-all ${isSelected
+                        ? "border-primary bg-primary/10 font-semibold"
+                        : "border-border hover:border-primary/50 hover:bg-muted/50"
+                        }`}
                     >
                       <span
                         className="h-3 w-3 rounded-full border border-border/50 shrink-0"
@@ -474,37 +473,37 @@ export function ItemDetailsFields({
             className="rounded-md border bg-muted/20 p-3 flex items-center justify-between gap-4"
           >
             <div className="space-y-1 overflow-hidden">
-               <div className="text-xs font-medium truncate">{part.part || `Part ${idx + 1}`}</div>
-               <div className="text-xs text-muted-foreground truncate">
-                 {part.material_name || "-"} {part.warna ? `(${part.warna})` : ''}
-               </div>
-               {!hideSpec && part.spec && (
-                 <div className="text-xs text-muted-foreground truncate">
-                   {part.spec}
-                 </div>
-               )}
+              <div className="text-xs font-medium truncate">{part.part || `Part ${idx + 1}`}</div>
+              <div className="text-xs text-muted-foreground truncate">
+                {part.material_name || "-"} {part.warna ? `(${part.warna})` : ''}
+              </div>
+              {!hideSpec && part.spec && (
+                <div className="text-xs text-muted-foreground truncate">
+                  {part.spec}
+                </div>
+              )}
             </div>
             <div className="flex gap-1 shrink-0">
-               <Button
-                 type="button"
-                 variant="ghost"
-                 size="sm"
-                 className="h-6 px-2 text-xs"
-                 onClick={() => openEditModal(idx)}
-               >
-                 <Pencil className="h-3 w-3" />
-               </Button>
-               {details.length > 1 && (
-                 <Button
-                   type="button"
-                   variant="ghost"
-                   size="sm"
-                   className="h-6 px-2 text-xs text-muted-foreground hover:text-destructive"
-                   onClick={() => removePart(idx)}
-                 >
-                   <Trash2 className="h-3 w-3" />
-                 </Button>
-               )}
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-6 px-2 text-xs"
+                onClick={() => openEditModal(idx)}
+              >
+                <Pencil className="h-3 w-3" />
+              </Button>
+              {details.length > 1 && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 px-2 text-xs text-muted-foreground hover:text-destructive"
+                  onClick={() => removePart(idx)}
+                >
+                  <Trash2 className="h-3 w-3" />
+                </Button>
+              )}
             </div>
           </div>
         ))}
@@ -532,7 +531,7 @@ export function ItemDetailsFields({
                   const t = specs.data?.data?.find((x) => x.id === templateId);
                   if (!t) return;
                   // Auto-fill spec: gunakan spec, fallback ke description jika spec kosong
-                  const autoSpec = t.spec || t.description || "";
+                  const autoSpec = t.description || "";
                   const defaultColor = t.colors && t.colors.length > 0 ? t.colors[0].name : undefined;
                   setCurrentPart(prev => ({
                     ...prev,
@@ -562,7 +561,7 @@ export function ItemDetailsFields({
               {(() => {
                 const selected = specs.data?.data?.find(x => x.name === currentPart.material_name);
                 if (!selected) return null;
-                const hint = selected.description || selected.spec;
+                const hint = selected.description;
                 return hint ? (
                   <p className="text-[11px] text-muted-foreground italic px-1">{hint.length > 100 ? hint.slice(0, 100) + "…" : hint}</p>
                 ) : null;
@@ -853,7 +852,7 @@ function CreateOrderDialog({ open, onClose }: { open: boolean; onClose: () => vo
     onSuccess: async (res: any) => {
       toast.success(isQuotation ? "Quotation created" : "Order created");
       qc.invalidateQueries({ queryKey: ["orders"] });
-      
+
       const orderId = res?.data?.id || res?.id;
       if (orderId && Number(paymentAmount) > 0) {
         try {
@@ -878,7 +877,7 @@ function CreateOrderDialog({ open, onClose }: { open: boolean; onClose: () => vo
           toast.error("Failed to record initial payment: " + (e?.payload?.error || e.message));
         }
       }
-      
+
       onClose();
     },
     onError: (e: any) => {
@@ -1062,8 +1061,8 @@ function CreateOrderDialog({ open, onClose }: { open: boolean; onClose: () => vo
                           {!salesId
                             ? "Pilih sales terlebih dahulu"
                             : selectedCustomerObj
-                            ? `${selectedCustomerObj.name} ${selectedCustomerObj.phone ? `· ${selectedCustomerObj.phone}` : ""}`
-                            : "Cari customer..."}
+                              ? `${selectedCustomerObj.name} ${selectedCustomerObj.phone ? `· ${selectedCustomerObj.phone}` : ""}`
+                              : "Cari customer..."}
                           <ChevronsUpDown className="ml-2 h-3.5 w-3.5 shrink-0 opacity-50" />
                         </Button>
                       </PopoverTrigger>
@@ -2236,8 +2235,8 @@ function OrdersPage() {
       <div className="flex items-center gap-1 border-b pb-1 overflow-x-auto no-scrollbar">
         {quickFilterTabs.map((tab) => {
           const isActive = (search.order_status || "") === tab.value;
-          const count = tab.value === "" 
-            ? allFilteredOrders.length 
+          const count = tab.value === ""
+            ? allFilteredOrders.length
             : (statusCounts[tab.value] || 0);
 
           return (
@@ -2597,12 +2596,12 @@ function OrdersPage() {
         remaining={
           recordPaymentOrder
             ? Math.max(
-                0,
-                recordPaymentOrder.total_amount -
-                  (recordPaymentOrder.payments || [])
-                    .filter((p) => (p.status || "").toLowerCase() === "verified")
-                    .reduce((acc, p) => acc + (p.amount || 0), 0)
-              )
+              0,
+              recordPaymentOrder.total_amount -
+              (recordPaymentOrder.payments || [])
+                .filter((p) => (p.status || "").toLowerCase() === "verified")
+                .reduce((acc, p) => acc + (p.amount || 0), 0)
+            )
             : 0
         }
         currentStatus={recordPaymentOrder?.order_status}

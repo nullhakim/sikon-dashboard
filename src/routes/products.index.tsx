@@ -299,10 +299,10 @@ function ProductsPage() {
                         {p.gsm_info && <span className="text-xs text-muted-foreground">{p.gsm_info}</span>}
                         {p.fabrics && p.fabrics.length > 0 && (
                           <div className="flex flex-wrap gap-1 mt-1">
-                            {p.fabrics.flatMap(f => f.colors ?? []).slice(0, 5).map((c, i) => (
+                            {p.fabrics.flatMap(f => f.material?.colors ?? []).slice(0, 5).map((c, i) => (
                               <div key={i} className="w-3 h-3 rounded-full border border-border" style={{ backgroundColor: c.hex_code }} title={c.name} />
                             ))}
-                            {(p.fabrics.flatMap(f => f.colors ?? []).length > 5) && <span className="text-[10px] text-muted-foreground">+{p.fabrics.flatMap(f => f.colors ?? []).length - 5}</span>}
+                            {(p.fabrics.flatMap(f => f.material?.colors ?? []).length > 5) && <span className="text-[10px] text-muted-foreground">+{p.fabrics.flatMap(f => f.material?.colors ?? []).length - 5}</span>}
                           </div>
                         )}
                       </div>
@@ -385,7 +385,7 @@ function ProductsPage() {
                       <Label htmlFor="prod-fabric-summary">Fabric Summary</Label>
                       <Input id="prod-fabric-summary" value={form.fabric_summary} onChange={(e) => setForm({ ...form, fabric_summary: e.target.value })} placeholder="e.g. Ripstop Cotton" />
                     </div>
-                    
+
                     <div className="space-y-2 col-span-2">
                       <Label>Key Features</Label>
                       <div className="flex gap-2">
@@ -416,7 +416,7 @@ function ProductsPage() {
                         </div>
                       )}
                     </div>
-                    
+
                     <div className="space-y-2 col-span-2">
                       <Label>Product Images</Label>
                       <div className="flex flex-wrap gap-4">

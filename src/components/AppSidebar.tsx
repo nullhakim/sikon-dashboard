@@ -91,7 +91,6 @@ const master: NavItem[] = [
   { titleKey: "nav.products", defaultTitle: "Produk", url: "/products", icon: Package },
   { titleKey: "nav.categories", defaultTitle: "Kategori Produk", url: "/categories", icon: Tags },
   { titleKey: "nav.expense_categories", defaultTitle: "Kategori Pengeluaran", url: "/expense-categories", icon: FolderOpen, roles: ["owner", "accounting"] },
-  { titleKey: "nav.material_catalogs", defaultTitle: "Katalog Bahan", url: "/material-catalogs", icon: BookOpen, roles: ["owner", "accounting"] },
   { titleKey: "nav.materials", defaultTitle: "Master Bahan (HPP)", url: "/materials", icon: FlaskConical, roles: ["owner", "accounting"] },
   { titleKey: "nav.bank_accounts", defaultTitle: "Rekening Bank", url: "/bank-accounts", icon: Landmark, roles: ["owner", "accounting"] },
 ];
@@ -160,11 +159,11 @@ export function AppSidebar() {
   const roleBadge = role ? ROLE_BADGE[role] : null;
   const initials = user?.name
     ? user.name
-        .split(" ")
-        .slice(0, 2)
-        .map((n) => n[0])
-        .join("")
-        .toUpperCase()
+      .split(" ")
+      .slice(0, 2)
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
     : "?";
 
   return (

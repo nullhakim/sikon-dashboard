@@ -34,24 +34,6 @@ export interface Category {
   updated_at?: string;
 }
 
-export interface SpecTemplateColor {
-  id: string;
-  name: string;
-  hex_code: string;
-}
-
-export interface SpecTemplate {
-  id: string;
-  name: string;
-  spec: string; // deskripsi singkat / short spec
-  description?: string; // deskripsi panjang
-  composition?: string; // e.g. "65% Polyester / 35% Viscose"
-  care_instruction?: string; // e.g. "Setrika suhu sedang, jangan gunakan pemutih"
-  colors?: SpecTemplateColor[]; // Pilihan warna yang tersedia untuk template ini
-  created_at?: string;
-  updated_at?: string;
-}
-
 export interface ProductImage {
   id: string;
   image_url: string;

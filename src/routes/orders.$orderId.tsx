@@ -62,7 +62,6 @@ import {
   paymentsService,
   bankAccountsService,
   productsService,
-  specTemplatesService,
 } from "@/lib/services";
 import { formatIDR, formatDate, formatDateISO, datetimeLocalToISO, translateOrderErrorMessage } from "@/lib/format";
 import { generateInvoicePDF, generateKwitansiPDF } from "@/lib/invoice";
@@ -385,11 +384,6 @@ function UpdateQuotationDialog({
   onClose: () => void;
 }) {
   const qc = useQueryClient();
-  const specTemplates = useQuery({
-    queryKey: ["spec-templates", { limit: 100 }],
-    queryFn: () => specTemplatesService.list({ page: 1, limit: 100 }),
-    enabled: open,
-  });
   const [form, setForm] = useState({
     terms_conditions: "",
     valid_until: "",
@@ -435,7 +429,7 @@ function UpdateQuotationDialog({
       setItems([]);
       setActiveItems([]);
     }
-  }, [order, open, specTemplates.data?.data]);
+  }, [order, open]);
 
   const updateItem = (idx: number, patch: any) =>
     setItems((arr) => arr.map((it, i) => (i === idx ? { ...it, ...patch } : it)));
@@ -868,11 +862,6 @@ function OrderItemDialog({
     enabled: open,
   });
 
-  const specTemplates = useQuery({
-    queryKey: ["spec-templates", { limit: 100 }],
-    queryFn: () => specTemplatesService.list({ page: 1, limit: 100 }),
-    enabled: open,
-  });
 
   useEffect(() => {
     if (open) {
@@ -950,14 +939,14 @@ function OrderItemDialog({
               <div className="space-y-2">
                 <Label>Product</Label>
                 <Select value={it.product_id} onValueChange={(val) => {
-                   const p = productsQ.data?.data?.find((x: any) => x.id === val);
-                   setIt(prev => ({
-                     ...prev,
-                     product_id: val,
-                     fabric_id: undefined,
-                     fabric_color_id: undefined,
-                     price: p && !isEditing ? (p.base_price ?? 0) : prev.price
-                   }));
+                  const p = productsQ.data?.data?.find((x: any) => x.id === val);
+                  setIt(prev => ({
+                    ...prev,
+                    product_id: val,
+                    fabric_id: undefined,
+                    fabric_color_id: undefined,
+                    price: p && !isEditing ? (p.base_price ?? 0) : prev.price
+                  }));
                 }} disabled={productsQ.isLoading}>
                   <SelectTrigger><SelectValue placeholder="Select a product" /></SelectTrigger>
                   <SelectContent>
@@ -973,18 +962,18 @@ function OrderItemDialog({
                 <Input
                   placeholder="e.g., Seragam PDH Bank Mandiri"
                   value={it.custom_name ?? ""}
-                  onChange={(e) => setIt(prev => ({...prev, custom_name: e.target.value}))}
+                  onChange={(e) => setIt(prev => ({ ...prev, custom_name: e.target.value }))}
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Quantity</Label>
-                  <Input type="number" min={1} value={it.qty} onChange={(e) => setIt(prev => ({...prev, qty: Number(e.target.value)}))} />
+                  <Input type="number" min={1} value={it.qty} onChange={(e) => setIt(prev => ({ ...prev, qty: Number(e.target.value) }))} />
                 </div>
                 <div className="space-y-2">
                   <Label>Price</Label>
-                  <Input type="number" min={0} value={it.price} onChange={(e) => setIt(prev => ({...prev, price: Number(e.target.value)}))} />
+                  <Input type="number" min={0} value={it.price} onChange={(e) => setIt(prev => ({ ...prev, price: Number(e.target.value) }))} />
                 </div>
               </div>
             </div>
@@ -996,7 +985,7 @@ function OrderItemDialog({
                 isQuotation={false}
                 hideSpec={true}
                 hideCustomName={true}
-                onChange={(patch) => setIt(prev => ({...prev, ...patch}))}
+                onChange={(patch) => setIt(prev => ({ ...prev, ...patch }))}
               />
             </div>
           </div>
@@ -1412,7 +1401,7 @@ function OrderDetailPage() {
                             <div className="font-semibold text-foreground text-sm">
                               {it.product_name || it.product?.name || "—"}
                             </div>
-                            
+
                             {/* Custom Name Display */}
                             {it.custom_name && (
                               <div className="mt-1">
@@ -1431,7 +1420,7 @@ function OrderDetailPage() {
                                     p.material_name,
                                     p.warna ? `(${p.warna})` : null,
                                   ].filter(Boolean).join(" ");
-                                  
+
                                   if (!p.material_name && !p.spec && !p.warna) return null;
                                   return (
                                     <div key={pIdx} className="leading-tight">
@@ -1709,7 +1698,7 @@ function OrderDetailPage() {
                 <span>Subtotal (Real Goods)</span>
                 <span className="text-foreground font-medium">{formatIDR(subtotal)}</span>
               </div>
-              
+
               {isTaxable && (
                 <>
                   <div className="flex justify-between text-xs text-muted-foreground">

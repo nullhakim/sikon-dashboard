@@ -9,7 +9,6 @@ import type {
   OrderStatus,
   Payment,
   Product,
-  SpecTemplate,
   User,
   BatchPO,
 } from "./types";
@@ -43,30 +42,6 @@ export interface PageParams {
   limit?: number;
 }
 
-// Spec Templates
-export interface SpecTemplatePayload {
-  name: string;
-  spec: string;
-  description?: string;
-  composition?: string;
-  care_instruction?: string;
-  colors?: { name: string; hex_code: string }[];
-}
-
-export const specTemplatesService = {
-  list: (p: PageParams = {}) =>
-    api.get<ApiPaginated<SpecTemplate>>("/spec-templates", {
-      page: p.page ?? 1,
-      limit: p.limit ?? 10,
-    }),
-  get: (id: string) => api.get<ApiSuccess<SpecTemplate>>(`/spec-templates/${id}`),
-  create: (body: SpecTemplatePayload) =>
-    api.post<ApiSuccess<SpecTemplate>>("/spec-templates", body),
-  update: (id: string, body: SpecTemplatePayload) =>
-    api.put<ApiSuccess<unknown>>(`/spec-templates/${id}`, body),
-  delete: (id: string) => api.delete<ApiSuccess<unknown>>(`/spec-templates/${id}`),
-};
-
 // Materials (HPP / COGS internal master)
 export interface MaterialsListParams extends PageParams {
   category?: string;
@@ -93,8 +68,7 @@ export const materialsService = {
     return api.get<ApiPaginated<Material>>("/materials", q);
   },
   get: (id: string) => api.get<ApiSuccess<Material>>(`/materials/${id}`),
-  create: (body: MaterialCreatePayload) =>
-    api.post<ApiSuccess<Material>>("/materials", body),
+  create: (body: MaterialCreatePayload) => api.post<ApiSuccess<Material>>("/materials", body),
   update: (id: string, body: Partial<MaterialCreatePayload>) =>
     api.put<ApiSuccess<Material>>(`/materials/${id}`, body),
   delete: (id: string) => api.delete<ApiSuccess<unknown>>(`/materials/${id}`),
